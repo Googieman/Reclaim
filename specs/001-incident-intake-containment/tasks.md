@@ -36,15 +36,15 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 ### Versioned boundary contracts
 
-- [ ] T009 Define generated/shared schema ownership and versioning rules in `packages/contracts/README.md` and `packages/contracts/schema_registry.py`, preserving tenant and correlation fields on every request, event, decision, tool call, and audit record.
-- [ ] T010 Encode incident intake and Razorpay webhook request/response schemas in `packages/contracts/intake.py` from `specs/001-incident-intake-containment/contracts/intake-webhook.md`, including accepted, duplicate, rejected, and quarantined outcomes.
-- [ ] T011 Encode connector manifests and evidence/action request-response schemas in `packages/contracts/connectors.py` from `specs/001-incident-intake-containment/contracts/connectors.md`, including tenant scope, resource/operation allowlists, auth scope, limits, timestamps, idempotency, and all declared failure states.
-- [ ] T012 Encode the versioned event envelope and event-family schemas in `packages/contracts/events.py` from `specs/001-incident-intake-containment/contracts/events.md`, including checksums, causation, correlation, and producer identity.
-- [ ] T013 Encode model analysis, typed proposal, deterministic policy decision, and approval schemas in `packages/contracts/analysis_policy.py` from `specs/001-incident-intake-containment/contracts/analysis-policy.md`.
-- [ ] T014 Encode Action Gateway request, state, response, and verification schemas in `packages/contracts/action_gateway.py` from `specs/001-incident-intake-containment/contracts/action-gateway.md`; make `unknown` a first-class state.
-- [ ] T015 Encode append-only audit, replay, and evaluation metadata schemas in `packages/contracts/audit_replay.py` from `specs/001-incident-intake-containment/contracts/audit-replay.md`.
-- [ ] T016 Implement the connector/action contract registry and compatibility checks in `backend/app/contracts/registry.py` and `backend/tests/contract/test_contract_registry.py`; reject manifests with missing tenant scope, overbroad operations, missing auth scope, or incompatible versions.
-- [ ] T017 Add contract tests for every boundary in `tests/contract/test_intake.py`, `tests/contract/test_webhook.py`, `tests/contract/test_connectors.py`, `tests/contract/test_events.py`, `tests/contract/test_analysis_policy.py`, `tests/contract/test_action_gateway.py`, and `tests/contract/test_audit_replay.py`.
+- [X] T009 Define generated/shared schema ownership and versioning rules in `packages/contracts/README.md` and `packages/contracts/schema_registry.py`, preserving tenant and correlation fields on every request, event, decision, tool call, and audit record.
+- [X] T010 Encode incident intake and Razorpay webhook request/response schemas in `packages/contracts/intake.py` from `specs/001-incident-intake-containment/contracts/intake-webhook.md`, including accepted, duplicate, rejected, and quarantined outcomes.
+- [X] T011 Encode connector manifests and evidence/action request-response schemas in `packages/contracts/connectors.py` from `specs/001-incident-intake-containment/contracts/connectors.md`, including tenant scope, resource/operation allowlists, auth scope, limits, timestamps, idempotency, and all declared failure states.
+- [X] T012 Encode the versioned event envelope and event-family schemas in `packages/contracts/events.py` from `specs/001-incident-intake-containment/contracts/events.md`, including checksums, causation, correlation, and producer identity.
+- [X] T013 Encode model analysis, typed proposal, deterministic policy decision, and approval schemas in `packages/contracts/analysis_policy.py` from `specs/001-incident-intake-containment/contracts/analysis-policy.md`.
+- [X] T014 Encode Action Gateway request, state, response, and verification schemas in `packages/contracts/action_gateway.py` from `specs/001-incident-intake-containment/contracts/action-gateway.md`; make `unknown` a first-class state.
+- [X] T015 Encode append-only audit, replay, and evaluation metadata schemas in `packages/contracts/audit_replay.py` from `specs/001-incident-intake-containment/contracts/audit-replay.md`.
+- [X] T017 Add contract tests for every boundary in `tests/contract/test_intake.py`, `tests/contract/test_webhook.py`, `tests/contract/test_connectors.py`, `tests/contract/test_events.py`, `tests/contract/test_analysis_policy.py`, `tests/contract/test_action_gateway.py`, and `tests/contract/test_audit_replay.py`; run these boundary tests before the dependent registry service implementation.
+- [X] T016 Implement the connector/action contract registry and compatibility checks in `backend/app/contracts/registry.py` and `backend/tests/contract/test_contract_registry.py`; reject manifests with missing tenant scope, overbroad operations, missing auth scope, or incompatible versions, after T017 boundary tests pass.
 
 ### Authoritative PostgreSQL state and audit chain
 
@@ -326,7 +326,7 @@ The task IDs below explicitly cover every functional requirement in `spec.md`; t
 ### Parallelizable groups
 
 - **Setup**: T002–T005 and T007–T008 can proceed in parallel after T001, provided they do not edit the same lock/config files concurrently.
-- **Foundation contracts**: T010–T015 can proceed in parallel after T009; T017 follows all contract definitions.
+- **Foundation contracts**: T010–T015 can proceed in parallel after T009; T017 follows all contract definitions and precedes the dependent registry service implementation T016. T016 then validates registry behavior with its colocated registry contract tests.
 - **Foundation platform**: T018–T023, T027–T032, and T034 can proceed in parallel after T009 where their files are isolated; T024–T026 depend on the event/workflow contracts.
 - **US1 tests**: T036–T042 can proceed in parallel; implementation T045–T046, T050–T051, and T054 can proceed in parallel after their contract foundations; T055–T058 follow persisted evidence.
 - **US2 tests**: T059–T064 can proceed in parallel; T066–T069 are parallel after US1; T070–T076 are parallel by boundary after the analysis contracts, with T075 before T078.

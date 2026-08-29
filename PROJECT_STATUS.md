@@ -10,9 +10,9 @@ setup task onward:
 `incident intake → evidence → Temporal workflow → bounded agent analysis → policy →
 Action Gateway → verification → audit`
 
-Application implementation is proceeding with Phase 2 Foundation; Phase 1 setup is
-complete, while no business behavior is claimed complete until its task and verification
-evidence exist.
+Application implementation is proceeding with Phase 2 Foundation; Phase 1 setup and the
+T009-T017 shared-contract boundary are complete, while no business behavior is claimed
+complete until its task and verification evidence exist.
 
 ## Governance approvals
 
@@ -40,18 +40,18 @@ evidence exist.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup complete; business behavior not started | Setup layout, pinned manifests, configuration, provenance, fixture conventions, and boundary documentation are present; deployment/runtime services are not yet implemented |
-| Tests and benchmark evaluations | Not started | No test suite, held-out dataset, or evaluation run exists yet |
+| Application code and infrastructure | Phase 1 Setup and T009-T017 contract foundation complete | Shared Pydantic schemas, schema version registry, connector compatibility registry, and boundary tests are present; database, workflow, transport, storage, identity, and runtime services are not yet implemented |
+| Tests and benchmark evaluations | Contract validation started; integrations/evaluations not started | 23 T009-T017 contract tests pass; no held-out dataset or evaluation run exists yet |
 
 ## Quality state
 
-- Tests: no behavior test suite yet; setup validation checks pass (Python compileall,
+- Tests: 23 T009-T017 contract tests pass; setup validation checks pass (Python compileall,
   frontend manifest/lock consistency, npm dry-run, boundary check, and provenance shape).
 - Evaluations: not present.
 - CI/CD: not configured.
-- Runtime: Docker Compose is installed locally, but the Docker daemon was not running
-  during the audit.
-- Git: repository is on `main` with two commits (`16e2c82`, `87a105a`) and a clean working tree after the setup milestone.
+- Runtime: Docker client and daemon are available in the current environment; no Compose
+  topology has been implemented or validated yet.
+- Git: repository is on `main`; the contract milestone is committed with a clean working tree.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 
@@ -59,11 +59,15 @@ evidence exist.
 
 - Staff Review and Project Status Spec Kit extensions are unavailable and cannot be
   invoked until explicitly installed.
-- The cross-artifact readiness analysis found no BLOCKER findings. Two metadata warnings remain: a stale planning-phase sentence in `plan.md`, and the shell alias `python`/`python3` is unavailable even though the discovered absolute Python 3 launcher can run the prerequisite script.
+- The cross-artifact readiness analysis found no BLOCKER findings. The stale planning-phase
+  sentence in `plan.md` has been corrected. The shell aliases `python`/`python3` are
+  unavailable even though the installed absolute Python 3 launcher and pytest runner can
+  run the validation commands.
 - Razorpay Test Mode credentials, model-provider credentials, and a Docker daemon are
-  environment prerequisites for integration execution; none has been validated yet.
+  environment prerequisites for integration execution; credentials are not validated yet,
+  while Docker daemon availability is validated in this environment.
 
-## Next milestone: Phase 2 Foundation implementation (T009-T035)
+## Next milestone: Phase 2 Foundation implementation (T018-T035)
 
 Readiness evidence:
 
@@ -76,6 +80,9 @@ Readiness evidence:
 - The cross-artifact analysis has no BLOCKER findings; implementation began at T001.
 - T001-T008 setup artifacts are present and their local structural, manifest, boundary,
   compile, and provenance checks pass.
+- T009-T017 shared contract artifacts and contract tests are complete. T017 was intentionally
+  executed before T016 so boundary tests precede the dependent registry service; task IDs
+  remain unchanged for requirement traceability.
 
 Current artifacts: FS-001 specification and planning package are approved/generated at
 `specs/001-incident-intake-containment/`. Five high-impact clarification answers were
@@ -85,6 +92,7 @@ when feasible and at least 100 held-out cases, preferably 150 or more, with leak
 controls, composition requirements, sealed scenarios, confidence intervals, and
 honest shortfall reporting. On 2026-08-30, `tasks.md` was generated with 133 tasks
 covering the approved architecture and FS-001 requirements. T001-T008 setup implementation
-is complete; no business behavior, foundation contracts, integrations, or operational
-metrics are claimed complete. The feature specification metadata records `Status: Approved`, consistent
+and T009-T017 contract implementation are complete; no business behavior, integrations, or
+operational metrics are claimed complete. The feature specification metadata records
+`Status: Approved`, consistent
 with this project status and the recorded approval.

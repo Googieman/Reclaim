@@ -174,7 +174,8 @@ The following decisions are recorded in feature-local ADRs and must be reviewed 
 - **Model/evaluation integrity**: PASS. Providers share one interface and sealed grouped evaluation; replay and synthetic/hybrid results are labeled; metrics are not fabricated.
 - **Audit/test/decision governance**: PASS. Append-only audit, required test classes, ADRs, and baseline-before-threshold rules are included.
 
-No gate violations remain. `tasks.md` is intentionally not created by this planning phase.
+No gate violations remain. The implementation queue is recorded in `tasks.md` and is
+ready for the implementation phase.
 
 ## Complexity Tracking
 

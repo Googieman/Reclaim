@@ -17,14 +17,14 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 **Purpose**: Establish the multi-service repository structure, pinned tooling, and local configuration surfaces without implementing business behavior.
 
-- [ ] T001 Create the planned service/package directory layout in `backend/`, `frontend/`, `packages/contracts/`, `infra/`, `tests/`, `scripts/`, and `docs/architecture/` according to `specs/001-incident-intake-containment/plan.md`.
-- [ ] T002 Pin Python, TypeScript, and infrastructure dependency versions in `backend/pyproject.toml`, `frontend/package.json`, `frontend/package-lock.json`, and `infra/versions.env` without changing the approved component list.
-- [ ] T003 Define typed environment/configuration schemas and non-secret examples in `backend/app/config.py`, `frontend/src/lib/config.ts`, and `infra/.env.example`; include tenant, provider mode, live-action-disabled, and replay labels.
-- [ ] T004 Configure Python, TypeScript, contract, integration, browser, and property-test runners in `backend/pyproject.toml`, `frontend/package.json`, `tests/pytest.ini`, and `frontend/vitest.config.ts`.
-- [ ] T005 Configure formatting, linting, type checking, and import-boundary checks in `backend/pyproject.toml`, `frontend/package.json`, `.pre-commit-config.yaml`, and `scripts/check_boundaries.ps1`.
-- [ ] T006 Record the approved FS-001 ownership and side-effect boundaries in `docs/architecture/fs-001-boundaries.md`, linking ADR-001, ADR-002, ADR-003, and the source artifacts under `specs/001-incident-intake-containment/`.
-- [ ] T007 Add deterministic fixture and test-data loading conventions in `tests/fixtures/README.md`, `tests/fixtures/seeds/README.md`, and `scripts/fixtures/README.md`; prohibit secrets and unsealed held-out data from the repository.
-- [ ] T008 Add version/commit provenance capture for builds and test runs in `scripts/build_provenance.py`, `backend/app/provenance.py`, and `frontend/src/lib/provenance.ts`.
+- [X] T001 Create the planned service/package directory layout in `backend/`, `frontend/`, `packages/contracts/`, `infra/`, `tests/`, `scripts/`, and `docs/architecture/` according to `specs/001-incident-intake-containment/plan.md`.
+- [X] T002 Pin Python, TypeScript, and infrastructure dependency versions in `backend/pyproject.toml`, `frontend/package.json`, `frontend/package-lock.json`, and `infra/versions.env` without changing the approved component list.
+- [X] T003 Define typed environment/configuration schemas and non-secret examples in `backend/app/config.py`, `frontend/src/lib/config.ts`, and `infra/.env.example`; include tenant, provider mode, live-action-disabled, and replay labels.
+- [X] T004 Configure Python, TypeScript, contract, integration, browser, and property-test runners in `backend/pyproject.toml`, `frontend/package.json`, `tests/pytest.ini`, and `frontend/vitest.config.ts`.
+- [X] T005 Configure formatting, linting, type checking, and import-boundary checks in `backend/pyproject.toml`, `frontend/package.json`, `.pre-commit-config.yaml`, and `scripts/check_boundaries.ps1`.
+- [X] T006 Record the approved FS-001 ownership and side-effect boundaries in `docs/architecture/fs-001-boundaries.md`, linking ADR-001, ADR-002, ADR-003, and the source artifacts under `specs/001-incident-intake-containment/`.
+- [X] T007 Add deterministic fixture and test-data loading conventions in `tests/fixtures/README.md`, `tests/fixtures/seeds/README.md`, and `scripts/fixtures/README.md`; prohibit secrets and unsealed held-out data from the repository.
+- [X] T008 Add version/commit provenance capture for builds and test runs in `scripts/build_provenance.py`, `backend/app/provenance.py`, and `frontend/src/lib/provenance.ts`.
 
 **Checkpoint**: Tooling and path conventions are established; no task in this phase grants a model or service side-effect authority.
 

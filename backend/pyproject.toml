@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools==75.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reclaim-backend"
+version = "0.1.0"
+description = "RECLAIM FS-001 backend services"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi==0.115.6",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.1",
+  "temporalio==1.8.0",
+  "langgraph==0.2.60",
+  "litellm==1.55.8",
+  "lightgbm==4.5.0",
+  "psycopg[binary]==3.2.3",
+  "redis==5.2.1",
+  "aiokafka==0.12.0",
+  "neo4j==5.27.0",
+  "minio==7.2.12",
+  "PyJWT==2.10.1",
+  "hvac==2.3.0",
+  "opentelemetry-api==1.29.0",
+  "opentelemetry-sdk==1.29.0",
+  "prometheus-client==0.21.1",
+]
+
+[project.optional-dependencies]
+test = [
+  "httpx==0.28.1",
+  "pytest==8.3.4",
+  "pytest-asyncio==0.25.0",
+  "hypothesis==6.122.3",
+]
+dev = [
+  "mypy==1.14.1",
+  "ruff==0.8.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["../tests", "tests"]
+addopts = "-ra"
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "../tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]

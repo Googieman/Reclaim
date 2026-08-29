@@ -51,7 +51,7 @@ evidence exist.
 - CI/CD: not configured.
 - Runtime: Docker Compose is installed locally, but the Docker daemon was not running
   during the audit.
-- Git: repository is on `main` with one commit (`87a105a`) and a clean working tree at the readiness review.
+- Git: repository is on `main` with two commits (`16e2c82`, `87a105a`) and a clean working tree after the setup milestone.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 

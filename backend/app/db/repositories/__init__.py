@@ -16,6 +16,11 @@ from .proposals import ActionProposalRepository
 from .replay import EvaluationCaseRepository, ReplayRunRepository
 from .tenants import TenantRepository
 from .timeline import TimelineEventRepository
+from .webhooks import (
+    WebhookDeliveryCreateResult,
+    WebhookDeliveryRepository,
+    WebhookQuarantine,
+)
 
 __all__ = [
     "AuditRecordRepository",
@@ -39,4 +44,7 @@ __all__ = [
     "TenantScopedRepository",
     "TimelineEventRepository",
     "VerificationRepository",
+    "WebhookDeliveryCreateResult",
+    "WebhookDeliveryRepository",
+    "WebhookQuarantine",
 ]

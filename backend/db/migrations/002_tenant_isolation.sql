@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
     provider_event_id TEXT NOT NULL,
     original_payload BYTEA NOT NULL,
     payload_checksum TEXT NOT NULL,
+    raw_object_uri TEXT,
     signature TEXT,
     event_type TEXT,
     event_timestamp TIMESTAMPTZ,
@@ -48,6 +49,29 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
     FOREIGN KEY (tenant_id, case_id) REFERENCES cases (tenant_id, case_id)
 );
 
+-- Incomplete or unverifiable deliveries have no provider identity.  They must
+-- remain auditable without inventing a provider event ID or entering the valid
+-- delivery identity table.
+CREATE TABLE IF NOT EXISTS webhook_quarantines (
+    tenant_id TEXT NOT NULL REFERENCES tenants (tenant_id),
+    quarantine_id TEXT NOT NULL,
+    connector_id TEXT NOT NULL,
+    provider_event_id TEXT,
+    original_payload BYTEA NOT NULL,
+    payload_checksum TEXT NOT NULL,
+    raw_object_uri TEXT NOT NULL,
+    signature TEXT,
+    event_type TEXT,
+    event_timestamp TIMESTAMPTZ,
+    received_at TIMESTAMPTZ NOT NULL,
+    quarantine_reason TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, quarantine_id)
+);
+
+ALTER TABLE webhook_deliveries
+    ADD COLUMN IF NOT EXISTS raw_object_uri TEXT;
+
 CREATE INDEX IF NOT EXISTS webhook_delivery_checksum_idx
     ON webhook_deliveries (tenant_id, payload_checksum);
 
@@ -61,7 +85,7 @@ BEGIN
         'policy_versions', 'action_proposals', 'policy_decisions', 'approvals',
         'action_executions', 'verifications', 'escalations', 'audit_records',
         'replay_runs', 'evaluation_cases', 'outbox_events', 'inbox_messages',
-        'webhook_deliveries'
+        'webhook_deliveries', 'webhook_quarantines'
     ] LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
@@ -92,3 +116,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS action_execution_tenant_idempotency_idx
     ON action_executions (tenant_id, idempotency_key);
 CREATE UNIQUE INDEX IF NOT EXISTS webhook_provider_identity_idx
     ON webhook_deliveries (tenant_id, connector_id, provider_event_id);
+CREATE INDEX IF NOT EXISTS webhook_quarantine_identity_idx
+    ON webhook_quarantines (tenant_id, connector_id, provider_event_id);

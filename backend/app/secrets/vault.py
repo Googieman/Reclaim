@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 ACTION_GATEWAY_IDENTITY = "action-gateway"
+WEBHOOK_VERIFIER_IDENTITY = "intake-api"
 _SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
@@ -41,6 +42,13 @@ def vault_action_secret_path(tenant_id: str, connector_id: str) -> str:
     return f"secret/data/tenants/{scope.tenant_id}/connectors/{scope.connector_id}/action"
 
 
+def vault_webhook_secret_path(tenant_id: str, connector_id: str) -> str:
+    """Return the tenant-scoped path used only for inbound signature verification."""
+
+    scope = SecretScope(tenant_id, connector_id, WEBHOOK_VERIFIER_IDENTITY, purpose="webhook")
+    return f"secret/data/tenants/{scope.tenant_id}/connectors/{scope.connector_id}/webhook"
+
+
 class VaultSecretStore:
     """Expose only Action Gateway action credentials to the Action Gateway identity."""
 
@@ -61,6 +69,16 @@ class VaultSecretStore:
         data = self.client.read(vault_action_secret_path(tenant_id, connector_id))
         if not data:
             raise SecretAccessDenied("action connector secret is unavailable")
+        return dict(data)
+
+    def read_webhook_secret(self, *, tenant_id: str, connector_id: str) -> dict[str, Any]:
+        """Read only the tenant-scoped verification material for inbound webhooks."""
+
+        if self.service_identity != WEBHOOK_VERIFIER_IDENTITY:
+            raise SecretAccessDenied("only the intake API may read webhook verification secrets")
+        data = self.client.read(vault_webhook_secret_path(tenant_id, connector_id))
+        if not data:
+            raise SecretAccessDenied("webhook verification secret is unavailable")
         return dict(data)
 
 

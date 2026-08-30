@@ -31,9 +31,11 @@ class ContractModel(BaseModel):
         return value
 
 
-def require_utc(value: datetime) -> datetime:
+def require_utc(value: datetime | None) -> datetime | None:
     """Require timezone-aware timestamps and normalize them to UTC."""
 
+    if value is None:
+        return None
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamps must include an explicit timezone")
     return value.astimezone(timezone.utc)

@@ -26,6 +26,7 @@ from app.db.repositories import (
     TenantRepository,
     TimelineEventRepository,
     VerificationRepository,
+    WebhookDeliveryRepository,
 )
 from app.db.tenant_context import TenantContext
 from app.events.inbox import InboxMessageRepository
@@ -69,6 +70,7 @@ class PostgresUnitOfWork:
         self.evaluation_cases: EvaluationCaseRepository
         self.outbox: OutboxEventRepository
         self.inbox: InboxMessageRepository
+        self.webhooks: WebhookDeliveryRepository
 
     def __enter__(self) -> Self:
         self.connection = self._connection_factory()
@@ -94,6 +96,7 @@ class PostgresUnitOfWork:
         self.evaluation_cases = EvaluationCaseRepository(self.connection, self.tenant_context)
         self.outbox = OutboxEventRepository(self.connection, self.tenant_context)
         self.inbox = InboxMessageRepository(self.connection, self.tenant_context)
+        self.webhooks = WebhookDeliveryRepository(self.connection, self.tenant_context)
         return self
 
     def __exit__(

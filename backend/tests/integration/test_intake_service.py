@@ -14,7 +14,7 @@ from app.auth.oidc import (
     IdentityType,
     TenantAuthorizationError,
 )
-from app.intake.service import IncidentIntakeService
+from app.intake.service import IncidentIntakeService, IntakeServiceError
 from app.storage.minio_evidence import ImmutableEvidenceStore
 from evidence.storage import InMemoryObjectStorage
 from packages.contracts.intake import IncidentIntakeRequest, IntakeStatus
@@ -202,6 +202,21 @@ def test_duplicate_intake_returns_original_identity_without_second_case_or_event
     assert len(state.outbox) == 1
     assert len(state.audit) == 2
     assert state.audit[-1].outcome == IntakeStatus.DUPLICATE.value
+
+
+def test_conflicting_intake_payload_under_same_idempotency_key_fails_closed() -> None:
+    state = MemoryState()
+    service = make_service(state)
+    service.accept(intake_request(), authorization_context=authorization_context())
+    conflicting = intake_request().model_copy(update={"report_content": "different report bytes"})
+
+    with pytest.raises(IntakeServiceError, match="immutable raw report could not be stored"):
+        service.accept(conflicting, authorization_context=authorization_context())
+
+    assert len(state.incidents) == 1
+    assert len(state.cases) == 1
+    assert len(state.outbox) == 1
+    assert len(state.audit) == 1
 
 
 def test_mismatched_request_tenant_is_rejected_before_authoritative_write() -> None:

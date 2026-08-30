@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import datetime
-import json
 
-from .base import TenantScopedRepository
+from .base import RepositoryError, TenantScopedRepository
 
 
 class PolicyVersionRepository(TenantScopedRepository):
@@ -24,6 +24,13 @@ class PolicyVersionRepository(TenantScopedRepository):
         publication_status: str,
         immutable_checksum: str,
     ) -> object:
+        if scope_type not in {"tenant", "global"}:
+            raise ValueError("policy scope_type must be tenant or global")
+        if scope_type == "global":
+            raise RepositoryError(
+                "global policy versions are centrally managed outside tenant-scoped UoWs"
+            )
+        policy_tenant_id = self.tenant_context.tenant_id if scope_type == "tenant" else None
         row = self.fetch_one(
             """
             INSERT INTO policy_versions (
@@ -37,7 +44,7 @@ class PolicyVersionRepository(TenantScopedRepository):
             """,
             (
                 policy_version_id,
-                self.tenant_context.tenant_id,
+                policy_tenant_id,
                 scope_type,
                 json.dumps(thresholds, sort_keys=True, separators=(",", ":")),
                 json.dumps(action_allowlist, separators=(",", ":")),
@@ -66,14 +73,18 @@ class PolicyDecisionRepository(TenantScopedRepository):
         evaluated_conditions: Mapping[str, object],
         evaluator_version: str,
         decided_at: datetime,
+        policy_scope_type: str = "tenant",
     ) -> object:
+        if policy_scope_type not in {"tenant", "global"}:
+            raise ValueError("policy_scope_type must be tenant or global")
         row = self.fetch_one(
             """
             INSERT INTO policy_decisions (
                 tenant_id, decision_id, case_id, proposal_id, policy_version_id,
-                result, evaluated_conditions, evaluator_version, decided_at
+                policy_scope_type, policy_tenant_id, result, evaluated_conditions,
+                evaluator_version, decided_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
             RETURNING tenant_id, decision_id, proposal_id, policy_version_id, result,
                       decided_at
             """,
@@ -83,6 +94,8 @@ class PolicyDecisionRepository(TenantScopedRepository):
                 case_id,
                 proposal_id,
                 policy_version_id,
+                policy_scope_type,
+                self.tenant_context.tenant_id if policy_scope_type == "tenant" else None,
                 result,
                 json.dumps(evaluated_conditions, sort_keys=True, separators=(",", ":")),
                 evaluator_version,

@@ -16,6 +16,10 @@ class OutboxConflictError(RepositoryError):
     """Raised when an event identity is reused with different event content."""
 
 
+class OutboxAuthorityError(RepositoryError):
+    """Raised when a broker event cannot be reconciled to an outbox row."""
+
+
 @dataclass(frozen=True, slots=True)
 class OutboxEvent:
     """The durable event hand-off record returned by an enqueue operation."""
@@ -31,6 +35,7 @@ class OutboxEvent:
     correlation_id: str
     causation_id: str
     producer: str
+    schema_version: str
     payload_checksum: str
     payload: dict[str, Any]
     published_at: datetime | None
@@ -55,16 +60,16 @@ class OutboxEventRepository(TenantScopedRepository):
             INSERT INTO outbox_events (
                 tenant_id, outbox_id, event_id, event_type, aggregate_type, aggregate_id,
                 occurred_at, produced_at, correlation_id, causation_id, producer,
-                payload_checksum, payload
+                payload_checksum, payload, schema_version
             )
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
             )
             ON CONFLICT (tenant_id, event_id) DO NOTHING
             RETURNING tenant_id, outbox_id, event_id, event_type, aggregate_type,
                       aggregate_id, occurred_at, produced_at, correlation_id,
                       causation_id, producer, payload_checksum, payload,
-                      published_at, created_at
+                      published_at, created_at, schema_version
             """,
             _event_parameters(outbox_id=outbox_id, event=event),
         )
@@ -76,7 +81,7 @@ class OutboxEventRepository(TenantScopedRepository):
             SELECT tenant_id, outbox_id, event_id, event_type, aggregate_type,
                    aggregate_id, occurred_at, produced_at, correlation_id,
                    causation_id, producer, payload_checksum, payload,
-                   published_at, created_at
+                   published_at, created_at, schema_version
             FROM outbox_events
             WHERE tenant_id = %s AND event_id = %s
             """,
@@ -92,6 +97,38 @@ class OutboxEventRepository(TenantScopedRepository):
             )
         return existing
 
+    def reconcile_authority(self, event: EventEnvelope) -> OutboxEvent:
+        """Prove that a broker envelope is the exact PostgreSQL outbox event.
+
+        A broker checksum only proves that the received bytes match the received
+        envelope.  This query additionally requires the tenant/event identity,
+        event family, schema version, producer, and payload/checksum to match the
+        authoritative row written by the business transaction.
+        """
+
+        self.assert_tenant(event.tenant_id)
+        row = self.fetch_one(
+            """
+            SELECT tenant_id, outbox_id, event_id, event_type, aggregate_type,
+                   aggregate_id, occurred_at, produced_at, correlation_id,
+                   causation_id, producer, payload_checksum, payload,
+                   published_at, created_at, schema_version
+            FROM outbox_events
+            WHERE tenant_id = %s AND event_id = %s
+            """,
+            (self.tenant_context.tenant_id, event.event_id),
+        )
+        if row is None:
+            raise OutboxAuthorityError(
+                f"event {event.event_id!r} has no authoritative PostgreSQL outbox row"
+            )
+        authoritative = _event_from_row(row, inserted=False)
+        if not _same_event(authoritative, event):
+            raise OutboxAuthorityError(
+                f"event {event.event_id!r} does not match its authoritative outbox row"
+            )
+        return authoritative
+
     def unpublished(self, *, limit: int = 100) -> list[OutboxEvent]:
         """Return an ordered batch for at-least-once transport publication."""
 
@@ -102,7 +139,7 @@ class OutboxEventRepository(TenantScopedRepository):
             SELECT tenant_id, outbox_id, event_id, event_type, aggregate_type,
                    aggregate_id, occurred_at, produced_at, correlation_id,
                    causation_id, producer, payload_checksum, payload,
-                   published_at, created_at
+                   published_at, created_at, schema_version
             FROM outbox_events
             WHERE tenant_id = %s AND published_at IS NULL
             ORDER BY created_at, outbox_id
@@ -128,7 +165,7 @@ class OutboxEventRepository(TenantScopedRepository):
             RETURNING tenant_id, outbox_id, event_id, event_type, aggregate_type,
                       aggregate_id, occurred_at, produced_at, correlation_id,
                       causation_id, producer, payload_checksum, payload,
-                      published_at, created_at
+                      published_at, created_at, schema_version
             """,
             (published_at, self.tenant_context.tenant_id, outbox_id),
         )
@@ -152,6 +189,7 @@ def _event_parameters(*, outbox_id: str, event: EventEnvelope) -> tuple[object, 
         event.producer,
         event.payload_checksum,
         json.dumps(event.payload, sort_keys=True, separators=(",", ":")),
+        event.schema_version,
     )
 
 
@@ -171,6 +209,7 @@ def _event_from_row(row: Any, *, inserted: bool = True) -> OutboxEvent:
         correlation_id=str(row[8]),
         causation_id=str(row[9]),
         producer=str(row[10]),
+        schema_version=str(row[15]),
         payload_checksum=str(row[11]),
         payload=dict(payload),
         published_at=row[13],
@@ -191,6 +230,7 @@ def _same_event(existing: OutboxEvent, event: EventEnvelope) -> bool:
         and existing.correlation_id == event.correlation_id
         and existing.causation_id == event.causation_id
         and existing.producer == event.producer
+        and existing.schema_version == event.schema_version
         and existing.payload_checksum == event.payload_checksum
         and existing.payload == event.payload
     )

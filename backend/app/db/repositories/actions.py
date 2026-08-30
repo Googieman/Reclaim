@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import datetime
-import json
 
 from .base import TenantScopedRepository
 
@@ -16,6 +16,7 @@ class ActionExecutionRepository(TenantScopedRepository):
         execution_id: str,
         case_id: str,
         proposal_id: str,
+        policy_decision_id: str,
         connector_id: str,
         idempotency_key: str,
         request_checksum: str,
@@ -25,10 +26,10 @@ class ActionExecutionRepository(TenantScopedRepository):
         row = self.fetch_one(
             """
             INSERT INTO action_executions (
-                tenant_id, execution_id, case_id, proposal_id, connector_id,
+                tenant_id, execution_id, case_id, proposal_id, policy_decision_id, connector_id,
                 idempotency_key, request_checksum, status, attempt_count
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING tenant_id, execution_id, proposal_id, idempotency_key, status,
                       attempt_count
             """,
@@ -37,6 +38,7 @@ class ActionExecutionRepository(TenantScopedRepository):
                 execution_id,
                 case_id,
                 proposal_id,
+                policy_decision_id,
                 connector_id,
                 idempotency_key,
                 request_checksum,

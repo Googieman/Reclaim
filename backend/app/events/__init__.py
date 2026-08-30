@@ -7,7 +7,12 @@ from .inbox import (
     InboxMessageRepository,
     InboxStateError,
 )
-from .outbox import OutboxConflictError, OutboxEvent, OutboxEventRepository
+from .outbox import (
+    OutboxAuthorityError,
+    OutboxConflictError,
+    OutboxEvent,
+    OutboxEventRepository,
+)
 
 __all__ = [
     "InboxClaim",
@@ -15,6 +20,7 @@ __all__ = [
     "InboxDisposition",
     "InboxMessageRepository",
     "InboxStateError",
+    "OutboxAuthorityError",
     "OutboxConflictError",
     "OutboxEvent",
     "OutboxEventRepository",

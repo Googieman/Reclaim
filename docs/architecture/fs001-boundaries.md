@@ -11,7 +11,9 @@ continue to satisfy the feature-local artifacts.
   evaluation state.
 - Temporal owns durable workflow orchestration, retries, timers, signals, and recovery.
 - Redpanda transports versioned events through transactional outbox/inbox handling; it is
-  not business authority.
+  not business authority. Consumers require an authenticated allowlisted service,
+  allowlisted producer, supported schema/checksum, and exact PostgreSQL outbox
+  reconciliation before any downstream projection write.
 - Neo4j is a rebuildable relationship projection.
 - MinIO stores immutable raw evidence and artifacts addressed by checksum.
 - Redis is limited to bounded cache, locks, rate limiting, and coordination.

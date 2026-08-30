@@ -16,6 +16,7 @@ from app.auth.oidc import (
     IdentityType,
     TenantAuthorizationContext,
 )
+from app.events.authority import payload_checksum
 from packages.contracts.events import EventEnvelope, EventType
 
 FIXED_NOW = datetime(2026, 8, 30, tzinfo=UTC)
@@ -25,7 +26,7 @@ def make_authorization_context(
     tenant_id: str = "tenant-a", *, roles: frozenset[str] | None = None
 ) -> TenantAuthorizationContext:
     principal = AuthenticatedPrincipal(
-        subject="service-test",
+        subject="reclaim-event-relay",
         tenant_ids=frozenset({tenant_id}),
         tenant_roles={tenant_id: roles or frozenset({"service"})},
         identity_type=IdentityType.SERVICE,
@@ -56,6 +57,28 @@ class RecordingDatabase:
     def connect(self) -> RecordingConnection:
         return RecordingConnection(self)
 
+    def seed_outbox(self, event: EventEnvelope, *, outbox_id: str | None = None) -> None:
+        """Seed an authoritative outbox row for transport protocol tests."""
+
+        self.outbox[(event.tenant_id, event.event_id)] = (
+            event.tenant_id,
+            outbox_id or f"outbox-{event.event_id}",
+            event.event_id,
+            event.event_type.value,
+            event.aggregate_type,
+            event.aggregate_id,
+            event.occurred_at,
+            event.produced_at,
+            event.correlation_id,
+            event.causation_id,
+            event.producer,
+            event.payload_checksum,
+            dict(event.payload),
+            None,
+            FIXED_NOW,
+            event.schema_version,
+        )
+
 
 class RecordingConnection:
     def __init__(self, database: RecordingDatabase) -> None:
@@ -71,7 +94,7 @@ class RecordingConnection:
     def execute(self, query: str, params: object = ()) -> Cursor:
         normalized = " ".join(query.split()).upper()
         self.calls.append((query, params))
-        values = tuple(params) if isinstance(params, (tuple, list)) else ()
+        values = tuple(params) if isinstance(params, tuple | list) else ()
 
         if normalized == "BEGIN":
             return Cursor([])
@@ -113,6 +136,7 @@ class RecordingConnection:
                 json.loads(str(values[12])),
                 None,
                 FIXED_NOW,
+                values[13],
             )
             self._outbox[key] = row
             return Cursor([row])
@@ -204,9 +228,10 @@ def make_event(
     *,
     tenant_id: str = "tenant-a",
     event_id: str = "event-1",
-    payload_checksum: str = "sha256:payload-1",
+    payload_checksum: str | None = None,
     payload: dict[str, object] | None = None,
 ) -> EventEnvelope:
+    event_payload = payload or {"source": "operator"}
     return EventEnvelope(
         tenant_id=tenant_id,
         correlation_id="corr-1",
@@ -218,6 +243,10 @@ def make_event(
         produced_at=FIXED_NOW,
         causation_id="command-1",
         producer="intake-api@1.0.0",
-        payload_checksum=payload_checksum,
-        payload=payload or {"source": "operator"},
+        payload_checksum=payload_checksum or payload_checksum_for_event(event_payload),
+        payload=event_payload,
     )
+
+
+def payload_checksum_for_event(payload: dict[str, object]) -> str:
+    return payload_checksum(payload)

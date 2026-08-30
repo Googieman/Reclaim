@@ -9,6 +9,11 @@ from typing import Any
 
 from app.auth.oidc import TenantAuthorizationContext
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.authority import (
+    EventAuthorityError,
+    require_authorized_event_producer,
+    require_supported_schema_version,
+)
 from app.events.incident_events import EventContractError, validate_payload_checksum
 from app.events.redpanda import DispatchResult, RedpandaInboxDispatcher
 from packages.contracts.events import EventEnvelope, EventType
@@ -344,8 +349,10 @@ class Neo4jCaseProjectionConsumer:
 
 def _validate_projection_event(event: EventEnvelope) -> dict[str, Any]:
     try:
+        require_authorized_event_producer(event.producer)
+        require_supported_schema_version(event)
         validate_payload_checksum(event)
-    except EventContractError as exc:
+    except (EventAuthorityError, EventContractError) as exc:
         raise ProjectionEventError(str(exc)) from exc
     payload = event.payload
     payload_tenant = payload.get("tenant_id")

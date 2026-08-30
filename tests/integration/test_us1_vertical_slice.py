@@ -254,7 +254,7 @@ async def test_us1_live_vertical_slice_gate() -> None:
     )
     service_context = _principal(
         tenant_id,
-        subject="t058-service",
+        subject="reclaim-event-relay",
         identity_type=IdentityType.SERVICE,
         roles=frozenset({"service"}),
     )

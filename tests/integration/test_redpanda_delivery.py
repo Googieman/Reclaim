@@ -81,9 +81,22 @@ class FakeInbox:
         self.status[(str(kwargs["consumer_name"]), str(kwargs["event_id"]))] = "failed"
 
 
+class FakeAuthoritativeOutbox:
+    def __init__(self, events: list[object]) -> None:
+        self.events = {event.event_id: event for event in events}
+
+    def reconcile_authority(self, event: object) -> object:
+        authoritative = self.events.get(event.event_id)
+        if authoritative is None or authoritative != event:
+            raise AssertionError("event is not an authoritative outbox event")
+        return authoritative
+
+
 class FakeUnitOfWork:
     def __init__(
-        self, outbox: FakeOutbox | None = None, inbox: FakeInbox | None = None
+        self,
+        outbox: FakeOutbox | FakeAuthoritativeOutbox | None = None,
+        inbox: FakeInbox | None = None,
     ) -> None:
         self.outbox = outbox
         self.inbox = inbox
@@ -115,6 +128,7 @@ async def test_outbox_publisher_marks_only_broker_acknowledged_rows() -> None:
         correlation_id=event.correlation_id,
         causation_id=event.causation_id,
         producer=event.producer,
+        schema_version=event.schema_version,
         payload_checksum=event.payload_checksum,
         payload=event.payload,
         published_at=None,
@@ -147,7 +161,13 @@ async def test_inbox_dispatcher_handles_duplicate_and_out_of_order_messages_once
 
     newer = make_event(event_id="event-newer")
     older = make_event(event_id="event-older")
-    factory = lambda _context: FakeUnitOfWork(inbox=inbox)
+
+    def factory(_context: object) -> FakeUnitOfWork:
+        return FakeUnitOfWork(
+            inbox=inbox,
+            outbox=FakeAuthoritativeOutbox([newer, older]),
+        )
+
     authorization_context = make_authorization_context()
     await dispatcher.dispatch(
         serialize_event(newer),

@@ -11,8 +11,17 @@ from typing import Any, Protocol
 
 from packages.contracts.events import EventEnvelope
 
-from app.auth.oidc import IdentityType, TenantAuthorizationContext
+from app.auth.oidc import TenantAuthorizationContext
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.authority import (
+    AUTHORIZED_EVENT_PRODUCERS,
+    AUTHORIZED_EVENT_SERVICE_IDENTITIES,
+    EventAuthorityError,
+    require_authenticated_event_service,
+    require_authorized_event_producer,
+    require_supported_schema_version,
+    validate_payload_checksum,
+)
 from app.events.inbox import InboxDisposition
 from app.events.outbox import OutboxEvent
 
@@ -21,7 +30,7 @@ DEAD_LETTER_TOPIC = "reclaim.domain.dlq.v1"
 
 
 class EventTransportError(RuntimeError):
-    """Raised when a broker acknowledgement is unavailable."""
+    """Raised when transport authentication or delivery validation fails."""
 
 
 class AsyncProducer(Protocol):
@@ -90,9 +99,18 @@ def event_headers(event: EventEnvelope) -> list[tuple[str, bytes]]:
 class RedpandaOutboxPublisher:
     """Publish durable outbox rows and watermark only broker acknowledgements."""
 
-    def __init__(self, producer: AsyncProducer, *, topic: str = DOMAIN_TOPIC) -> None:
+    def __init__(
+        self,
+        producer: AsyncProducer,
+        *,
+        topic: str = DOMAIN_TOPIC,
+        allowed_producers: frozenset[str] = AUTHORIZED_EVENT_PRODUCERS,
+        allowed_service_identities: frozenset[str] = AUTHORIZED_EVENT_SERVICE_IDENTITIES,
+    ) -> None:
         self.producer = producer
         self.topic = topic
+        self.allowed_producers = allowed_producers
+        self.allowed_service_identities = allowed_service_identities
 
     async def publish_pending(
         self,
@@ -102,7 +120,10 @@ class RedpandaOutboxPublisher:
         limit: int = 100,
         published_at: datetime | None = None,
     ) -> tuple[PublishedEvent, ...]:
-        _require_service_context(authorization_context)
+        _require_service_context(
+            authorization_context,
+            allowed_service_identities=self.allowed_service_identities,
+        )
         with unit_of_work_factory(authorization_context) as unit_of_work:
             pending = unit_of_work.outbox.unpublished(limit=limit)
 
@@ -110,6 +131,7 @@ class RedpandaOutboxPublisher:
         for outbox_event in pending:
             _require_event_tenant_binding(outbox_event.tenant_id, authorization_context)
             event = _event_from_outbox(outbox_event)
+            _validate_transport_event(event, allowed_producers=self.allowed_producers)
             metadata = await self.producer.send_and_wait(
                 self.topic,
                 key=event.aggregate_id.encode("utf-8"),
@@ -136,10 +158,18 @@ class RedpandaOutboxPublisher:
 class RedpandaInboxDispatcher:
     """Claim, handle, and acknowledge messages through one tenant UoW."""
 
-    def __init__(self, *, consumer_name: str) -> None:
+    def __init__(
+        self,
+        *,
+        consumer_name: str,
+        allowed_producers: frozenset[str] = AUTHORIZED_EVENT_PRODUCERS,
+        allowed_service_identities: frozenset[str] = AUTHORIZED_EVENT_SERVICE_IDENTITIES,
+    ) -> None:
         if not consumer_name.strip():
             raise ValueError("consumer_name is required")
         self.consumer_name = consumer_name
+        self.allowed_producers = allowed_producers
+        self.allowed_service_identities = allowed_service_identities
 
     async def dispatch(
         self,
@@ -151,9 +181,13 @@ class RedpandaInboxDispatcher:
         received_at: datetime | None = None,
     ) -> DispatchResult:
         event = deserialize_event(value)
-        _require_service_context(authorization_context)
         _require_event_tenant_binding(event.tenant_id, authorization_context)
+        _require_service_context(
+            authorization_context,
+            allowed_service_identities=self.allowed_service_identities,
+        )
         try:
+            _validate_transport_event(event, allowed_producers=self.allowed_producers)
             with unit_of_work_factory(authorization_context) as unit_of_work:
                 claim = unit_of_work.inbox.claim(
                     consumer_name=self.consumer_name,
@@ -167,6 +201,7 @@ class RedpandaInboxDispatcher:
                         disposition=claim.disposition,
                         processed=False,
                     )
+                unit_of_work.outbox.reconcile_authority(event)
                 result = handler(event, unit_of_work)
                 if inspect.isawaitable(result):
                     await result
@@ -216,9 +251,18 @@ class RedpandaInboxDispatcher:
                 )
 
 
-def _require_service_context(context: TenantAuthorizationContext) -> None:
-    if context.identity_type is not IdentityType.SERVICE:
-        raise EventTransportError("event consumers require an authenticated service context")
+def _require_service_context(
+    context: TenantAuthorizationContext,
+    *,
+    allowed_service_identities: frozenset[str],
+) -> None:
+    try:
+        require_authenticated_event_service(
+            context,
+            allowed_service_identities=allowed_service_identities,
+        )
+    except EventAuthorityError as exc:
+        raise EventTransportError(str(exc)) from exc
 
 
 def _require_event_tenant_binding(
@@ -226,6 +270,22 @@ def _require_event_tenant_binding(
 ) -> None:
     if event_tenant_id != authorization_context.tenant_id:
         raise EventTransportError("event tenant does not match the authenticated service context")
+
+
+def _validate_transport_event(
+    event: EventEnvelope,
+    *,
+    allowed_producers: frozenset[str],
+) -> None:
+    try:
+        require_authorized_event_producer(
+            event.producer,
+            allowed_producers=allowed_producers,
+        )
+        require_supported_schema_version(event)
+        validate_payload_checksum(event)
+    except EventAuthorityError as exc:
+        raise EventTransportError(str(exc)) from exc
 
 
 def _event_from_outbox(outbox_event: OutboxEvent) -> EventEnvelope:
@@ -240,6 +300,7 @@ def _event_from_outbox(outbox_event: OutboxEvent) -> EventEnvelope:
         produced_at=outbox_event.produced_at,
         causation_id=outbox_event.causation_id,
         producer=outbox_event.producer,
+        schema_version=outbox_event.schema_version,
         payload_checksum=outbox_event.payload_checksum,
         payload=outbox_event.payload,
     )

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -13,6 +11,7 @@ from packages.contracts.events import EventEnvelope, EventType
 from app.auth.oidc import TenantAuthorizationContext
 from app.db.unit_of_work import PostgresUnitOfWork
 
+from .authority import payload_checksum, validate_payload_checksum
 from .redpanda import DispatchResult, RedpandaInboxDispatcher
 
 EventHandler = Callable[[EventEnvelope, PostgresUnitOfWork], Any]
@@ -20,23 +19,6 @@ EventHandler = Callable[[EventEnvelope, PostgresUnitOfWork], Any]
 
 class EventContractError(ValueError):
     """Raised when a valid envelope carries an invalid family payload."""
-
-
-def payload_checksum(payload: Mapping[str, Any]) -> str:
-    """Return the checksum used by event envelopes for deterministic JSON payloads."""
-
-    encoded = json.dumps(
-        dict(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def validate_payload_checksum(event: EventEnvelope) -> None:
-    """Reject an envelope whose declared checksum is not its canonical payload digest."""
-
-    declared = event.payload_checksum.strip().lower().removeprefix("sha256:")
-    if declared != payload_checksum(event.payload):
-        raise EventContractError("event payload checksum does not match its envelope")
 
 
 def build_incident_accepted_event(

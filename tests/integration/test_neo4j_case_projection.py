@@ -228,6 +228,7 @@ async def test_projection_consumer_uses_postgres_inbox_and_reset_cannot_change_p
         return PostgresUnitOfWork(database.connect, authorization_context=context)
 
     incident, _, _ = events()
+    database.seed_outbox(incident)
 
     first = await consumer.dispatch(
         serialize_event(incident),

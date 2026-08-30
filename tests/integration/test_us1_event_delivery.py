@@ -123,6 +123,7 @@ def outbox_row(event: Any) -> OutboxEvent:
         correlation_id=event.correlation_id,
         causation_id=event.causation_id,
         producer=event.producer,
+        schema_version=event.schema_version,
         payload_checksum=event.payload_checksum,
         payload=event.payload,
         published_at=None,
@@ -177,6 +178,8 @@ async def test_incident_consumer_handles_duplicate_and_out_of_order_delivery_onc
 
     newer = incident_event(incident_id="incident-new", case_id="case-new")
     older = incident_event(incident_id="incident-old", case_id="case-old")
+    database.seed_outbox(newer)
+    database.seed_outbox(older)
     await consumer.dispatch(
         serialize_event(newer),
         unit_of_work_factory=factory,
@@ -246,6 +249,7 @@ async def test_timeline_consumer_retries_failed_delivery_without_losing_identity
     from app.events.timeline_events import build_evidence_collected_event
 
     event = build_evidence_collected_event(item)
+    database.seed_outbox(event)
     consumer = TimelineEventConsumer(handler=flaky_handler)
 
     def factory(context: Any) -> PostgresUnitOfWork:
@@ -289,7 +293,7 @@ async def test_consumer_rejects_bad_payload_checksum_and_cross_tenant_delivery()
     event = incident_event()
     tampered = event.model_copy(update={"payload": {"incident_id": "poisoned"}})
 
-    with pytest.raises(ValueError, match="payload checksum"):
+    with pytest.raises(EventTransportError, match="payload checksum"):
         await consumer.dispatch(
             serialize_event(tampered),
             unit_of_work_factory=factory,

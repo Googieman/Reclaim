@@ -52,8 +52,8 @@ description: "Dependency-ordered implementation tasks for FS-001"
 - [X] T019 Add tenant context, row-level isolation policies, and tenant-scoped uniqueness constraints in `backend/db/migrations/002_tenant_isolation.sql` and `backend/app/db/tenant_context.py`; enforce `(tenant_id, connector_id, provider_event_id)` webhook identity separately from action idempotency.
 - [X] T020 Implement explicit PostgreSQL repositories and transaction boundaries in `backend/app/db/repositories/` and `backend/app/db/unit_of_work.py`; ensure all business-state, policy, approval, action, verification, escalation, and audit writes are authoritative database writes.
 - [X] T021 Implement the append-only, checksum-linked audit chain in `backend/app/audit/chain.py` and `backend/tests/unit/test_audit_chain.py`; record tenant/case, actor, evidence/input references, policy/model/provider/approval/execution versions, correlation IDs, outcome, previous linkage, and no secrets or unnecessary PII.
-- [ ] T022 Implement PostgreSQL transactional outbox writes in `backend/app/events/outbox.py` and `backend/tests/integration/test_outbox_transaction.py`; require business state and its outbox record to commit atomically.
-- [ ] T023 Implement the tenant-aware PostgreSQL inbox/idempotency store in `backend/app/events/inbox.py` and `backend/tests/integration/test_inbox_idempotency.py`; consumer offsets must not represent business completion.
+- [X] T022 Implement PostgreSQL transactional outbox writes in `backend/app/events/outbox.py` and `backend/tests/integration/test_outbox_transaction.py`; require business state and its outbox record to commit atomically.
+- [X] T023 Implement the tenant-aware PostgreSQL inbox/idempotency store in `backend/app/events/inbox.py` and `backend/tests/integration/test_inbox_idempotency.py`; consumer offsets must not represent business completion.
 
 ### Durable workflow and event transport
 

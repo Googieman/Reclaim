@@ -1,0 +1,1 @@
+"""Persistence integration-contract tests."""

@@ -27,6 +27,8 @@ from app.db.repositories import (
     VerificationRepository,
 )
 from app.db.tenant_context import TenantContext
+from app.events.inbox import InboxMessageRepository
+from app.events.outbox import OutboxEventRepository
 
 
 class PostgresUnitOfWork:
@@ -63,6 +65,8 @@ class PostgresUnitOfWork:
         self.escalations: EscalationRepository
         self.replay_runs: ReplayRunRepository
         self.evaluation_cases: EvaluationCaseRepository
+        self.outbox: OutboxEventRepository
+        self.inbox: InboxMessageRepository
 
     def __enter__(self) -> Self:
         self.connection = self._connection_factory()
@@ -86,6 +90,8 @@ class PostgresUnitOfWork:
         self.escalations = EscalationRepository(self.connection, self.tenant_context)
         self.replay_runs = ReplayRunRepository(self.connection, self.tenant_context)
         self.evaluation_cases = EvaluationCaseRepository(self.connection, self.tenant_context)
+        self.outbox = OutboxEventRepository(self.connection, self.tenant_context)
+        self.inbox = InboxMessageRepository(self.connection, self.tenant_context)
         return self
 
     def __exit__(

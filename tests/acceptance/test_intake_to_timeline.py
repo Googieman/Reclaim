@@ -16,9 +16,7 @@ from typing import Any
 import jwt
 from api.intake import create_intake_app
 from app.auth.oidc import OIDCVerifier
-from app.evidence.orchestrator import EvidenceOrchestrator
 from app.intake.service import IncidentIntakeService
-from app.timeline.reconstruct import TimelineReconstructor
 
 from packages.contracts.connectors import EvidenceRequest
 from packages.contracts.intake import IntakeStatus
@@ -31,7 +29,7 @@ TENANT_B = "tenant-b"
 
 
 def _token(*, tenant_id: str = TENANT_A) -> str:
-    now = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "iss": ISSUER,
@@ -83,14 +81,41 @@ def _canonical_payload() -> dict[str, Any]:
     }
 
 
+def _require_stage_runtime(stage: Any | None, stage_name: str) -> Any:
+    """Turn an absent future production stage into an executable assertion failure."""
+
+    assert stage is not None, (
+        f"T043 requires the production {stage_name} runtime; its implementation "
+        "is not available at this task stage"
+    )
+    return stage
+
+
+def test_canonical_us1_runtime_is_available(
+    evidence_orchestrator: Any | None,
+    timeline_reconstructor: Any | None,
+) -> None:
+    """The canonical target must expose both future US1 runtime boundaries."""
+
+    _require_stage_runtime(evidence_orchestrator, "evidence orchestrator")
+    _require_stage_runtime(timeline_reconstructor, "timeline reconstruction")
+
+
 def test_canonical_authenticated_intake_to_deterministic_timeline(
     postgres_intake_service: IncidentIntakeService,
-    evidence_orchestrator: EvidenceOrchestrator,
-    timeline_reconstructor: TimelineReconstructor,
+    evidence_orchestrator: Any | None,
+    timeline_reconstructor: Any | None,
 ) -> None:
     """One mixed case converges without granting evidence or event authority."""
 
     from fastapi.testclient import TestClient
+
+    evidence_orchestrator = _require_stage_runtime(
+        evidence_orchestrator, "evidence orchestrator"
+    )
+    timeline_reconstructor = _require_stage_runtime(
+        timeline_reconstructor, "timeline reconstruction"
+    )
 
     verifier = OIDCVerifier(
         issuer=ISSUER,
@@ -188,12 +213,19 @@ def test_canonical_authenticated_intake_to_deterministic_timeline(
 
 def test_canonical_untrusted_evidence_cannot_change_tenant_or_authority(
     postgres_intake_service: IncidentIntakeService,
-    evidence_orchestrator: EvidenceOrchestrator,
-    timeline_reconstructor: TimelineReconstructor,
+    evidence_orchestrator: Any | None,
+    timeline_reconstructor: Any | None,
 ) -> None:
     """Prompt-like report content and mismatched evidence are rejected as data."""
 
     from fastapi.testclient import TestClient
+
+    evidence_orchestrator = _require_stage_runtime(
+        evidence_orchestrator, "evidence orchestrator"
+    )
+    timeline_reconstructor = _require_stage_runtime(
+        timeline_reconstructor, "timeline reconstruction"
+    )
 
     verifier = OIDCVerifier(
         issuer=ISSUER,

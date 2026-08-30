@@ -104,11 +104,13 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 <!--
 Validation note (2026-08-30): the canonical acceptance target is present but
-intentionally remains unchecked. Its first run stops at collection because the
-T052 evidence orchestrator is not implemented; this is the executable target
-for the remaining US1 implementation tasks. T044 and T047 were completed in
-the first coherent implementation batch below; their opt-in API/live checks
-remain environment-qualified in PROJECT_STATUS.md.
+intentionally remains unchecked. It now collects and executes; the current run
+reaches an assertion because the T052 evidence orchestrator and T055 timeline
+runtime are not implemented, while live PostgreSQL scenarios remain skipped
+without `RECLAIM_DATABASE_URL`. This is the executable target for the remaining
+US1 implementation tasks. T044 and T047 were completed in the first coherent
+implementation batch below; their live checks remain environment-qualified in
+PROJECT_STATUS.md.
 -->
 
 ### Intake and Razorpay Test Mode integration

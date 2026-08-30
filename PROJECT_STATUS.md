@@ -16,9 +16,10 @@ event-delivery batch, and T024-T035 runtime/security boundaries are complete. Th
 post-T035 foundation security remediation for tenant-bound OIDC roles is complete, and
 the T036-T042 US1 contract/property/integration/security test batch is complete. No
 US1 evidence or timeline implementation is claimed complete. The T043 canonical
-acceptance target is present but intentionally red because its required evidence runtime
-is not implemented. The first coherent US1 implementation batch completed T044 and T047
-locally; Razorpay, evidence, timeline, and workflow runtime tasks remain pending.
+acceptance target now collects and executes but is intentionally red because its required
+evidence and timeline runtime are not implemented. The first coherent US1 implementation
+batch completed T044 and T047 locally; Razorpay, evidence, timeline, and workflow runtime
+tasks remain pending.
 
 ## Governance approvals
 
@@ -48,15 +49,16 @@ locally; Razorpay, evidence, timeline, and workflow runtime tasks remain pending
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, and T044/T047 intake batch present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, and authoritative incident/case creation are present; evidence/timeline runtime remains pending |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T042 validation complete; T043 target added; evaluation not started | Baseline was 128 passed and 12 skipped. The T044/T047 focused service batch is 5 passed and 1 live skip; the full suite now has an expected T043 collection error until evidence runtime exists. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T042 validation complete; T043 executable target added; evaluation not started | The current regression suite excluding acceptance is 134 passed and 13 skipped. T043 is 1 failed assertion, 1 passed, and 2 PostgreSQL skips because the evidence/timeline runtime and live database are unavailable. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
 - Tests: the pre-T043 default suite was `128 passed, 12 skipped in 0.70s`; the focused
-  T036-T042 suite is `62 passed, 2 skipped in 0.28s`. The latest T044/T047 focused
-  service suite is `5 passed, 1 skipped` (live PostgreSQL unavailable), and the
-  canonical T043 suite fails during collection because `app.evidence.orchestrator`
-  is not implemented yet. Skips require live PostgreSQL,
+  T036-T042 suite is `62 passed, 2 skipped in 0.28s`. The latest focused intake/API
+  suite is `38 passed, 1 skipped` (live PostgreSQL unavailable). The canonical T043
+  suite is `1 failed, 1 passed, 2 skipped`: it fails at an assertion that the pending
+  evidence runtime is available, not during collection. The full suite is `135 passed,
+  15 skipped, 1 failed`, with that same intentional T043 failure. Skips require live PostgreSQL,
   Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. A
   previous all-service foundation result of `70 passed in 14.68s` remains historical
   evidence. No benchmark or production fraud metric is claimed.
@@ -65,7 +67,7 @@ locally; Razorpay, evidence, timeline, and workflow runtime tasks remain pending
   environment variables. Focused authorization/UoW/foundation checks passed with
   `17 passed, 2 skipped`, and the focused OIDC/UoW set passed with `15 passed`.
 - Python: `.venv` Python 3.12.13; targeted backend/application/projection/workflow/test
-  `compileall` passed. Targeted T024-T035 Ruff using available Ruff 0.16.2 passed.
+  `compileall` passed. Ruff 0.8.6 passed on all touched Python paths, including formatting.
 - Repository-wide Ruff using Ruff 0.16.2 reports the same 39 existing issues in
   Spec Kit tooling, provenance/audit, and repository foundation files; the touched
   T043/T044/T047 Python paths pass Ruff and formatting checks. Existing findings remain
@@ -83,9 +85,11 @@ locally; Razorpay, evidence, timeline, and workflow runtime tasks remain pending
 - CI/CD: not configured.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Current local service check: the Docker CLI is not available on PATH, FastAPI is not
-  installed in the active `.venv`, and no `RECLAIM_DATABASE_URL` is configured; no live
-  T044 API or PostgreSQL intake validation is claimed.
+- Current local service check: the Docker CLI is not available on PATH, FastAPI 0.115.6
+  and httpx 0.27.2 are installed in `.venv` through the backend dependency definition,
+  and no `RECLAIM_DATABASE_URL` is configured; no live PostgreSQL intake validation is
+  claimed. The test extra uses httpx 0.27.2 because declared litellm 1.55.8 requires
+  httpx below 0.28.
 - Git: repository is on `main`; the tenant-role remediation and T036-T042 batch remain
   committed separately, while the T043/T044/T047 work is currently in the working tree.
   The pre-existing untracked `security-audits/` artifacts remain preserved.
@@ -135,9 +139,9 @@ production performance, fraud, or containment metric is claimed.
   intentionally not started.
 - T044 and T047 are the first implementation batch: authenticated intake, authoritative
   incident/case creation, duplicate identity handling, intake audit, and the
-  `incident.accepted` transactional outbox hand-off are present. The API test is skipped
-  because FastAPI is declared but not installed in the active virtual environment; the
-  live PostgreSQL intake test is skipped because `RECLAIM_DATABASE_URL` is absent. No
+  `incident.accepted` transactional outbox hand-off are present. The focused API test
+  passes with declared FastAPI dependencies installed; the live PostgreSQL intake test
+  is skipped because `RECLAIM_DATABASE_URL` is absent. No
   Razorpay handler, evidence connector/orchestrator, timeline runtime, Temporal intake
   activity, or event consumer was introduced. The existing Redpanda transport wiring
   still requires an authenticated single-tenant service context and validates event

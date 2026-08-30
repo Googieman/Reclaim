@@ -19,7 +19,7 @@ SIGNING_KEY = "test-only-signing-key"
 
 
 def token(tenant_id: str = "tenant-a") -> str:
-    now = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "iss": ISSUER,

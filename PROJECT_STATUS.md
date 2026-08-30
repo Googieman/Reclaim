@@ -10,10 +10,10 @@ setup task onward:
 `incident intake → evidence → Temporal workflow → bounded agent analysis → policy →
 Action Gateway → verification → audit`
 
-Application implementation is proceeding with Phase 2 Foundation; Phase 1 setup, the
-T009-T017 shared-contract boundary, and the T018-T023 authoritative-state/audit/event
-delivery batch are complete. No later business behavior is claimed complete until its
-task and verification evidence exist.
+Application implementation has completed Phase 2 Foundation through T035: Phase 1
+setup, the T009-T017 shared-contract boundary, the T018-T023 authoritative-state/audit/
+event-delivery batch, and T024-T035 runtime/security boundaries are complete. No User
+Story 1 behavior is claimed complete until its task and verification evidence exist.
 
 ## Governance approvals
 
@@ -41,43 +41,84 @@ task and verification evidence exist.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T017 contracts, and T018-T023 PostgreSQL/audit/event-delivery foundation complete | Authoritative entity and tenant-isolation migrations, transaction-local tenant context, explicit PostgreSQL repositories/UoW, checksum-linked append-only audit chain, transactional outbox, and tenant-aware inbox/idempotency persistence are present; workflow, transport runtime, storage, identity, and later business services are not yet implemented |
-| Tests and benchmark evaluations | Contract, foundation, and T022-T023 persistence-contract validation started; live database integrations/evaluations not started | 23 T009-T017 contract tests, 5 T018-T021 foundation unit tests, and 9 T022-T023 transaction/idempotency tests pass (37 total); no live PostgreSQL migration/integration run, held-out dataset, or evaluation run exists yet |
+| Application code and infrastructure | Phase 1 Setup and T009-T035 foundation complete | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, and security boundaries are present |
+| Tests and benchmark evaluations | T009-T035 validation complete; evaluation not started | 70 tests pass with live local validation services; no held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: 23 T009-T017 contract tests, 5 T018-T021 foundation unit tests, and 9 T022-T023
-  persistence-contract tests pass (37 total); targeted Python compile checks pass. The
-  T022-T023 integration tests use a transaction-aware PostgreSQL protocol double to
-  validate repository SQL/protocol behavior and are not live database validation. The
-  existing pytest-asyncio fixture-loop-scope deprecation warning is resolved by explicit
-  function scope in the root and test-specific pytest configuration. Migration execution
-  against PostgreSQL remains unvalidated in this environment because no `psql`, Docker
-  CLI/service, or accessible WSL distribution is available.
+- Tests: with all local validation services configured, `70 passed in 14.68s`. This
+  includes unit, contract, security, failure-path, live PostgreSQL, Temporal, Redpanda,
+  Neo4j, MinIO, Redis, Vault, and foundation-gate tests. No benchmark or production
+  fraud metric is claimed.
+- Python: `.venv` Python 3.12.13; targeted backend/application/projection/workflow/test
+  `compileall` passed. Targeted T024-T035 Ruff using available Ruff 0.16.2 passed.
+- Repository-wide Ruff reports 27 existing issues in T018-T023-era files (mostly import
+  ordering/UTC style, plus one unused import and one long line); those unrelated files
+  were not reformatted in this batch.
+- Backend mypy: the declared `mypy==1.14.1` install was attempted, but the download
+  stalled and was aborted; no mypy pass is claimed.
+- Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
+  range. `npm ci --prefix frontend` completed and reported 12 audit findings (2 low,
+  3 moderate, 5 high, 2 critical); no forced audit fix was applied.
+- Frontend tooling remains outside T024-T035: `npm run test` exits 1 because no frontend
+  test files exist; `npm run typecheck` exits 1 because `frontend/` has no `tsconfig.json`;
+  `npm run lint` exits 1 at Next's interactive ESLint setup prompt because no ESLint
+  configuration exists.
 - Evaluations: not present.
 - CI/CD: not configured.
-- Runtime: No Compose topology has been implemented or validated yet; PostgreSQL is not
-  available through the current shell for migration execution.
-- Git: repository is on `main`; the T009-T017 and T018-T023 foundation changes are
-  committed by the end of this batch, with the working tree expected clean.
+- Runtime: temporary dependency-safe validation containers were used; the full future
+  Compose topology and operational observability stack were not started.
+- Git: repository is on `main`; T024-T035 changes are being prepared in coherent commits.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 
+## Live validation evidence
+
+- PostgreSQL 16 Alpine ran on `localhost:55432`. Migrations `001_authoritative_entities.sql`
+  and `002_tenant_isolation.sql` executed with `ON_ERROR_STOP=1`. A non-owner,
+  non-BYPASSRLS `reclaim_app` role proved tenant-a/tenant-b filtering and missing-context
+  rejection. Live UoW tests proved commit/rollback for business state plus outbox/inbox;
+  duplicate delivery remained tenant/consumer scoped.
+- Temporal `temporalio/auto-setup:1.27.2` on `7233` passed repository-validation retry,
+  signal, and worker restart/history recovery tests.
+- Redpanda `redpandadata/redpanda:v24.3.6` on `9092` (admin `59644`) passed topic and
+  real producer/consumer delivery validation.
+- Neo4j `5.26-community` on `57474`/`57687`, MinIO
+  `RELEASE.2024-12-18T13-15-44Z` on `59000`/`59001`, and Redis `7.4-alpine` on `56379`
+  passed their live projection/rebuild, immutable checksum, and bounded coordination
+  tests respectively.
+- Keycloak `26.0.7` on `58080` imported the `reclaim` realm and returned HTTP 200 for
+  OIDC discovery; strict tenant/role verification passed. Vault `1.18.4` on `58200`
+  returned HTTP 200 and a narrowly scoped Action-Gateway token read only the test-only
+  action secret. No secret or token is committed.
+- Docker Desktop exposed approximately 7.62 GiB. Containers were started individually
+  with service-specific memory caps rather than starting the full future topology. The
+  full Compose topology, observability servers, model providers, Razorpay, and financial
+  action systems were not started.
+
+## Architecture and safety
+
+No architecture or approved contract/ADR deviation was made. PostgreSQL remains the
+business correctness boundary; Temporal owns durable orchestration; Redpanda is only
+transport; Neo4j is rebuildable; MinIO stores immutable evidence; Redis is bounded
+coordination; Keycloak/OIDC and Vault provide scoped identity/secrets; telemetry is
+redacted and correlation-linked; and model/agent capabilities remain proposal-only. No
+hosted-model, Razorpay, or other external credentials were available or used. No live
+financial action was attempted. No production performance, fraud, or containment metric
+is claimed.
+
 ## Blockers and prerequisites
 
-- Staff Review and Project Status Spec Kit extensions are unavailable and cannot be
-  invoked until explicitly installed.
-- The cross-artifact readiness analysis found no BLOCKER findings. The stale planning-phase
-  sentence in `plan.md` has been corrected. The shell aliases `python`/`python3` are
-  unavailable; validation used the bundled Python environment. The bundled environment
-  has no Ruff executable, so no lint result is claimed. PostgreSQL migration execution is
-  deferred until a database foundation integration environment is available; live
-  migration validation remains pending.
-- Razorpay Test Mode credentials, model-provider credentials, and a Docker daemon are
-  environment prerequisites for integration execution; credentials and Docker availability
-  were not revalidated in this batch.
+- Full Compose, operational observability services, frontend workflow, model gateway,
+  Razorpay Test Mode, and benchmark/evaluation execution remain later tasks and were
+  intentionally not started.
+- Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
+  be handled in their owning task scope; they do not block the validated backend
+  foundation batch.
+- No external credentials are required for the completed local foundation tests; live
+  provider/model behavior remains unavailable until explicitly configured.
 
-## Next milestone: Phase 2 Foundation implementation (T024-T035 next; T018-T023 complete)
+## Next milestone: Phase 3 User Story 1 implementation (T036 onward)
 
 Readiness evidence:
 
@@ -93,24 +134,14 @@ Readiness evidence:
 - T009-T017 shared contract artifacts and contract tests are complete. T017 was intentionally
   executed before T016 so boundary tests precede the dependent registry service; task IDs
   remain unchanged for requirement traceability.
-- T018-T023 are complete: migrations cover authoritative FS-001 entities and delivery
-  hand-off tables; tenant context and RLS policies enforce isolation; explicit repositories
-  and a transaction-scoped unit of work keep writes in PostgreSQL; the audit chain is
-  append-only and checksum-linked; outbox enqueue participates in that transaction; and
-  tenant/consumer inbox claims are duplicate-safe with checksum conflict detection. The
-  9 new tests cover rollback, atomic commit, duplicate delivery, retry, tenant/consumer
-  scoping, and identity conflicts. Live PostgreSQL migration validation remains pending.
+- T018-T035 are complete: authoritative state, RLS, audit, outbox/inbox, Temporal,
+  Redpanda, projection/storage/coordination boundaries, scoped identity/secrets,
+  redacted telemetry, control-plane declarations, and forbidden-capability tests are
+  implemented. The full local validation matrix passed with 70 tests.
 
-Current artifacts: FS-001 specification and planning package are approved/generated at
-`specs/001-incident-intake-containment/`. Five high-impact clarification answers were
-integrated, planning completed, and three ADRs recorded. On 2026-08-30, the planning
-evaluation sizing was corrected to target a benchmark corpus of at least 500 cases
-when feasible and at least 100 held-out cases, preferably 150 or more, with leakage
-controls, composition requirements, sealed scenarios, confidence intervals, and
-honest shortfall reporting. On 2026-08-30, `tasks.md` was generated with 133 tasks
-covering the approved architecture and FS-001 requirements. T001-T008 setup implementation,
-T009-T017 contract implementation, and T018-T023 authoritative-state/audit/event-delivery
-foundation implementation are complete; no user-story behavior, live database integration,
-or operational metrics are claimed complete. The feature specification metadata records
-`Status: Approved`, consistent
-with this project status and the recorded approval.
+Current artifacts: the approved/generated FS-001 specification and planning package are
+under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
+`tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
+requirements. The next dependency-safe group is T036-T042 (parallel US1 intake/webhook,
+timeline, evidence, provenance, and security tests), followed by T043, T044-T049,
+T050-T057, and T058. No task beyond T035 was started in this batch.

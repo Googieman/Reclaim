@@ -57,24 +57,24 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 ### Durable workflow and event transport
 
-- [ ] T024 Define Temporal workflow IDs, activities, retry policies, timers, signals, and recovery commands in `backend/workflows/case_workflow.py` and `backend/workflows/commands.py`, while keeping business truth in PostgreSQL.
-- [ ] T025 Add Temporal/PostgreSQL restart, retry, and signal integration tests in `tests/integration/test_temporal_authority_split.py`; verify workflow history can recover without bypassing repository validation.
-- [ ] T026 Implement Redpanda topic/version configuration, outbox publisher, inbox consumer dispatch, and delivery acknowledgements in `backend/app/events/redpanda.py` and `infra/redpanda/topics.yaml`; cover at-least-once delivery and out-of-order handling.
+- [X] T024 Define Temporal workflow IDs, activities, retry policies, timers, signals, and recovery commands in `backend/workflows/case_workflow.py` and `backend/workflows/commands.py`, while keeping business truth in PostgreSQL.
+- [X] T025 Add Temporal/PostgreSQL restart, retry, and signal integration tests in `tests/integration/test_temporal_authority_split.py`; verify workflow history can recover without bypassing repository validation.
+- [X] T026 Implement Redpanda topic/version configuration, outbox publisher, inbox consumer dispatch, and delivery acknowledgements in `backend/app/events/redpanda.py` and `infra/redpanda/topics.yaml`; cover at-least-once delivery and out-of-order handling.
 
 ### Storage, coordination, identity, and secret boundaries
 
-- [ ] T027 Implement the rebuildable Neo4j projection bootstrap/replay boundary in `backend/projections/neo4j_projection.py` and `backend/tests/integration/test_neo4j_rebuild.py`; projection loss must not alter PostgreSQL correctness.
-- [ ] T028 Implement immutable MinIO evidence/artifact object storage with checksum verification in `backend/app/storage/minio_evidence.py` and `backend/tests/integration/test_minio_checksums.py`; normalized searchable facts remain in PostgreSQL.
-- [ ] T029 Implement Redis-backed bounded cache, lock, rate-limit, and coordination helpers in `backend/app/coordination/redis.py` and `backend/tests/integration/test_redis_non_authority.py`; no terminal, financial, policy, or action decision may depend solely on Redis.
-- [ ] T030 Configure Keycloak/OIDC tenant-aware roles and API verification in `infra/keycloak/realm-reclaim.json`, `backend/app/auth/oidc.py`, and `backend/tests/security/test_oidc_tenant_roles.py`; distinguish reviewer, approver, escalation-owner, policy-owner, and service identities.
-- [ ] T031 Configure Vault secret paths, tenant scoping, service policies, rotation references, and Action Gateway-only action credentials in `infra/vault/policies/` and `backend/app/secrets/vault.py`; verify model/workflow/UI identities cannot read side-effect credentials.
-- [ ] T032 Establish redacted OpenTelemetry correlation, metrics, logs, model traces, and evaluation metadata sinks in `backend/app/observability/`, `infra/observability/otel-collector.yaml`, `infra/observability/prometheus.yml`, `infra/observability/loki.yml`, `infra/observability/grafana/`, `infra/langfuse/`, and `infra/mlflow/`.
+- [X] T027 Implement the rebuildable Neo4j projection bootstrap/replay boundary in `backend/projections/neo4j_projection.py` and `backend/tests/integration/test_neo4j_rebuild.py`; projection loss must not alter PostgreSQL correctness.
+- [X] T028 Implement immutable MinIO evidence/artifact object storage with checksum verification in `backend/app/storage/minio_evidence.py` and `backend/tests/integration/test_minio_checksums.py`; normalized searchable facts remain in PostgreSQL.
+- [X] T029 Implement Redis-backed bounded cache, lock, rate-limit, and coordination helpers in `backend/app/coordination/redis.py` and `backend/tests/integration/test_redis_non_authority.py`; no terminal, financial, policy, or action decision may depend solely on Redis.
+- [X] T030 Configure Keycloak/OIDC tenant-aware roles and API verification in `infra/keycloak/realm-reclaim.json`, `backend/app/auth/oidc.py`, and `backend/tests/security/test_oidc_tenant_roles.py`; distinguish reviewer, approver, escalation-owner, policy-owner, and service identities.
+- [X] T031 Configure Vault secret paths, tenant scoping, service policies, rotation references, and Action Gateway-only action credentials in `infra/vault/policies/` and `backend/app/secrets/vault.py`; verify model/workflow/UI identities cannot read side-effect credentials.
+- [X] T032 Establish redacted OpenTelemetry correlation, metrics, logs, model traces, and evaluation metadata sinks in `backend/app/observability/`, `infra/observability/otel-collector.yaml`, `infra/observability/prometheus.yml`, `infra/observability/loki.yml`, `infra/observability/grafana/`, `infra/langfuse/`, and `infra/mlflow/`.
 
 ### Foundational control plane and security tests
 
-- [ ] T033 Implement the tenant-scoped connector registry, policy-owner registry, role registry, and configuration-boundary interfaces in `backend/app/control_plane/registry.py` and `backend/app/control_plane/tenant_config.py`; this registry must expose declarations, not unrestricted runtime capabilities.
-- [ ] T034 Add forbidden-tool, arbitrary-network, credential-probing, untrusted-evidence, PII-redaction, and cross-tenant boundary tests in `tests/security/test_forbidden_capabilities.py`, `tests/security/test_untrusted_evidence.py`, `tests/security/test_pii_redaction.py`, and `tests/security/test_cross_tenant_isolation.py`.
-- [ ] T035 Run the foundational integration gate in `tests/integration/test_foundation_gate.py`, covering PostgreSQL authority, Temporal separation, Redpanda outbox/inbox, Neo4j rebuildability, MinIO checksums, Redis non-authority, Keycloak/OIDC scopes, Vault scopes, audit append-only behavior, and redacted telemetry.
+- [X] T033 Implement the tenant-scoped connector registry, policy-owner registry, role registry, and configuration-boundary interfaces in `backend/app/control_plane/registry.py` and `backend/app/control_plane/tenant_config.py`; this registry must expose declarations, not unrestricted runtime capabilities.
+- [X] T034 Add forbidden-tool, arbitrary-network, credential-probing, untrusted-evidence, PII-redaction, and cross-tenant boundary tests in `tests/security/test_forbidden_capabilities.py`, `tests/security/test_untrusted_evidence.py`, `tests/security/test_pii_redaction.py`, and `tests/security/test_cross_tenant_isolation.py`.
+- [X] T035 Run the foundational integration gate in `tests/integration/test_foundation_gate.py`, covering PostgreSQL authority, Temporal separation, Redpanda outbox/inbox, Neo4j rebuildability, MinIO checksums, Redis non-authority, Keycloak/OIDC scopes, Vault scopes, audit append-only behavior, and redacted telemetry.
 
 **Checkpoint**: Shared contracts, tenant/security foundations, authoritative storage, workflow/event ownership, storage/identity boundaries, and audit are testable before story work begins.
 

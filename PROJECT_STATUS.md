@@ -12,8 +12,10 @@ Action Gateway → verification → audit`
 
 Application implementation has completed Phase 2 Foundation through T035: Phase 1
 setup, the T009-T017 shared-contract boundary, the T018-T023 authoritative-state/audit/
-event-delivery batch, and T024-T035 runtime/security boundaries are complete. No User
-Story 1 behavior is claimed complete until its task and verification evidence exist.
+event-delivery batch, and T024-T035 runtime/security boundaries are complete. The
+post-T035 foundation security remediation for tenant-bound OIDC roles is complete;
+T036 remains explicitly blocked and not started. No User Story 1 behavior is claimed
+complete until its task and verification evidence exist.
 
 ## Governance approvals
 
@@ -42,7 +44,8 @@ Story 1 behavior is claimed complete until its task and verification evidence ex
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
 | Application code and infrastructure | Phase 1 Setup and T009-T035 foundation complete | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, and security boundaries are present |
-| Tests and benchmark evaluations | T009-T035 validation complete; evaluation not started | 70 tests pass with live local validation services; no held-out dataset, benchmark, production metric, or containment claim exists |
+| Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036 remains blocked/not started | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, and local validation pass; live service checks were unavailable in this run |
+| Tests and benchmark evaluations | T009-T035 validation complete; post-T035 security remediation validated; evaluation not started | 69 tests pass and 11 live-service tests skip without configured services; no held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
@@ -50,13 +53,16 @@ Story 1 behavior is claimed complete until its task and verification evidence ex
   includes unit, contract, security, failure-path, live PostgreSQL, Temporal, Redpanda,
   Neo4j, MinIO, Redis, Vault, and foundation-gate tests. No benchmark or production
   fraud metric is claimed.
+- Post-remediation default suite: `69 passed, 11 skipped` in `0.66s`; skipped tests
+  require live PostgreSQL, Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS
+  environment variables. Focused authorization/UoW/foundation checks passed with
+  `17 passed, 2 skipped`, and the focused OIDC/UoW set passed with `15 passed`.
 - Python: `.venv` Python 3.12.13; targeted backend/application/projection/workflow/test
   `compileall` passed. Targeted T024-T035 Ruff using available Ruff 0.16.2 passed.
-- Repository-wide Ruff reports 27 existing issues in T018-T023-era files (mostly import
-  ordering/UTC style, plus one unused import and one long line); those unrelated files
-  were not reformatted in this batch.
-- Backend mypy: the declared `mypy==1.14.1` install was attempted, but the download
-  stalled and was aborted; no mypy pass is claimed.
+- Repository-wide Ruff using Ruff 0.16.2 reports 39 existing issues in repository
+  tooling and foundation files; no changed remediation file is among those findings.
+- Backend mypy/pyright: no type-check executable is installed in this environment; no
+  type-check pass is claimed.
 - Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
   range. `npm ci --prefix frontend` completed and reported 12 audit findings (2 low,
   3 moderate, 5 high, 2 critical); no forced audit fix was applied.
@@ -68,8 +74,8 @@ Story 1 behavior is claimed complete until its task and verification evidence ex
 - CI/CD: not configured.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Git: repository is on `main`; T024-T035 changes are committed in three coherent
-  checkpoints and the working tree is clean.
+- Git: repository is on `main`; the tenant-role remediation is committed separately.
+  The pre-existing untracked `security-audits/` artifacts remain preserved.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 
@@ -104,22 +110,25 @@ business correctness boundary; Temporal owns durable orchestration; Redpanda is 
 transport; Neo4j is rebuildable; MinIO stores immutable evidence; Redis is bounded
 coordination; Keycloak/OIDC and Vault provide scoped identity/secrets; telemetry is
 redacted and correlation-linked; and model/agent capabilities remain proposal-only. No
-hosted-model, Razorpay, or other external credentials were available or used. No live
-financial action was attempted. No production performance, fraud, or containment metric
-is claimed.
+hosted-model, Razorpay, or other external credentials were available or used. PostgreSQL
+RLS migration behavior is unchanged; live RLS checks were skipped because their
+environment variables were unavailable. No live financial action was attempted. No
+production performance, fraud, or containment metric is claimed.
 
 ## Blockers and prerequisites
 
 - Full Compose, operational observability services, frontend workflow, model gateway,
   Razorpay Test Mode, and benchmark/evaluation execution remain later tasks and were
   intentionally not started.
+- T036 remains blocked/not started until the separately committed remediation is
+  accepted for the next milestone; no User Story 1 implementation was begun.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
 - No external credentials are required for the completed local foundation tests; live
   provider/model behavior remains unavailable until explicitly configured.
 
-## Next milestone: Phase 3 User Story 1 implementation (T036 onward)
+## Next milestone: Phase 3 User Story 1 implementation (T036 onward; not started)
 
 Readiness evidence:
 
@@ -138,11 +147,12 @@ Readiness evidence:
 - T018-T035 are complete: authoritative state, RLS, audit, outbox/inbox, Temporal,
   Redpanda, projection/storage/coordination boundaries, scoped identity/secrets,
   redacted telemetry, control-plane declarations, and forbidden-capability tests are
-  implemented. The full local validation matrix passed with 70 tests.
+  implemented. The post-T035 tenant-role remediation is validated by the focused
+  adversarial suite and the default full Python suite; live service checks remain
+  unavailable in this environment.
 
 Current artifacts: the approved/generated FS-001 specification and planning package are
 under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
-requirements. The next dependency-safe group is T036-T042 (parallel US1 intake/webhook,
-timeline, evidence, provenance, and security tests), followed by T043, T044-T049,
-T050-T057, and T058. No task beyond T035 was started in this batch.
+requirements. T036-T042 are still blocked/not started; no task beyond T035 was started
+in this batch.

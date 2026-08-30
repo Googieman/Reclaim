@@ -62,7 +62,7 @@
   "clientScopes": [
     {
       "name": "tenant-scope",
-      "description": "Tenant IDs are issued by the identity provisioning boundary",
+      "description": "Tenant membership and tenant-role bindings are issued by the identity provisioning boundary",
       "protocol": "openid-connect",
       "attributes": {"include.in.token.scope": "true"},
       "protocolMappers": [
@@ -77,6 +77,19 @@
             "access.token.claim": "true",
             "claim.name": "tenant_ids",
             "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "tenant_roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "tenant_roles",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "tenant_roles",
+            "jsonType.label": "JSON"
           }
         }
       ]

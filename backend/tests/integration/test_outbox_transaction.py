@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import pytest
-
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.outbox import OutboxConflictError
 
-from .support import RecordingDatabase, make_event
+from .support import RecordingDatabase, make_authorization_context, make_event
 
 
 def test_business_write_and_outbox_are_rolled_back_together() -> None:
     database = RecordingDatabase()
     with pytest.raises(RuntimeError, match="abort"):
-        with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+        with PostgresUnitOfWork(
+            database.connect, authorization_context=make_authorization_context()
+        ) as unit_of_work:
             unit_of_work.incidents.create(
                 incident_id="incident-1",
                 source="operator",
@@ -33,7 +34,9 @@ def test_business_write_and_outbox_are_rolled_back_together() -> None:
 
 def test_business_write_and_outbox_commit_on_the_same_unit_of_work() -> None:
     database = RecordingDatabase()
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         unit_of_work.incidents.create(
             incident_id="incident-1",
             source="operator",
@@ -54,7 +57,9 @@ def test_business_write_and_outbox_commit_on_the_same_unit_of_work() -> None:
 def test_duplicate_event_identity_returns_existing_outbox_without_second_row() -> None:
     database = RecordingDatabase()
     event = make_event()
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         first = unit_of_work.outbox.enqueue(outbox_id="outbox-1", event=event)
         duplicate = unit_of_work.outbox.enqueue(outbox_id="outbox-2", event=event)
 
@@ -66,11 +71,15 @@ def test_duplicate_event_identity_returns_existing_outbox_without_second_row() -
 
 def test_duplicate_event_identity_with_different_content_is_rejected() -> None:
     database = RecordingDatabase()
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         unit_of_work.outbox.enqueue(outbox_id="outbox-1", event=make_event())
 
     with pytest.raises(OutboxConflictError, match="different content"):
-        with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+        with PostgresUnitOfWork(
+            database.connect, authorization_context=make_authorization_context()
+        ) as unit_of_work:
             unit_of_work.outbox.enqueue(
                 outbox_id="outbox-2",
                 event=make_event(payload_checksum="sha256:payload-2", payload={"source": "other"}),

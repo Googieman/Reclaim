@@ -78,6 +78,11 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 **Checkpoint**: Shared contracts, tenant/security foundations, authoritative storage, workflow/event ownership, storage/identity boundaries, and audit are testable before story work begins.
 
+### Post-T035 Foundation Security Remediation
+
+- [X] SR-001 Remediate tenant-role binding so verified OIDC authorization binds subject, tenant membership, and roles; derive the PostgreSQL UoW/repository tenant context only from the authenticated single-tenant context; add adversarial cross-tenant authorization coverage. Validated with focused authorization/UoW tests and the default full Python suite on 2026-08-30. No contract or ADR was changed.
+- [ ] T036 remains blocked and not started until the foundation security remediation is accepted for the next milestone.
+
 ---
 
 ## Phase 3: User Story 1 — Intake and reconstruct an incident (Priority: P1) — MVP vertical slice

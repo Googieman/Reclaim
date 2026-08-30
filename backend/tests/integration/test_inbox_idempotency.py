@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import pytest
-
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.inbox import InboxConflictError, InboxDisposition
 
-from .support import FIXED_NOW, RecordingDatabase, make_event
+from .support import FIXED_NOW, RecordingDatabase, make_authorization_context, make_event
 
 
 def test_duplicate_delivery_is_handled_once_for_one_tenant_consumer() -> None:
@@ -15,7 +14,9 @@ def test_duplicate_delivery_is_handled_once_for_one_tenant_consumer() -> None:
     event = make_event()
     process_count = 0
 
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         claim = unit_of_work.inbox.claim(
             consumer_name="timeline-consumer",
             event=event,
@@ -31,7 +32,9 @@ def test_duplicate_delivery_is_handled_once_for_one_tenant_consumer() -> None:
                 handled_at=FIXED_NOW,
             )
 
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         duplicate = unit_of_work.inbox.claim(
             consumer_name="timeline-consumer",
             event=event,
@@ -51,13 +54,17 @@ def test_inbox_claim_rolls_back_with_business_handling_and_can_be_redelivered() 
     event = make_event()
 
     with pytest.raises(RuntimeError, match="handler failed"):
-        with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+        with PostgresUnitOfWork(
+            database.connect, authorization_context=make_authorization_context()
+        ) as unit_of_work:
             claim = unit_of_work.inbox.claim(consumer_name="case-consumer", event=event)
             assert claim.should_process
             raise RuntimeError("handler failed")
 
     assert database.inbox == {}
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         redelivery = unit_of_work.inbox.claim(consumer_name="case-consumer", event=event)
         assert redelivery.disposition == InboxDisposition.CLAIMED
 
@@ -66,7 +73,9 @@ def test_failed_delivery_can_be_reclaimed_without_changing_delivery_identity() -
     database = RecordingDatabase()
     event = make_event()
 
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         unit_of_work.inbox.claim(consumer_name="case-consumer", event=event)
         failed = unit_of_work.inbox.mark_failed(
             consumer_name="case-consumer",
@@ -76,7 +85,9 @@ def test_failed_delivery_can_be_reclaimed_without_changing_delivery_identity() -
         )
         assert failed.handling_status == "failed"
 
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         retry = unit_of_work.inbox.claim(consumer_name="case-consumer", event=event)
         assert retry.disposition == InboxDisposition.RETRY
         assert retry.should_process
@@ -92,14 +103,20 @@ def test_failed_delivery_can_be_reclaimed_without_changing_delivery_identity() -
 def test_inbox_identity_is_scoped_by_tenant_and_consumer() -> None:
     database = RecordingDatabase()
     event = make_event(event_id="shared-event")
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         first = unit_of_work.inbox.claim(consumer_name="projection-a", event=event)
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-b") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context("tenant-b")
+    ) as unit_of_work:
         second = unit_of_work.inbox.claim(
             consumer_name="projection-a",
             event=make_event(tenant_id="tenant-b", event_id="shared-event"),
         )
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         other_consumer = unit_of_work.inbox.claim(consumer_name="projection-b", event=event)
 
     assert first.disposition == InboxDisposition.CLAIMED
@@ -110,11 +127,15 @@ def test_inbox_identity_is_scoped_by_tenant_and_consumer() -> None:
 
 def test_reusing_delivery_identity_with_different_checksum_is_rejected() -> None:
     database = RecordingDatabase()
-    with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+    with PostgresUnitOfWork(
+        database.connect, authorization_context=make_authorization_context()
+    ) as unit_of_work:
         unit_of_work.inbox.claim(consumer_name="case-consumer", event=make_event())
 
     with pytest.raises(InboxConflictError, match="different payload checksum"):
-        with PostgresUnitOfWork(database.connect, tenant_id="tenant-a") as unit_of_work:
+        with PostgresUnitOfWork(
+            database.connect, authorization_context=make_authorization_context()
+        ) as unit_of_work:
             unit_of_work.inbox.claim(
                 consumer_name="case-consumer",
                 event=make_event(payload_checksum="sha256:payload-2"),

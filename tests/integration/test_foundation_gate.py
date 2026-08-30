@@ -34,6 +34,11 @@ def test_foundation_gate_covers_declared_ownership_boundaries() -> None:
     assert {"reviewer", "approver", "escalation-owner", "policy-owner"}.issubset(
         role_names
     )
+    tenant_scope = next(
+        scope for scope in realm["clientScopes"] if scope["name"] == "tenant-scope"
+    )
+    mapper_names = {mapper["name"] for mapper in tenant_scope["protocolMappers"]}
+    assert "tenant_roles" in mapper_names
 
     tools = BoundedToolSet(
         {AllowedCapability.READ_CASE, AllowedCapability.PROPOSE_ACTION}

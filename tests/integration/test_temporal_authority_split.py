@@ -16,6 +16,8 @@ import pytest
 from workflows.case_workflow import CaseWorkflow, case_workflow_id
 from workflows.commands import CaseWorkflowCommand, CaseWorkflowSignal, SignalKind
 
+from backend.tests.integration.support import make_authorization_context
+
 pytestmark = pytest.mark.integration
 
 
@@ -51,7 +53,8 @@ async def test_temporal_retries_activity_and_reads_authoritative_postgres_state(
         from app.db.unit_of_work import PostgresUnitOfWork
 
         with PostgresUnitOfWork(
-            lambda: psycopg.connect(database_url), tenant_id=command.tenant_id
+            lambda: psycopg.connect(database_url),
+            authorization_context=make_authorization_context(command.tenant_id),
         ) as unit_of_work:
             row = unit_of_work.cases.get(case_id=command.case_id)
         if row is None:

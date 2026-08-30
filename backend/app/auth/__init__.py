@@ -5,6 +5,7 @@ from .oidc import (
     IdentityType,
     OIDCVerifier,
     RequiredRole,
+    TenantAuthorizationContext,
     TenantAuthorizationError,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "IdentityType",
     "OIDCVerifier",
     "RequiredRole",
+    "TenantAuthorizationContext",
     "TenantAuthorizationError",
 ]

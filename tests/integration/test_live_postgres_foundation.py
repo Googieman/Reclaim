@@ -10,7 +10,7 @@ import pytest
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.inbox import InboxDisposition
 
-from backend.tests.integration.support import make_event
+from backend.tests.integration.support import make_authorization_context, make_event
 
 pytestmark = pytest.mark.integration
 
@@ -31,7 +31,8 @@ def test_live_postgres_uow_commits_business_outbox_and_inbox_together() -> None:
     event = make_event(tenant_id=tenant_id, event_id=f"event-{uuid.uuid4().hex}")
 
     with PostgresUnitOfWork(
-        lambda: psycopg.connect(database_url), tenant_id=tenant_id
+        lambda: psycopg.connect(database_url),
+        authorization_context=make_authorization_context(tenant_id),
     ) as unit_of_work:
         unit_of_work.tenants.create(tenant_id=tenant_id, display_name="Live Validation")
         unit_of_work.incidents.create(
@@ -72,7 +73,8 @@ def test_live_postgres_uow_rolls_back_business_and_delivery_rows() -> None:
     with (
         pytest.raises(RuntimeError, match="rollback-check"),
         PostgresUnitOfWork(
-            lambda: psycopg.connect(database_url), tenant_id=tenant_id
+            lambda: psycopg.connect(database_url),
+            authorization_context=make_authorization_context(tenant_id),
         ) as unit_of_work,
     ):
         unit_of_work.tenants.create(

@@ -6,12 +6,13 @@ from collections.abc import Callable
 from types import TracebackType
 from typing import Any, Self
 
+from app.auth.oidc import TenantAuthorizationContext
 from app.db.repositories import (
     ActionExecutionRepository,
     ActionProposalRepository,
-    AuditRecordRepository,
     ApprovalRepository,
     AttributionRepository,
+    AuditRecordRepository,
     CaseRepository,
     ConnectorConfigurationRepository,
     EscalationRepository,
@@ -42,10 +43,11 @@ class PostgresUnitOfWork:
         self,
         connection_factory: Callable[[], Any],
         *,
-        tenant_id: str,
+        authorization_context: TenantAuthorizationContext,
     ) -> None:
         self._connection_factory = connection_factory
-        self.tenant_context = TenantContext(tenant_id)
+        self.authorization_context = authorization_context
+        self.tenant_context = TenantContext.from_authorization_context(authorization_context)
         self.connection: Any | None = None
         self.tenants: TenantRepository
         self.incidents: IncidentRepository

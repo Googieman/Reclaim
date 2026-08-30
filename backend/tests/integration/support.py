@@ -7,14 +7,31 @@ PostgreSQL run remains a separate environment prerequisite.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+from datetime import UTC, datetime
 from typing import Any
 
+from app.auth.oidc import (
+    AuthenticatedPrincipal,
+    IdentityType,
+    TenantAuthorizationContext,
+)
 from packages.contracts.events import EventEnvelope, EventType
 
+FIXED_NOW = datetime(2026, 8, 30, tzinfo=UTC)
 
-FIXED_NOW = datetime(2026, 8, 30, tzinfo=timezone.utc)
+
+def make_authorization_context(
+    tenant_id: str = "tenant-a", *, roles: frozenset[str] | None = None
+) -> TenantAuthorizationContext:
+    principal = AuthenticatedPrincipal(
+        subject="service-test",
+        tenant_ids=frozenset({tenant_id}),
+        tenant_roles={tenant_id: roles or frozenset({"service"})},
+        identity_type=IdentityType.SERVICE,
+        issuer="test-issuer",
+    )
+    return principal.for_tenant(tenant_id)
 
 
 class Cursor:
@@ -129,7 +146,14 @@ class RecordingConnection:
             if row is None or row[3] != values[4] or row[6] != "failed":
                 return Cursor([])
             updated = (
-                row[0], row[1], row[2], row[3], values[0] or FIXED_NOW, None, "received", None
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                values[0] or FIXED_NOW,
+                None,
+                "received",
+                None,
             )
             self._inbox[key] = updated
             return Cursor([updated])
@@ -139,7 +163,14 @@ class RecordingConnection:
             if row is None or row[3] != values[4] or row[6] != "received":
                 return Cursor([])
             updated = (
-                row[0], row[1], row[2], row[3], row[4], values[0] or FIXED_NOW, "handled", None
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                values[0] or FIXED_NOW,
+                "handled",
+                None,
             )
             self._inbox[key] = updated
             return Cursor([updated])

@@ -23,6 +23,7 @@ def test_identity_configuration_and_correlation_cannot_cross_tenants() -> None:
             "iat": now,
             "exp": now + timedelta(minutes=5),
             "tenant_ids": ["tenant-a"],
+            "tenant_roles": {"tenant-a": ["reviewer"]},
         },
         "key",
         algorithm="HS256",

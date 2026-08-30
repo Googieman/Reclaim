@@ -110,17 +110,19 @@ runtime are not implemented, while live PostgreSQL scenarios remain skipped
 without `RECLAIM_DATABASE_URL`. This is the executable target for the remaining
 US1 implementation tasks. T044 and T047 were completed in the first coherent
 implementation batch below; their live checks remain environment-qualified in
-PROJECT_STATUS.md.
+PROJECT_STATUS.md. T045, T046, T048, and T049 were completed in the second
+dependency-safe batch below; live provider and service checks remain
+environment-qualified in PROJECT_STATUS.md.
 -->
 
 ### Intake and Razorpay Test Mode integration
 
 - [X] T044 [US1] Implement authenticated incident intake commands and case-creation API routes in `backend/api/intake.py`, `backend/app/intake/service.py`, and `backend/tests/integration/test_intake_service.py` for FR-001 and FR-003.
-- [ ] T045 [US1] Implement Razorpay Test Mode original-payload verification and event identity handling in `backend/connectors/razorpay/webhook.py` using tenant-scoped Vault references; preserve raw bytes/checksum, quarantine invalid/incomplete events, and acknowledge valid duplicates without downstream reprocessing for FR-002 and FR-007.
-- [ ] T046 [US1] Add the configured Razorpay Test Mode connector manifest, provider fixture loader, signature/header configuration, secret-rotation validation seam, and live/replay labeling in `backend/connectors/razorpay/manifest.py`, `tests/fixtures/razorpay/`, and `docs/integrations/razorpay-test-mode.md`; do not claim provider behavior until configuration validation passes.
+- [X] T045 [US1] Implement Razorpay Test Mode original-payload verification and event identity handling in `backend/connectors/razorpay/webhook.py` using tenant-scoped Vault references; preserve raw bytes/checksum, quarantine invalid/incomplete events, and acknowledge valid duplicates without downstream reprocessing for FR-002 and FR-007.
+- [X] T046 [US1] Add the configured Razorpay Test Mode connector manifest, provider fixture loader, signature/header configuration, secret-rotation validation seam, and live/replay labeling in `backend/connectors/razorpay/manifest.py`, `tests/fixtures/razorpay/`, and `docs/integrations/razorpay-test-mode.md`; do not claim provider behavior until configuration validation passes.
 - [X] T047 [US1] Implement authoritative incident/case persistence, stable correlation identity, intake status transitions, and duplicate case handling in `backend/app/incidents/service.py`, `backend/app/cases/service.py`, and `backend/app/db/repositories/incidents.py`.
-- [ ] T048 [US1] Implement webhook idempotency, quarantine records, raw-payload object references, and audit events in `backend/app/intake/webhook_processing.py`, `backend/app/db/repositories/webhooks.py`, and `backend/app/audit/intake.py`; keep webhook idempotency separate from action idempotency.
-- [ ] T049 [US1] Implement the case Temporal workflow start/signal path in `backend/workflows/case_workflow.py`, `backend/workflows/activities/intake.py`, and `backend/api/workflow_commands.py`; workflow progress must not replace PostgreSQL case state.
+- [X] T048 [US1] Implement webhook idempotency, quarantine records, raw-payload object references, and audit events in `backend/app/intake/webhook_processing.py`, `backend/app/db/repositories/webhooks.py`, and `backend/app/audit/intake.py`; keep webhook idempotency separate from action idempotency.
+- [X] T049 [US1] Implement the case Temporal workflow start/signal path in `backend/workflows/case_workflow.py`, `backend/workflows/activities/intake.py`, and `backend/api/workflow_commands.py`; workflow progress must not replace PostgreSQL case state.
 
 ### Evidence connectors, MinIO, Redpanda, and timeline
 

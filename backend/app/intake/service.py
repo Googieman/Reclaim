@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable
-from typing import Any
 from uuid import uuid4
 
 from packages.contracts.audit_replay import AuditRecord
-from packages.contracts.events import EventEnvelope, EventType
 from packages.contracts.intake import IncidentIntakeRequest, IncidentIntakeResponse, IntakeStatus
 
 from app.audit.chain import AuditChain
 from app.auth.oidc import RequiredRole, TenantAuthorizationContext, TenantAuthorizationError
 from app.cases.service import CaseService
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.incident_events import build_incident_accepted_event
 from app.incidents.service import IncidentService
 
 
@@ -78,10 +75,16 @@ class IncidentIntakeService:
                     unit_of_work, incident_id=incident_id, created_at=request.received_at
                 )
                 case_id = str(case_row[1])
-                event = _incident_accepted_event(
-                    request=request,
+                event = build_incident_accepted_event(
+                    tenant_id=request.tenant_id,
+                    correlation_id=request.correlation_id,
                     incident_id=incident_id,
                     case_id=case_id,
+                    source=request.source,
+                    received_at=request.received_at,
+                    report_reference=request.report_reference,
+                    report_content_present=bool(request.report_content),
+                    causation_id=f"intake:{request.idempotency_key}",
                     producer=self.producer,
                 )
                 unit_of_work.outbox.enqueue(
@@ -125,40 +128,6 @@ def _require_intake_authorization(
             "intake request tenant does not match authenticated tenant context"
         )
     authorization_context.require_role(RequiredRole.REVIEWER)
-
-
-def _incident_accepted_event(
-    *,
-    request: IncidentIntakeRequest,
-    incident_id: str,
-    case_id: str,
-    producer: str,
-) -> EventEnvelope:
-    payload: dict[str, Any] = {
-        "incident_id": incident_id,
-        "case_id": case_id,
-        "source": request.source,
-        "received_at": request.received_at.isoformat(),
-        "report_reference": request.report_reference,
-        "report_content_present": bool(request.report_content),
-    }
-    encoded_payload = json.dumps(
-        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
-    return EventEnvelope(
-        tenant_id=request.tenant_id,
-        correlation_id=request.correlation_id,
-        event_id=f"incident.accepted:{incident_id}",
-        event_type=EventType.INCIDENT_ACCEPTED,
-        aggregate_type="incident",
-        aggregate_id=incident_id,
-        occurred_at=request.received_at,
-        produced_at=request.received_at,
-        causation_id=f"intake:{request.idempotency_key}",
-        producer=producer,
-        payload_checksum=hashlib.sha256(encoded_payload).hexdigest(),
-        payload=payload,
-    )
 
 
 def _append_intake_audit(

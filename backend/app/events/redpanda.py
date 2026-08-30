@@ -70,7 +70,7 @@ def serialize_event(event: EventEnvelope) -> bytes:
 def deserialize_event(value: bytes | bytearray | str) -> EventEnvelope:
     """Decode broker data through the shared event contract."""
 
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, bytes | bytearray):
         value = bytes(value).decode("utf-8")
     payload = json.loads(value)
     if not isinstance(payload, dict):
@@ -225,9 +225,7 @@ def _require_event_tenant_binding(
     event_tenant_id: str, authorization_context: TenantAuthorizationContext
 ) -> None:
     if event_tenant_id != authorization_context.tenant_id:
-        raise EventTransportError(
-            "event tenant does not match the authenticated service context"
-        )
+        raise EventTransportError("event tenant does not match the authenticated service context")
 
 
 def _event_from_outbox(outbox_event: OutboxEvent) -> EventEnvelope:

@@ -11,6 +11,7 @@ from typing import Any
 
 from app.auth.oidc import TenantAuthorizationContext, TenantAuthorizationError
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.timeline_events import build_timeline_rebuilt_event
 from evidence.models import CollectedEvidence, NormalizedFact
 
 from .models import TimelineEvent, TimelineRebuildResult
@@ -158,6 +159,22 @@ class TimelineReconstructor:
             transition = getattr(unit_of_work.cases, "transition_state", None)
             if transition is not None:
                 transition(case_id=case_id, new_state="timeline_ready")
+            event = build_timeline_rebuilt_event(
+                TimelineRebuildResult(
+                    tenant_id=authorization_context.tenant_id,
+                    case_id=case_id,
+                    events=tuple(events),
+                    normalized_facts=(),
+                    state="timeline_ready",
+                    authoritative_store=self.authoritative_store,
+                    event_handoff=self.event_handoff,
+                    consumer_count=self.consumer_count,
+                )
+            )
+            unit_of_work.outbox.enqueue(
+                outbox_id=f"outbox-{event.event_id}",
+                event=event,
+            )
 
     @staticmethod
     def _validate_evidence(

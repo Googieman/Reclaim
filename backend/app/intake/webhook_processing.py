@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
-from typing import Any, Protocol
+from typing import Protocol
 
 from connectors.razorpay.webhook import RazorpayWebhookVerifier, WebhookVerification
-from packages.contracts.events import EventEnvelope, EventType
 from packages.contracts.intake import (
     IntakeStatus,
     RazorpayWebhookRequest,
@@ -17,6 +15,7 @@ from packages.contracts.intake import (
 from app.audit.intake import append_webhook_audit
 from app.auth.oidc import RequiredRole, TenantAuthorizationContext, TenantAuthorizationError
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.incident_events import build_webhook_quarantined_event
 
 
 class RawPayloadObject(Protocol):
@@ -115,10 +114,16 @@ class WebhookProcessingService:
                 )
                 unit_of_work.outbox.enqueue(
                     outbox_id=self.id_factory("outbox"),
-                    event=_quarantine_event(
-                        verification=verification,
+                    event=build_webhook_quarantined_event(
+                        tenant_id=verification.tenant_id,
+                        correlation_id=verification.correlation_id,
                         quarantine_id=quarantine.quarantine_id,
+                        connector_id=verification.connector_id,
+                        provider_event_id=verification.provider_event_id,
+                        raw_payload_checksum=verification.payload_checksum,
+                        reason=verification.reason or "webhook verification failed",
                         recorded_at=recorded_at,
+                        causation_id=f"webhook:{verification.correlation_id}",
                         producer=self.actor,
                     ),
                 )
@@ -200,44 +205,6 @@ def _require_webhook_authority(
             "webhook processor authority is not scoped to configured tenant"
         )
     authorization_context.require_role(RequiredRole.REVIEWER)
-
-
-def _quarantine_event(
-    *,
-    verification: WebhookVerification,
-    quarantine_id: str,
-    recorded_at: datetime,
-    producer: str,
-) -> EventEnvelope:
-    payload: dict[str, Any] = {
-        "connector_id": verification.connector_id,
-        "quarantine_id": quarantine_id,
-        "provider_event_id": verification.provider_event_id,
-        "payload_checksum": verification.payload_checksum,
-        "reason": verification.reason,
-    }
-    return EventEnvelope(
-        tenant_id=verification.tenant_id,
-        correlation_id=verification.correlation_id,
-        event_id=f"webhook.quarantined:{quarantine_id}",
-        event_type=EventType.WEBHOOK_QUARANTINED,
-        aggregate_type="webhook",
-        aggregate_id=quarantine_id,
-        occurred_at=recorded_at,
-        produced_at=recorded_at,
-        causation_id=f"webhook:{verification.correlation_id}",
-        producer=producer,
-        payload_checksum=_event_payload_checksum(payload),
-        payload=payload,
-    )
-
-
-def _event_payload_checksum(payload: dict[str, Any]) -> str:
-    import hashlib
-    import json
-
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _is_safe_object_segment(value: str) -> bool:

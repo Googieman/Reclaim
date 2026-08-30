@@ -9,6 +9,7 @@ from typing import Any
 
 from app.auth.oidc import TenantAuthorizationContext, TenantAuthorizationError
 from app.db.unit_of_work import PostgresUnitOfWork
+from app.events.timeline_events import build_evidence_collected_event
 from app.storage.minio_evidence import ObjectIntegrityError, checksum_for_bytes
 from connectors.evidence.base import EvidenceConnector, EvidenceConnectorError
 from packages.contracts.connectors import (
@@ -429,6 +430,10 @@ class EvidenceOrchestrator:
                             trust_classification=item.trust_classification,
                             collection_error=item.collection_error,
                         )
+                    unit_of_work.outbox.enqueue(
+                        outbox_id=f"outbox-evidence-{item.evidence_id}",
+                        event=build_evidence_collected_event(item),
+                    )
                 transition = getattr(unit_of_work.cases, "transition_state", None)
                 if transition is not None:
                     transition(case_id=items[0].case_id, new_state="collecting_evidence")

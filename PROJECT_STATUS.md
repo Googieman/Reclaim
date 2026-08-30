@@ -19,10 +19,11 @@ T043 canonical acceptance target is now complete: all four acceptance scenarios 
 against fresh live PostgreSQL and MinIO services after the T050-T055 implementation
 batch. T044-T058 and Remediation Batch A for MAJOR-1, MAJOR-3, MAJOR-4, and MAJOR-5
 are complete locally, with the revised production Temporal workflow gate and live
-event-delivery/projection validation recorded below. Remediation Batch B for MAJOR-2,
-MAJOR-6, and MAJOR-7 is complete locally; its live-service checks are environment-
-qualified below. T059 remains blocked pending follow-up review; no T059 or US2
-implementation was started.
+event-delivery/projection validation recorded below. Original Remediation Batch B for
+MAJOR-2 and MAJOR-6 is complete locally. Its follow-up review kept MAJOR-7 open;
+the focused approval-to-execution remediation and validation are recorded below.
+T059 remains blocked pending the release gate; no T059 or US2 implementation was
+started.
 
 ## Governance approvals
 
@@ -50,15 +51,16 @@ implementation was started.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, and Remediation B present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, authoritative webhook case/incident association, normalization, policy scope/publication constraints, and cross-aggregate chain constraints are present |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, and the MAJOR-7 follow-up are present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, authoritative webhook case/incident association, normalization, policy scope/publication constraints, cross-aggregate chain constraints, and PostgreSQL policy-to-execution authorization are present |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T058 plus Remediation B local validation complete; evaluation not started | The final default suite is 221 passed and 22 skipped. The Batch B-focused set is 31 passed and 5 skipped; the T058 gate is environment-qualified in this run. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T058 plus Remediation B and MAJOR-7 follow-up validation complete; evaluation not started | The final default suite is 221 passed and 24 skipped; the focused MAJOR-7/Batch-B repository and direct-SQL set is 8 passed, the non-owner RLS test is 1 passed, and the T058 gate is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
 - Tests: the current no-service T043 acceptance baseline was re-run before this batch
-  as `2 passed, 2 skipped`. The final default suite is `221 passed, 22 skipped`; the
-  Batch B-focused set is `31 passed, 5 skipped`. With the running T058 containers and
+  as `2 passed, 2 skipped`. The final default suite is `221 passed, 24 skipped`;
+  the focused MAJOR-7/Batch-B repository and direct-SQL set passed `8/8`, and the
+  non-owner RLS test passed `1/1`. With the running T058 containers and
   migration 003 applied, the live Batch B event set passed `10/10`, live PostgreSQL
   integrity tests passed `2/2`, existing live Redpanda passed `4/4`, existing live
   Neo4j passed `4/4`, and T058 passed `1/1`. A rerun of the fixed-fixture T043 target
@@ -67,10 +69,10 @@ implementation was started.
   `4/4`.
   Skips require live PostgreSQL, Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS
   environment variables. No benchmark or production fraud metric is claimed.
-- Post-remediation default suite: `69 passed, 11 skipped` in `0.66s`; skipped tests
-  require live PostgreSQL, Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS
-  environment variables. Focused authorization/UoW/foundation checks passed with
-  `17 passed, 2 skipped`, and the focused OIDC/UoW set passed with `15 passed`.
+- Post-remediation full Python suite: `221 passed, 24 skipped` in `1.49s`; skipped
+  tests require live PostgreSQL, Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or
+  RLS environment variables. Touched-file Ruff and format checks, compileall, and
+  pip check pass. Backend mypy/pyright are unavailable in this environment.
 - Python: `.venv` Python 3.12.13; `compileall` passed with only the benign existing
   `.pytest_cache` directory-listing message. Ruff passed on all T056-T058 and
   Remediation Batch A touched Python paths, including formatting. Repository-wide Ruff
@@ -104,8 +106,9 @@ implementation was started.
 
 ## Live validation evidence
 
-- PostgreSQL 16 Alpine ran on `localhost:55432`. Migrations `001_authoritative_entities.sql`
-  and `002_tenant_isolation.sql` executed with `ON_ERROR_STOP=1`. A non-owner,
+- PostgreSQL 16 Alpine ran on `localhost:55432`. Migrations
+  `001_authoritative_entities.sql`, `002_tenant_isolation.sql`, and the updated `003`
+  executed with `ON_ERROR_STOP=1`. A non-owner,
   non-BYPASSRLS `reclaim_app` role proved tenant-a/tenant-b filtering and missing-context
   rejection. Live UoW tests proved commit/rollback for business state plus outbox/inbox;
   duplicate delivery remained tenant/consumer scoped.
@@ -155,12 +158,20 @@ implementation was started.
   was rejected before projection and left Neo4j checkpoints and PostgreSQL outbox
   state unchanged. The live adapter used the documented application-level service
   identity allowlist; no production mTLS/SASL/ACL claim is made.
+- For the MAJOR-7 follow-up, fresh and idempotent application of migration `003`
+  passed. Direct PostgreSQL authorization cases A-K passed, including rejected
+  missing/pending/rejected/expired and cross-scope approvals, rejected deny/escalate,
+  successful allow and exact approved execution, and unrelated verification. The
+  non-owner `reclaim_app` RLS test passed for global-policy visibility, tenant-B
+  filtering, and rejected cross-tenant policy/approval/action writes. The running
+  T058 database exposes `policy_decision_id`, `approval_id`, both authorization FKs,
+  and the authorization trigger.
 
 ## Architecture and safety
 
-No architecture or ADR deviation was made. Remediation Batch B changed no approved
-contract or ADR, and Remediation Batch A changed no approved contract or ADR. One
-implementation compatibility defect in
+No architecture or ADR deviation was made. Remediation Batch B and the MAJOR-7
+follow-up changed no approved contract or ADR, and Remediation Batch A changed no
+approved contract or ADR. One implementation compatibility defect in
 the shared optional UTC timestamp validation was fixed so incomplete webhook timestamps
 remain representable for quarantine; contract shape and approved ADRs are unchanged.
 PostgreSQL remains the
@@ -170,8 +181,8 @@ coordination; Keycloak/OIDC and Vault provide scoped identity/secrets; telemetry
 redacted and correlation-linked; and model/agent capabilities remain proposal-only. No
 hosted-model, Razorpay, or other external credentials were available or used. PostgreSQL
 RLS remains independent defense in depth; Batch B tightens policy-version writes so
-global publication is centrally managed. Live non-owner RLS checks were skipped because
-their environment variables were unavailable. No live financial action was attempted.
+global publication is centrally managed, and the MAJOR-7 trigger preserves RLS on the
+authorization lookup. No live financial action was attempted.
 No production performance, fraud, or containment metric is claimed.
 
 ## Blockers and prerequisites
@@ -185,10 +196,11 @@ No production performance, fraud, or containment metric is claimed.
   transport still requires an authenticated single-tenant service context and validates
   event tenant binding before obtaining a tenant-scoped UoW.
 - Remediation Batch A closed MAJOR-1, MAJOR-3, MAJOR-4, and MAJOR-5 with no contract or
-  ADR changes. Remediation Batch B closes MAJOR-2, MAJOR-6, and MAJOR-7 locally and
-  passed its live PostgreSQL, Redpanda, and Neo4j checks with no contract or ADR
-  changes. T059 remains blocked for follow-up review; no US2 implementation was
-  started.
+  ADR changes. Original Remediation Batch B closed MAJOR-2 and MAJOR-6. The focused
+  MAJOR-7 follow-up closes the approval-to-execution gap with no contract or ADR
+  changes and passes its fresh, idempotent, direct-SQL, repository, RLS, event, and
+  T058 checks. T059 remains blocked by the release-gate instruction; no US2 or Batch C
+  implementation was started.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -227,5 +239,6 @@ under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
 requirements. T036-T042 are complete with local contract/property/integration/security
   evidence; T043 and T044-T058 are complete with local and environment-qualified live
-  validation. T059 is the next dependency-safe queue but remains blocked pending
-  Remediation Batch B follow-up review; no T059+ implementation was started.
+  validation. The MAJOR-7 follow-up release gate is technically validated, but T059
+  and Batch C remain held pending explicit release-gate direction; no T059+ or Batch C
+  implementation was started.

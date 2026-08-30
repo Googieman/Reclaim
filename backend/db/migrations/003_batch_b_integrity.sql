@@ -223,6 +223,36 @@ BEGIN
 END;
 $$;
 
+-- MAJOR-7: an execution must carry the approval that authorizes it when the
+-- immutable policy decision requires approval.  The approval identity is
+-- composite because an approval ID alone is not sufficient to prove tenant,
+-- case, and proposal ownership.
+ALTER TABLE action_executions
+    ADD COLUMN IF NOT EXISTS approval_id TEXT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'approvals_execution_chain_key'
+    ) THEN
+        ALTER TABLE approvals
+            ADD CONSTRAINT approvals_execution_chain_key
+            UNIQUE (tenant_id, approval_id, proposal_id, case_id);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'action_executions_approval_chain_fkey'
+    ) THEN
+        ALTER TABLE action_executions
+            ADD CONSTRAINT action_executions_approval_chain_fkey
+            FOREIGN KEY (tenant_id, approval_id, proposal_id, case_id)
+            REFERENCES approvals (tenant_id, approval_id, proposal_id, case_id);
+    END IF;
+END;
+$$;
+
 -- Action executions must identify the exact policy decision that authorized the
 -- proposal.  Existing US1 development state has no execution rows; fail the
 -- migration rather than weakening this invariant if an inconsistent database is
@@ -267,6 +297,143 @@ BEGIN
             ADD CONSTRAINT verifications_execution_case_fkey
             FOREIGN KEY (tenant_id, execution_id, case_id)
             REFERENCES action_executions (tenant_id, execution_id, case_id);
+    END IF;
+END;
+$$;
+
+-- Conditional authorization cannot be represented by a foreign key alone:
+-- allow may execute without approval, approval_required needs an exact live
+-- approval, and deny/escalate must never execute.  This trigger is deliberately
+-- invoker-security (not SECURITY DEFINER), so RLS remains active for the
+-- tenant-scoped database role that performs the write.
+CREATE OR REPLACE FUNCTION reclaim_validate_action_execution_authorization()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    decision_result TEXT;
+    decision_policy_version_id TEXT;
+    approval_policy_version_id TEXT;
+    approval_status TEXT;
+    approval_approved_at TIMESTAMPTZ;
+    approval_expires_at TIMESTAMPTZ;
+BEGIN
+    SELECT result, policy_version_id
+    INTO decision_result, decision_policy_version_id
+    FROM policy_decisions
+    WHERE tenant_id = NEW.tenant_id
+      AND decision_id = NEW.policy_decision_id
+      AND proposal_id = NEW.proposal_id
+      AND case_id = NEW.case_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION
+            'action execution authorization decision does not match tenant, case, and proposal';
+    END IF;
+
+    IF decision_result IN ('deny', 'escalate') THEN
+        RAISE EXCEPTION
+            'policy decision result % cannot authorize action execution', decision_result;
+    END IF;
+
+    IF decision_result = 'approval_required' AND NEW.approval_id IS NULL THEN
+        RAISE EXCEPTION
+            'approval_required policy decision needs an approval before execution';
+    END IF;
+
+    IF NEW.approval_id IS NOT NULL THEN
+        SELECT policy_version_id, status, approved_at, expires_at
+        INTO approval_policy_version_id, approval_status,
+             approval_approved_at, approval_expires_at
+        FROM approvals
+        WHERE tenant_id = NEW.tenant_id
+          AND approval_id = NEW.approval_id
+          AND proposal_id = NEW.proposal_id
+          AND case_id = NEW.case_id
+        FOR UPDATE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION
+                'approval does not match execution tenant, case, and proposal';
+        END IF;
+
+        IF approval_policy_version_id <> decision_policy_version_id THEN
+            RAISE EXCEPTION
+                'approval does not reference the exact policy decision';
+        END IF;
+
+        IF approval_status <> 'approved' THEN
+            RAISE EXCEPTION
+                'approval status % cannot authorize action execution', approval_status;
+        END IF;
+
+        IF approval_approved_at > CURRENT_TIMESTAMP THEN
+            RAISE EXCEPTION 'approval is not effective yet';
+        END IF;
+
+        IF approval_expires_at IS NOT NULL
+           AND approval_expires_at <= CURRENT_TIMESTAMP THEN
+            RAISE EXCEPTION 'approval has expired';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS action_executions_authorization_guard ON action_executions;
+CREATE TRIGGER action_executions_authorization_guard
+    BEFORE INSERT OR UPDATE OF tenant_id, case_id, proposal_id,
+        policy_decision_id, approval_id ON action_executions
+    FOR EACH ROW EXECUTE FUNCTION reclaim_validate_action_execution_authorization();
+
+-- Do not leave pre-existing rows outside the new authorization invariant when
+-- this migration is applied to a non-empty development database.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM action_executions AS execution
+        JOIN policy_decisions AS decision
+          ON decision.tenant_id = execution.tenant_id
+         AND decision.decision_id = execution.policy_decision_id
+         AND decision.proposal_id = execution.proposal_id
+         AND decision.case_id = execution.case_id
+        LEFT JOIN approvals AS approval
+          ON approval.tenant_id = execution.tenant_id
+         AND approval.approval_id = execution.approval_id
+         AND approval.proposal_id = execution.proposal_id
+         AND approval.case_id = execution.case_id
+        WHERE decision.result IN ('deny', 'escalate')
+           OR (
+               decision.result = 'approval_required'
+               AND (
+                   execution.approval_id IS NULL
+                   OR approval.status IS DISTINCT FROM 'approved'
+                   OR approval.policy_version_id IS DISTINCT FROM decision.policy_version_id
+                   OR approval.approved_at > CURRENT_TIMESTAMP
+                   OR (
+                       approval.expires_at IS NOT NULL
+                       AND approval.expires_at <= CURRENT_TIMESTAMP
+                   )
+               )
+           )
+           OR (
+               execution.approval_id IS NOT NULL
+               AND (
+                   approval.status IS DISTINCT FROM 'approved'
+                   OR approval.policy_version_id IS DISTINCT FROM decision.policy_version_id
+                   OR approval.approved_at > CURRENT_TIMESTAMP
+                   OR (
+                       approval.expires_at IS NOT NULL
+                       AND approval.expires_at <= CURRENT_TIMESTAMP
+                   )
+               )
+           )
+    ) THEN
+        RAISE EXCEPTION
+            'cannot enforce action execution authorization: existing rows violate policy or approval state';
     END IF;
 END;
 $$;

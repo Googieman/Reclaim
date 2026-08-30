@@ -88,6 +88,7 @@ def test_action_execution_repository_requires_policy_decision_identity() -> None
         case_id="case-1",
         proposal_id="proposal-1",
         policy_decision_id="decision-1",
+        approval_id="approval-1",
         connector_id="connector-1",
         idempotency_key="idempotency-1",
         request_checksum="checksum",
@@ -96,7 +97,9 @@ def test_action_execution_repository_requires_policy_decision_identity() -> None
 
     query, params = connection.calls[0]
     assert "policy_decision_id" in query
+    assert "approval_id" in query
     assert params[4] == "decision-1"
+    assert params[5] == "approval-1"
 
 
 def test_batch_b_migration_declares_all_database_invariants() -> None:
@@ -111,6 +114,8 @@ def test_batch_b_migration_declares_all_database_invariants() -> None:
         "policy_versions_published_immutable",
         "approvals_decision_chain_fkey",
         "action_executions_authorized_chain_fkey",
+        "action_executions_approval_chain_fkey",
+        "action_executions_authorization_guard",
         "verifications_execution_case_fkey",
     ):
         assert fragment in migration

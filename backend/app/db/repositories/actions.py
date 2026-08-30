@@ -17,6 +17,7 @@ class ActionExecutionRepository(TenantScopedRepository):
         case_id: str,
         proposal_id: str,
         policy_decision_id: str,
+        approval_id: str | None = None,
         connector_id: str,
         idempotency_key: str,
         request_checksum: str,
@@ -26,12 +27,12 @@ class ActionExecutionRepository(TenantScopedRepository):
         row = self.fetch_one(
             """
             INSERT INTO action_executions (
-                tenant_id, execution_id, case_id, proposal_id, policy_decision_id, connector_id,
-                idempotency_key, request_checksum, status, attempt_count
+                tenant_id, execution_id, case_id, proposal_id, policy_decision_id, approval_id,
+                connector_id, idempotency_key, request_checksum, status, attempt_count
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING tenant_id, execution_id, proposal_id, idempotency_key, status,
-                      attempt_count
+                      attempt_count, approval_id
             """,
             (
                 self.tenant_context.tenant_id,
@@ -39,6 +40,7 @@ class ActionExecutionRepository(TenantScopedRepository):
                 case_id,
                 proposal_id,
                 policy_decision_id,
+                approval_id,
                 connector_id,
                 idempotency_key,
                 request_checksum,

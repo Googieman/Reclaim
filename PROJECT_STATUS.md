@@ -68,7 +68,8 @@ Story 1 behavior is claimed complete until its task and verification evidence ex
 - CI/CD: not configured.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Git: repository is on `main`; T024-T035 changes are being prepared in coherent commits.
+- Git: repository is on `main`; T024-T035 changes are committed in three coherent
+  checkpoints and the working tree is clean.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 

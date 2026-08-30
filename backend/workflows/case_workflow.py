@@ -26,6 +26,7 @@ CASE_WORKFLOW_NAME = "reclaim.case.v1"
 ACTIVITY_NAMES = {
     "read_authoritative_state": "case.read_authoritative_state",
     "recover_authoritative_state": "case.recover_authoritative_state",
+    "start_intake": "case.start_intake",
     "collect_evidence": "case.collect_evidence",
     "rebuild_timeline": "case.rebuild_timeline",
     "analyze_case": "case.analyze_case",

@@ -64,3 +64,28 @@ class CaseRepository(TenantScopedRepository):
             """,
             (self.tenant_context.tenant_id, case_id),
         )
+
+    def bind_workflow(self, *, case_id: str, workflow_id: str) -> object:
+        """Persist deterministic workflow metadata without changing case state."""
+
+        if not workflow_id.strip():
+            raise ValueError("workflow_id is required")
+        row = self.fetch_one(
+            """
+            UPDATE cases
+            SET workflow_id = COALESCE(workflow_id, %s), updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+              AND (workflow_id IS NULL OR workflow_id = %s)
+            RETURNING tenant_id, case_id, incident_id, current_state, workflow_id,
+                      created_at, updated_at, terminal_at
+            """,
+            (
+                workflow_id,
+                self.tenant_context.tenant_id,
+                case_id,
+                workflow_id,
+            ),
+        )
+        if row is None:
+            raise ValueError("case does not exist or is bound to another workflow")
+        return row

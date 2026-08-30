@@ -1,0 +1,32 @@
+version: "1.0.0"
+transport: redpanda
+topics:
+  - name: reclaim.domain.v1
+    schema_version: "1.0.0"
+    partitions: 3
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 604800000
+    event_types:
+      - incident.accepted
+      - webhook.quarantined
+      - evidence.collected
+      - timeline.rebuilt
+      - attribution.completed
+      - exposure.calculated
+      - proposal.created
+      - policy.decided
+      - approval.recorded
+      - action.requested
+      - action.unknown
+      - action.reconciled
+      - verification.completed
+      - case.escalated
+      - case.terminal
+  - name: reclaim.domain.dlq.v1
+    schema_version: "1.0.0"
+    partitions: 1
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 604800000
+    event_types: []

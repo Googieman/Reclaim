@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
-import json
 from typing import Any
 
 from packages.contracts.events import EventEnvelope
@@ -41,9 +41,8 @@ class OutboxEvent:
 class OutboxEventRepository(TenantScopedRepository):
     """Write events to the outbox using the caller's existing PostgreSQL transaction.
 
-    The repository deliberately has no publish or acknowledgement method.  Event
-    transport is a later boundary; this store only makes the event durable with the
-    originating business-state transaction.
+    Publishing is a separate hand-off.  ``mark_published`` is only a delivery
+    watermark; it never represents business completion.
     """
 
     def enqueue(self, *, outbox_id: str, event: EventEnvelope) -> OutboxEvent:
@@ -92,6 +91,50 @@ class OutboxEventRepository(TenantScopedRepository):
                 f"outbox event_id {event.event_id!r} already exists with different content"
             )
         return existing
+
+    def unpublished(self, *, limit: int = 100) -> list[OutboxEvent]:
+        """Return an ordered batch for at-least-once transport publication."""
+
+        if limit < 1 or limit > 1000:
+            raise RepositoryError("outbox batch limit must be between 1 and 1000")
+        rows = self.fetch_all(
+            """
+            SELECT tenant_id, outbox_id, event_id, event_type, aggregate_type,
+                   aggregate_id, occurred_at, produced_at, correlation_id,
+                   causation_id, producer, payload_checksum, payload,
+                   published_at, created_at
+            FROM outbox_events
+            WHERE tenant_id = %s AND published_at IS NULL
+            ORDER BY created_at, outbox_id
+            LIMIT %s
+            """,
+            (self.tenant_context.tenant_id, limit),
+        )
+        return [_event_from_row(row, inserted=False) for row in rows]
+
+    def mark_published(
+        self,
+        *,
+        outbox_id: str,
+        published_at: datetime | None = None,
+    ) -> OutboxEvent:
+        """Record a successful broker acknowledgement in PostgreSQL."""
+
+        row = self.fetch_one(
+            """
+            UPDATE outbox_events
+            SET published_at = COALESCE(%s, now())
+            WHERE tenant_id = %s AND outbox_id = %s
+            RETURNING tenant_id, outbox_id, event_id, event_type, aggregate_type,
+                      aggregate_id, occurred_at, produced_at, correlation_id,
+                      causation_id, producer, payload_checksum, payload,
+                      published_at, created_at
+            """,
+            (published_at, self.tenant_context.tenant_id, outbox_id),
+        )
+        if row is None:
+            raise RepositoryError("outbox event does not exist for this tenant")
+        return _event_from_row(row, inserted=False)
 
 
 def _event_parameters(*, outbox_id: str, event: EventEnvelope) -> tuple[object, ...]:

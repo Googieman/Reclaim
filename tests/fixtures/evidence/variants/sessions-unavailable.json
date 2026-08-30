@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "sessions-unavailable-001",
+  "seed": "us1-sessions-unavailable-001",
+  "mode": "replay",
+  "provenance": {"source": "development-fixture", "version": "2026-08-30"},
+  "source_identity": "merchant-session-store",
+  "observed_at": "2026-08-30T09:00:00Z",
+  "collected_at": "2026-08-30T09:01:00Z",
+  "normalized_facts": []
+}

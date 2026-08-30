@@ -1,4 +1,4 @@
-"""Acceptance fixtures for live authoritative intake and pending US1 stages."""
+"""Acceptance fixtures for live authoritative intake and US1 runtime stages."""
 
 from __future__ import annotations
 
@@ -29,15 +29,55 @@ def postgres_intake_service() -> IncidentIntakeService:
     )
 
 
+def _unit_of_work_factory() -> Any | None:
+    database_url = os.getenv("RECLAIM_DATABASE_URL")
+    if not database_url:
+        return None
+    import psycopg
+    from app.db.unit_of_work import PostgresUnitOfWork
+
+    return lambda authorization_context: PostgresUnitOfWork(
+        lambda: psycopg.connect(database_url),
+        authorization_context=authorization_context,
+    )
+
+
+def _evidence_storage() -> Any:
+    from app.storage.minio_evidence import ImmutableEvidenceStore
+    from evidence.storage import EvidenceStorage, InMemoryObjectStorage
+
+    endpoint = os.getenv("RECLAIM_MINIO_ENDPOINT")
+    access_key = os.getenv("RECLAIM_MINIO_ACCESS_KEY")
+    secret_key = os.getenv("RECLAIM_MINIO_SECRET_KEY")
+    if endpoint and access_key and secret_key:
+        store = ImmutableEvidenceStore.from_endpoint(
+            endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+    else:
+        store = ImmutableEvidenceStore(InMemoryObjectStorage())
+    return EvidenceStorage(store)
+
+
 @pytest.fixture
-def evidence_orchestrator() -> Any | None:
-    """Mark the T052 production boundary as unavailable until its task is implemented."""
+def evidence_orchestrator() -> Any:
+    """Build the production orchestrator with a test/replay object store when needed."""
 
-    return None
+    from connectors.simulators.evidence import build_default_evidence_simulators
+    from evidence.orchestrator import EvidenceOrchestrator
+
+    return EvidenceOrchestrator(
+        build_default_evidence_simulators("tenant-a"),
+        storage=_evidence_storage(),
+        unit_of_work_factory=_unit_of_work_factory(),
+    )
 
 
 @pytest.fixture
-def timeline_reconstructor() -> Any | None:
-    """Mark the T055 production boundary as unavailable until its task is implemented."""
+def timeline_reconstructor() -> Any:
+    """Build deterministic timeline reconstruction with optional live persistence."""
 
-    return None
+    from timeline.reconstruct import TimelineReconstructor
+
+    return TimelineReconstructor(unit_of_work_factory=_unit_of_work_factory())

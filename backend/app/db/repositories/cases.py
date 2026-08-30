@@ -8,6 +8,12 @@ from .base import TenantScopedRepository
 
 
 class CaseRepository(TenantScopedRepository):
+    _STATE_TRANSITIONS = {
+        "intake_received": {"collecting_evidence", "timeline_ready"},
+        "collecting_evidence": {"collecting_evidence", "timeline_ready"},
+        "timeline_ready": {"timeline_ready"},
+    }
+
     def create(
         self,
         *,
@@ -88,4 +94,33 @@ class CaseRepository(TenantScopedRepository):
         )
         if row is None:
             raise ValueError("case does not exist or is bound to another workflow")
+        return row
+
+    def transition_state(self, *, case_id: str, new_state: str) -> object:
+        """Advance only the evidence/timeline states through an explicit transition."""
+
+        if new_state not in {
+            "intake_received",
+            "collecting_evidence",
+            "timeline_ready",
+        }:
+            raise ValueError("case state transition is outside the evidence/timeline boundary")
+        current = self.get(case_id=case_id)
+        if current is None:
+            raise ValueError("case does not exist")
+        current_state = str(current[3])
+        if new_state not in self._STATE_TRANSITIONS.get(current_state, set()):
+            raise ValueError(f"case cannot transition from {current_state} to {new_state}")
+        row = self.fetch_one(
+            """
+            UPDATE cases
+            SET current_state = %s, updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+            RETURNING tenant_id, case_id, incident_id, current_state, workflow_id,
+                      created_at, updated_at, terminal_at
+            """,
+            (new_state, self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            raise RuntimeError("case state transition returned no row")
         return row

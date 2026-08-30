@@ -1,8 +1,8 @@
 """Unit coverage for the deterministic timeline reconstruction contract.
 
-T055 will replace this executable contract oracle with the production timeline
-service.  The precedence and tie-breaking rules are kept explicit here so later
-implementation cannot silently make arrival order authoritative.
+The production timeline service preserves this executable contract oracle. The
+precedence and tie-breaking rules remain explicit so arrival order cannot become
+authoritative silently.
 """
 
 from dataclasses import dataclass
@@ -37,7 +37,9 @@ def effective_at(event: SourceTimelineEvent) -> datetime:
     raise ValueError("timeline event requires a timestamp")
 
 
-def reconstruct_reference(events: tuple[SourceTimelineEvent, ...]) -> tuple[SourceTimelineEvent, ...]:
+def reconstruct_reference(
+    events: tuple[SourceTimelineEvent, ...],
+) -> tuple[SourceTimelineEvent, ...]:
     selected: dict[str, SourceTimelineEvent] = {}
     for event in events:
         current = selected.get(event.dedupe_key)
@@ -84,17 +86,33 @@ def test_timestamp_precedence_is_event_time_then_observed_then_received() -> Non
     observed_time = datetime(2026, 8, 30, 9, 0, tzinfo=UTC)
     received_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
 
-    assert effective_at(
-        base_event(event_at=event_time, observed_at=observed_time, received_at=received_time)
-    ) == event_time
-    assert effective_at(base_event(event_at=None, observed_at=observed_time)) == observed_time
+    assert (
+        effective_at(
+            base_event(
+                event_at=event_time,
+                observed_at=observed_time,
+                received_at=received_time,
+            )
+        )
+        == event_time
+    )
+    assert (
+        effective_at(base_event(event_at=None, observed_at=observed_time))
+        == observed_time
+    )
     assert effective_at(base_event(event_at=None, observed_at=None)) == received_time
 
 
-def test_all_accepted_timestamps_are_normalized_to_utc_and_naive_time_is_rejected() -> None:
-    local_time = datetime(2026, 8, 30, 13, 30, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+def test_all_accepted_timestamps_are_normalized_to_utc_and_naive_time_is_rejected() -> (
+    None
+):
+    local_time = datetime(
+        2026, 8, 30, 13, 30, tzinfo=timezone(timedelta(hours=5, minutes=30))
+    )
 
-    assert effective_at(base_event(event_at=local_time)) == datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    assert effective_at(base_event(event_at=local_time)) == datetime(
+        2026, 8, 30, 8, 0, tzinfo=UTC
+    )
     with pytest.raises(ValueError, match="explicit timezone"):
         effective_at(base_event(event_at=datetime.fromisoformat("2026-08-30T08:00:00")))
 
@@ -153,5 +171,10 @@ def test_conflicting_sources_have_deterministic_preferred_source() -> None:
         payload=(("status", "authorized"),),
     )
 
-    assert reconstruct_reference((fallback, provider)) == reconstruct_reference((provider, fallback))
-    assert reconstruct_reference((fallback, provider))[0].source_identity == "razorpay-test"
+    assert reconstruct_reference((fallback, provider)) == reconstruct_reference(
+        (provider, fallback)
+    )
+    assert (
+        reconstruct_reference((fallback, provider))[0].source_identity
+        == "razorpay-test"
+    )

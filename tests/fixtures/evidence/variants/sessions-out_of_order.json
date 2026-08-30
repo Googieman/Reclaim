@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "sessions-out-of-order-001",
+  "seed": "us1-sessions-out-of-order-001",
+  "mode": "replay",
+  "provenance": {"source": "development-fixture", "version": "2026-08-30"},
+  "source_identity": "merchant-session-store",
+  "observed_at": "2026-08-30T09:00:00Z",
+  "collected_at": "2026-08-30T09:01:00Z",
+  "normalized_facts": [
+    {
+      "source_event_id": "session-event-out-of-order-2",
+      "canonical_event_type": "session.closed",
+      "dedupe_key": "session:session-out-of-order-2",
+      "event_at": "2026-08-30T09:02:00Z",
+      "source_priority": 100,
+      "session_id": "session-out-of-order-1",
+      "state": "closed"
+    },
+    {
+      "source_event_id": "session-event-out-of-order-1",
+      "canonical_event_type": "session.opened",
+      "dedupe_key": "session:session-out-of-order-1",
+      "event_at": "2026-08-30T09:00:00Z",
+      "source_priority": 100,
+      "session_id": "session-out-of-order-1",
+      "state": "opened"
+    }
+  ]
+}

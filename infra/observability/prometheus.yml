@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: reclaim-otel-collector
+    static_configs:
+      - targets: [otel-collector:8889]
+  - job_name: reclaim-services
+    metrics_path: /metrics
+    static_configs:
+      - targets: [api:8000, workflow-worker:9464, model-gateway:8001, action-gateway:8002]

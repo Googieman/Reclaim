@@ -1,0 +1,85 @@
+{
+  "realm": "reclaim",
+  "enabled": true,
+  "displayName": "RECLAIM Development Realm",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "roles": {
+    "realm": [
+      {"name": "reviewer", "description": "Review tenant cases"},
+      {"name": "approver", "description": "Approve policy-gated proposals"},
+      {"name": "escalation-owner", "description": "Own unresolved escalations"},
+      {"name": "policy-owner", "description": "Publish tenant policy versions"},
+      {"name": "service", "description": "Non-human service identity"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "reclaim-api",
+      "name": "RECLAIM API",
+      "publicClient": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["tenant-scope"]
+    },
+    {
+      "clientId": "reclaim-workflow",
+      "name": "RECLAIM Workflow Worker",
+      "publicClient": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["tenant-scope"]
+    },
+    {
+      "clientId": "reclaim-model-gateway",
+      "name": "RECLAIM Model Gateway",
+      "publicClient": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["tenant-scope"]
+    },
+    {
+      "clientId": "reclaim-action-gateway",
+      "name": "RECLAIM Action Gateway",
+      "publicClient": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["tenant-scope"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "tenant-scope",
+      "description": "Tenant IDs are issued by the identity provisioning boundary",
+      "protocol": "openid-connect",
+      "attributes": {"include.in.token.scope": "true"},
+      "protocolMappers": [
+        {
+          "name": "tenant_ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "tenant_ids",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "tenant_ids",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+  attributes/redaction:
+    actions:
+      - key: reclaim.raw_payload
+        action: delete
+      - key: reclaim.authorization
+        action: delete
+      - key: reclaim.email
+        action: delete
+      - key: reclaim.phone
+        action: delete
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  debug:
+    verbosity: normal
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/redaction, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [attributes/redaction, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [attributes/redaction, batch]
+      exporters: [debug]

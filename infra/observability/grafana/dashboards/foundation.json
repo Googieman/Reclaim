@@ -1,0 +1,10 @@
+{
+  "title": "RECLAIM Foundation",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {"type": "stat", "title": "Outbox publish failures", "targets": [{"expr": "reclaim_outbox_publish_failures_total"}]},
+    {"type": "stat", "title": "Inbox duplicate deliveries", "targets": [{"expr": "reclaim_inbox_duplicate_total"}]},
+    {"type": "stat", "title": "Workflow recoveries", "targets": [{"expr": "reclaim_workflow_recovery_total"}], "fieldConfig": {"defaults": {"unit": "short"}}}
+  ]
+}

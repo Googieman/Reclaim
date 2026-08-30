@@ -85,6 +85,20 @@ class WebhookProcessingService:
         )
         recorded_at = request.received_at
 
+        # Oversized input is rejected at the trust boundary.  In particular it
+        # must not be persisted as quarantine evidence or emit a quarantine
+        # event, because those are downstream side effects of accepted-size
+        # input only.
+        if verification.payload_size_exceeded:
+            return WebhookProcessingResponse(
+                tenant_id=authorization_context.tenant_id,
+                correlation_id=request.correlation_id,
+                status=IntakeStatus.QUARANTINED,
+                connector_id=verification.connector_id,
+                provider_event_id=verification.provider_event_id,
+                reason=verification.reason,
+            )
+
         if verification.status is IntakeStatus.QUARANTINED:
             quarantine_id = self.id_factory("quarantine")
             raw_object_uri = self._store_raw_payload(verification)
@@ -248,12 +262,8 @@ def _resolve_association(
     else:
         case_row = unit_of_work.cases.find_by_incident_id(incident_id=incident_id or "")
     if case_row is None:
-        raise WebhookAssociationError(
-            "webhook case/incident association is not authoritative"
-        )
-    if str(case_row[0]) != tenant_id or (
-        case_id is not None and str(case_row[1]) != case_id
-    ):
+        raise WebhookAssociationError("webhook case/incident association is not authoritative")
+    if str(case_row[0]) != tenant_id or (case_id is not None and str(case_row[1]) != case_id):
         raise WebhookAssociationError("webhook case association crosses tenant boundary")
     resolved_incident_id = str(case_row[2])
     resolved_case_id = str(case_row[1])
@@ -263,9 +273,7 @@ def _resolve_association(
     if incidents is not None:
         incident_row = incidents.get(incident_id=resolved_incident_id)
         if incident_row is None or str(incident_row[0]) != tenant_id:
-            raise WebhookAssociationError(
-                "webhook incident is not authoritative for the case"
-            )
+            raise WebhookAssociationError("webhook incident is not authoritative for the case")
     return resolved_incident_id, resolved_case_id
 
 

@@ -11,6 +11,7 @@ from packages.contracts.intake import IncidentIntakeRequest, IncidentIntakeRespo
 from app.audit.chain import AuditChain
 from app.auth.oidc import RequiredRole, TenantAuthorizationContext, TenantAuthorizationError
 from app.cases.service import CaseService
+from app.config import get_settings
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.incident_events import build_incident_accepted_event
 from app.incidents.service import IncidentService
@@ -20,11 +21,16 @@ from app.intake.raw_report import (
     report_capture_payload,
     report_object_name,
 )
+from app.payload_limits import PayloadLimitError, utf8_size
 from app.storage.minio_evidence import checksum_for_bytes
 
 
 class IntakeServiceError(RuntimeError):
     """Raised when an authenticated intake command cannot be persisted safely."""
+
+
+class IntakePayloadTooLarge(IntakeServiceError):
+    """Raised before a report can reach PostgreSQL or immutable storage."""
 
 
 UnitOfWorkFactory = Callable[[TenantAuthorizationContext], PostgresUnitOfWork]
@@ -45,6 +51,7 @@ class IncidentIntakeService:
         *,
         unit_of_work_factory: UnitOfWorkFactory,
         raw_report_store: RawReportStore | None = None,
+        max_report_bytes: int | None = None,
         id_factory: IdFactory | None = None,
         producer: str = "intake-api@1.0.0",
     ) -> None:
@@ -52,6 +59,13 @@ class IncidentIntakeService:
             raise ValueError("producer is required")
         self.unit_of_work_factory = unit_of_work_factory
         self.raw_report_store = raw_report_store
+        self.max_report_bytes = (
+            get_settings().incident_report_max_bytes
+            if max_report_bytes is None
+            else max_report_bytes
+        )
+        if self.max_report_bytes < 1:
+            raise ValueError("incident report payload limit must be positive")
         self.id_factory = id_factory or (lambda prefix: f"{prefix}-{uuid4().hex}")
         self.producer = producer
         self.incidents = IncidentService(id_factory=self.id_factory)
@@ -66,6 +80,7 @@ class IncidentIntakeService:
         """Accept or duplicate-acknowledge an authenticated incident report."""
 
         _require_intake_authorization(request, authorization_context)
+        self._validate_report_size(request)
         with self.unit_of_work_factory(authorization_context) as unit_of_work:
             raw_input_reference = self._store_raw_report(
                 request,
@@ -131,6 +146,25 @@ class IncidentIntakeService:
             case_id=case_id,
             audit_reference=audit_record.audit_id,
         )
+
+    def _validate_report_size(self, request: IncidentIntakeRequest) -> None:
+        """Validate report text before opening a transaction or writing an object."""
+
+        try:
+            if request.report_content is not None:
+                utf8_size(
+                    request.report_content,
+                    label="incident report content",
+                    max_bytes=self.max_report_bytes,
+                )
+            if request.report_reference is not None:
+                utf8_size(
+                    request.report_reference,
+                    label="incident report reference",
+                    max_bytes=self.max_report_bytes,
+                )
+        except PayloadLimitError as exc:
+            raise IntakePayloadTooLarge("incident report exceeds configured size limit") from exc
 
     def _store_raw_report(
         self,

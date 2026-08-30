@@ -11,7 +11,11 @@ from app.auth.oidc import TenantAuthorizationContext, TenantAuthorizationError
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.timeline_events import build_evidence_collected_event
 from app.storage.minio_evidence import ObjectIntegrityError, checksum_for_bytes
-from connectors.evidence.base import EvidenceConnector, EvidenceConnectorError
+from connectors.evidence.base import (
+    EvidenceConnector,
+    EvidenceConnectorError,
+    EvidencePayloadLimitError,
+)
 from packages.contracts.connectors import (
     ConnectorFailureState,
     EvidenceRequest,
@@ -171,6 +175,8 @@ class EvidenceOrchestrator:
 
         try:
             result = connector.read(request, authorization_context=authorization_context)
+        except EvidencePayloadLimitError:
+            raise
         except EvidenceConnectorError as exc:
             return self._unavailable_item(
                 request,

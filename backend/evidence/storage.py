@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 from app.auth.oidc import TenantAuthorizationContext, TenantAuthorizationError
 from app.storage.minio_evidence import (
     ImmutableEvidenceStore,
+    ObjectAlreadyExists,
     ObjectIntegrityError,
+    ObjectPayloadLimitError,
     StoredObject,
 )
 
@@ -29,6 +31,9 @@ class InMemoryObjectStorage:
     """Object-storage-compatible deterministic double for unit and replay tests."""
 
     def __init__(self) -> None:
+        from threading import Lock
+
+        self._lock = Lock()
         self.objects: dict[str, tuple[bytes, str]] = {}
 
     def stat_object(self, bucket_name: str, object_name: str) -> Any:
@@ -48,19 +53,43 @@ class InMemoryObjectStorage:
         **kwargs: Any,
     ) -> None:
         del bucket_name
-        content = data.read()
-        if length != len(content):
-            raise ValueError("object length does not match content")
-        checksum = str((kwargs.get("metadata") or {}).get("x-amz-meta-sha256", ""))
-        if not checksum:
-            from app.storage.minio_evidence import checksum_for_bytes
+        with self._lock:
+            content = data.read()
+            if length != len(content):
+                raise ValueError("object length does not match content")
+            checksum = str((kwargs.get("metadata") or {}).get("x-amz-meta-sha256", ""))
+            if not checksum:
+                from app.storage.minio_evidence import checksum_for_bytes
 
-            checksum = checksum_for_bytes(content).removeprefix("sha256:")
-        self.objects[object_name] = (content, f"sha256:{checksum}")
+                checksum = checksum_for_bytes(content).removeprefix("sha256:")
+            self.objects[object_name] = (content, f"sha256:{checksum}")
+
+    def put_object_if_absent(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: BytesIO,
+        length: int,
+        **kwargs: Any,
+    ) -> None:
+        del bucket_name
+        with self._lock:
+            if object_name in self.objects:
+                raise ObjectAlreadyExists()
+            content = data.read()
+            if length != len(content):
+                raise ValueError("object length does not match content")
+            checksum = str((kwargs.get("metadata") or {}).get("x-amz-meta-sha256", ""))
+            if not checksum:
+                from app.storage.minio_evidence import checksum_for_bytes
+
+                checksum = checksum_for_bytes(content).removeprefix("sha256:")
+            self.objects[object_name] = (content, f"sha256:{checksum}")
 
     def get_object(self, bucket_name: str, object_name: str) -> Any:
         del bucket_name
-        content, checksum = self.objects[object_name]
+        with self._lock:
+            content, checksum = self.objects[object_name]
         return _ObjectResponse(content, checksum)
 
 
@@ -170,5 +199,6 @@ __all__ = [
     "EvidenceStorage",
     "InMemoryObjectStorage",
     "ObjectIntegrityError",
+    "ObjectPayloadLimitError",
     "RawEvidenceArtifact",
 ]

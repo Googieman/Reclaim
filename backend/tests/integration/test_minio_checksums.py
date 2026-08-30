@@ -6,6 +6,7 @@ from io import BytesIO
 import pytest
 from app.storage.minio_evidence import (
     ImmutableEvidenceStore,
+    ObjectAlreadyExists,
     ObjectIntegrityError,
     checksum_for_bytes,
 )
@@ -38,6 +39,9 @@ class Response:
 
 class FakeMinio:
     def __init__(self) -> None:
+        from threading import Lock
+
+        self._lock = Lock()
         self.objects: dict[str, bytes] = {}
 
     def stat_object(self, bucket_name: str, object_name: str) -> Stat:
@@ -53,10 +57,26 @@ class FakeMinio:
         length: int,
         **kwargs: object,
     ) -> None:
-        self.objects[object_name] = data.read()
+        with self._lock:
+            self.objects[object_name] = data.read()
+
+    def put_object_if_absent(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: BytesIO,
+        length: int,
+        **kwargs: object,
+    ) -> None:
+        del bucket_name, length, kwargs
+        with self._lock:
+            if object_name in self.objects:
+                raise ObjectAlreadyExists()
+            self.objects[object_name] = data.read()
 
     def get_object(self, bucket_name: str, object_name: str) -> Response:
-        return Response(self.objects[object_name])
+        with self._lock:
+            return Response(self.objects[object_name])
 
 
 def test_evidence_is_tenant_prefixed_immutable_and_verified() -> None:

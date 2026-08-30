@@ -4,6 +4,7 @@ from .allowlist import APPROVED_EVIDENCE_RESOURCES, validate_evidence_manifest
 from .base import (
     EvidenceConnector,
     EvidenceConnectorError,
+    EvidencePayloadLimitError,
     EvidenceReadResult,
     LiveEvidenceConnector,
     ReadOnlyEvidenceAdapter,
@@ -17,6 +18,7 @@ __all__ = [
     "EvidenceConnector",
     "EvidenceConnectorAdapter",
     "EvidenceConnectorError",
+    "EvidencePayloadLimitError",
     "EvidenceReadResult",
     "LiveEvidenceConnector",
     "ReadOnlyEvidenceAdapter",

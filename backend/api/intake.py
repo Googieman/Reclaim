@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.auth.oidc import OIDCVerifier, RequiredRole, TenantAuthorizationError
-from app.intake.service import IncidentIntakeService
+from app.config import get_settings
+from app.intake.service import IncidentIntakeService, IntakePayloadTooLarge
 from packages.contracts.intake import IncidentIntakeRequest, IncidentIntakeResponse
 
 
@@ -15,6 +17,7 @@ def create_intake_app(
     oidc_verifier: OIDCVerifier,
     evidence_orchestrator: Any | None = None,
     timeline_reconstructor: Any | None = None,
+    max_request_body_bytes: int | None = None,
 ) -> Any:
     """Build the intake API; later US1 stages are explicit, unused dependencies."""
 
@@ -26,6 +29,14 @@ def create_intake_app(
     app = FastAPI(title="RECLAIM Intake API")
     app.state.evidence_orchestrator = evidence_orchestrator
     app.state.timeline_reconstructor = timeline_reconstructor
+    app.add_middleware(
+        RequestBodySizeLimitMiddleware,
+        max_bytes=(
+            get_settings().raw_object_max_bytes
+            if max_request_body_bytes is None
+            else max_request_body_bytes
+        ),
+    )
     app.include_router(
         create_intake_router(
             intake_service=intake_service,
@@ -33,6 +44,66 @@ def create_intake_app(
         )
     )
     return app
+
+
+class RequestBodySizeLimitMiddleware:
+    """Reject an oversized HTTP body before FastAPI parses it."""
+
+    def __init__(self, app: Callable[..., Awaitable[None]], *, max_bytes: int) -> None:
+        if max_bytes < 1:
+            raise ValueError("request body payload limit must be positive")
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        content_length = _content_length(scope.get("headers", ()))
+        if content_length is not None and content_length > self.max_bytes:
+            await self._reject(scope, receive, send)
+            return
+
+        messages: list[dict[str, Any]] = []
+        total = 0
+        while True:
+            message = await receive()
+            messages.append(message)
+            if message.get("type") != "http.request":
+                break
+            total += len(message.get("body", b""))
+            if total > self.max_bytes:
+                await self._reject(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        async def replay_receive() -> dict[str, Any]:
+            return messages.pop(0)
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        from starlette.responses import JSONResponse
+
+        response = JSONResponse(
+            {"detail": "request body exceeds configured size limit"},
+            status_code=413,
+        )
+        await response(scope, receive, send)
+
+
+def _content_length(headers: Any) -> int | None:
+    for name, value in headers:
+        if name.lower() != b"content-length":
+            continue
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed >= 0 else None
+    return None
 
 
 def create_intake_router(
@@ -71,6 +142,11 @@ def create_intake_router(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="authenticated tenant or role is not authorized for intake",
+            ) from exc
+        except IntakePayloadTooLarge as exc:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="incident report exceeds configured size limit",
             ) from exc
 
     return router

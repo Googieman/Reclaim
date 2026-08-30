@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from app.storage.minio_evidence import (
     ImmutableEvidenceStore,
+    ObjectAlreadyExists,
     ObjectIntegrityError,
     checksum_for_bytes,
 )
@@ -73,6 +74,21 @@ class MemoryMinio:
         **kwargs: object,
     ) -> None:
         del bucket_name, kwargs
+        content = data.read()
+        assert length == len(content)
+        self.objects[object_name] = StoredMetadata(content, checksum_for_bytes(content))
+
+    def put_object_if_absent(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: BytesIO,
+        length: int,
+        **kwargs: object,
+    ) -> None:
+        del bucket_name, kwargs
+        if object_name in self.objects:
+            raise ObjectAlreadyExists()
         content = data.read()
         assert length == len(content)
         self.objects[object_name] = StoredMetadata(content, checksum_for_bytes(content))
@@ -147,7 +163,11 @@ def test_tampered_raw_bytes_fail_verification_against_original_metadata() -> Non
     client = MemoryMinio()
     store = ImmutableEvidenceStore(client)
     key = "tenants/tenant-a/case-1/raw/evidence.json"
-    store.put(tenant_id="tenant-a", object_name="case-1/raw/evidence.json", content=b"original")
+    store.put(
+        tenant_id="tenant-a",
+        object_name="case-1/raw/evidence.json",
+        content=b"original",
+    )
     client.objects[key].content = b"tampered"
 
     with pytest.raises(ObjectIntegrityError, match="stored evidence checksum mismatch"):
@@ -157,8 +177,12 @@ def test_tampered_raw_bytes_fail_verification_against_original_metadata() -> Non
 def test_raw_objects_are_separated_by_tenant_prefix() -> None:
     client = MemoryMinio()
     store = ImmutableEvidenceStore(client)
-    store.put(tenant_id="tenant-a", object_name="case-1/raw/evidence.json", content=b"a")
-    store.put(tenant_id="tenant-b", object_name="case-1/raw/evidence.json", content=b"b")
+    store.put(
+        tenant_id="tenant-a", object_name="case-1/raw/evidence.json", content=b"a"
+    )
+    store.put(
+        tenant_id="tenant-b", object_name="case-1/raw/evidence.json", content=b"b"
+    )
 
     assert set(client.objects) == {
         "tenants/tenant-a/case-1/raw/evidence.json",
@@ -195,7 +219,9 @@ def test_live_minio_fixture_checksum_round_trip_if_configured() -> None:
     raw = EVIDENCE_FIXTURE.read_bytes()
     object_name = f"t036-{os.getpid()}/session-observation.json"
     stored = store.put(tenant_id="tenant-a", object_name=object_name, content=raw)
-    verified, content = store.get_verified(tenant_id="tenant-a", object_name=object_name)
+    verified, content = store.get_verified(
+        tenant_id="tenant-a", object_name=object_name
+    )
 
     assert verified.checksum == stored.checksum
     assert content == raw

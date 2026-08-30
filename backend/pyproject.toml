@@ -39,9 +39,42 @@ dev = [
   "ruff==0.8.6",
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["app*", "api*"]
+[tool.setuptools]
+package-dir = {"" = ".", "packages" = "../packages"}
+include-package-data = false
+packages = [
+  "api",
+  "app",
+  "app.audit",
+  "app.auth",
+  "app.cases",
+  "app.contracts",
+  "app.control_plane",
+  "app.coordination",
+  "app.db",
+  "app.db.repositories",
+  "app.events",
+  "app.incidents",
+  "app.intake",
+  "app.observability",
+  "app.secrets",
+  "app.security",
+  "app.storage",
+  "connectors",
+  "connectors.evidence",
+  "connectors.razorpay",
+  "connectors.simulators",
+  "evidence",
+  "projections",
+  "timeline",
+  "workflows",
+  "workflows.activities",
+  "packages",
+  "packages.contracts",
+]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.py[cod]", "__pycache__/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["../tests", "tests"]

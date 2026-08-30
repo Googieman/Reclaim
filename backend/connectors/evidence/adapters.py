@@ -3,6 +3,7 @@
 from .base import (
     EvidenceConnector,
     EvidenceConnectorError,
+    EvidencePayloadLimitError,
     EvidenceReadResult,
     LiveEvidenceConnector,
     ReadOnlyEvidenceAdapter,
@@ -15,6 +16,7 @@ __all__ = [
     "EvidenceConnector",
     "EvidenceConnectorAdapter",
     "EvidenceConnectorError",
+    "EvidencePayloadLimitError",
     "EvidenceReadResult",
     "LiveEvidenceConnector",
     "ReadOnlyEvidenceAdapter",

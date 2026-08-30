@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     live_actions_enabled: bool = False
     live_financial_actions_enabled: bool = False
 
+    # Payload limits are byte limits at trust/storage boundaries.  Connector
+    # response limits remain declared by each ConnectorManifest; these values
+    # protect the shared intake and object-storage boundaries.
+    incident_report_max_bytes: int = Field(default=1_048_576, ge=1, le=16_777_216)
+    webhook_max_bytes: int = Field(default=1_048_576, ge=1, le=16_777_216)
+    raw_object_max_bytes: int = Field(default=16_777_216, ge=1, le=16_777_216)
+
     database_url: str = "postgresql://reclaim:reclaim@localhost:5432/reclaim"
     temporal_target: str = "localhost:7233"
     redpanda_brokers: str = "localhost:9092"

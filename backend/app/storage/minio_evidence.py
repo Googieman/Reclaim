@@ -8,10 +8,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from app.config import get_settings
+from app.payload_limits import PayloadLimitError, enforce_payload_limit
+
 
 class ObjectStorageClient(Protocol):
-    def stat_object(self, bucket_name: str, object_name: str) -> Any: ...
-
     def put_object(
         self,
         bucket_name: str,
@@ -26,6 +27,16 @@ class ObjectStorageClient(Protocol):
 
 class ObjectIntegrityError(ValueError):
     """Raised when an object is missing, mutable, or has a checksum mismatch."""
+
+
+class ObjectPayloadLimitError(ObjectIntegrityError):
+    """Raised before an oversized object can reach the object-storage client."""
+
+
+class ObjectAlreadyExists(Exception):
+    """Atomic-create conflict used by deterministic object-storage doubles."""
+
+    code = "PreconditionFailed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,11 +58,22 @@ class ImmutableEvidenceStore:
 
     _SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
 
-    def __init__(self, client: ObjectStorageClient, *, bucket: str = "reclaim-evidence") -> None:
+    def __init__(
+        self,
+        client: ObjectStorageClient,
+        *,
+        bucket: str = "reclaim-evidence",
+        max_payload_bytes: int | None = None,
+    ) -> None:
         if not self._SAFE_SEGMENT.fullmatch(bucket):
             raise ValueError("bucket name contains unsupported characters")
         self.client = client
         self.bucket = bucket
+        self.max_payload_bytes = (
+            get_settings().raw_object_max_bytes if max_payload_bytes is None else max_payload_bytes
+        )
+        if self.max_payload_bytes < 1:
+            raise ValueError("raw object payload limit must be positive")
 
     @classmethod
     def from_endpoint(
@@ -79,7 +101,16 @@ class ImmutableEvidenceStore:
         content_type: str = "application/octet-stream",
         expected_checksum: str | None = None,
     ) -> StoredObject:
-        self._ensure_bucket()
+        try:
+            enforce_payload_limit(
+                content,
+                max_bytes=self.max_payload_bytes,
+                label="raw evidence",
+            )
+        except PayloadLimitError as exc:
+            raise ObjectPayloadLimitError(
+                "raw evidence payload exceeds configured size limit"
+            ) from exc
         key = self._tenant_key(tenant_id, object_name)
         actual_checksum = checksum_for_bytes(content)
         if expected_checksum is not None and (
@@ -87,39 +118,110 @@ class ImmutableEvidenceStore:
         ):
             raise ObjectIntegrityError("evidence checksum does not match content")
 
+        self._ensure_bucket()
         try:
-            existing = self.client.stat_object(self.bucket, key)
-        except Exception as exc:
-            if not _is_missing_object(exc):
-                raise
-        else:
-            existing_checksum = _metadata_checksum(existing)
-            if existing_checksum != actual_checksum or int(existing.size) != len(content):
-                raise ObjectIntegrityError(
-                    "immutable evidence object already contains different content"
-                )
-            return StoredObject(
-                tenant_id=tenant_id,
-                bucket=self.bucket,
-                object_name=key,
+            created = self._atomic_create(
+                key=key,
+                content=content,
+                content_type=content_type,
                 checksum=actual_checksum,
-                size=len(content),
+            )
+        except Exception as exc:
+            if not _is_atomic_conflict(exc):
+                raise
+            created = False
+
+        # A failed conditional create means a concurrent or previous writer
+        # owns the key.  Read and hash the stored bytes before accepting an
+        # identical duplicate; a different value fails closed.
+        if not created:
+            return self._verified_existing(
+                tenant_id=tenant_id,
+                key=key,
+                content=content,
+                checksum=actual_checksum,
                 content_type=content_type,
             )
 
-        self.client.put_object(
-            self.bucket,
-            key,
-            io.BytesIO(content),
-            len(content),
+        return self._verified_existing(
+            tenant_id=tenant_id,
+            key=key,
+            content=content,
+            checksum=actual_checksum,
             content_type=content_type,
-            metadata={"x-amz-meta-sha256": actual_checksum.removeprefix("sha256:")},
         )
+
+    def _atomic_create(
+        self,
+        *,
+        key: str,
+        content: bytes,
+        content_type: str,
+        checksum: str,
+    ) -> bool:
+        """Create exactly once using the client atomic-create capability."""
+
+        atomic_create = getattr(self.client, "put_object_if_absent", None)
+        if callable(atomic_create):
+            result = atomic_create(
+                self.bucket,
+                key,
+                io.BytesIO(content),
+                len(content),
+                content_type=content_type,
+                metadata={"x-amz-meta-sha256": checksum.removeprefix("sha256:")},
+            )
+            return result is not False
+
+        # MinIO's Python SDK exposes the signed request executor but not an
+        # If-None-Match option on put_object.  The S3 conditional PUT is the
+        # server-side atomic operation; never fall back to stat-then-put.
+        execute = getattr(self.client, "_execute", None)
+        if callable(execute):
+            response = execute(
+                "PUT",
+                bucket_name=self.bucket,
+                object_name=key,
+                body=content,
+                headers={
+                    "Content-Type": content_type,
+                    "If-None-Match": "*",
+                    "X-Amz-Meta-Sha256": checksum.removeprefix("sha256:"),
+                },
+                no_body_trace=True,
+            )
+            _release_response(response)
+            return True
+
+        raise ObjectIntegrityError("object storage client lacks atomic immutable-create support")
+
+    def _verified_existing(
+        self,
+        *,
+        tenant_id: str,
+        key: str,
+        content: bytes,
+        checksum: str,
+        content_type: str,
+    ) -> StoredObject:
+        try:
+            stored, existing_content = self.get_verified(
+                tenant_id=tenant_id,
+                object_name=key.removeprefix(f"tenants/{tenant_id}/"),
+            )
+        except Exception as exc:
+            raise ObjectIntegrityError(
+                "immutable evidence object could not be verified after atomic create"
+            ) from exc
+        if existing_content != content or stored.checksum != checksum:
+            raise ObjectIntegrityError(
+                "immutable evidence object already contains different content"
+            )
         return StoredObject(
             tenant_id,
             self.bucket,
             key,
-            actual_checksum,
+            checksum,
             len(content),
             content_type,
         )
@@ -187,6 +289,17 @@ def _metadata_checksum(metadata: Any) -> str:
     raise ObjectIntegrityError("stored evidence object has no checksum metadata")
 
 
-def _is_missing_object(error: Exception) -> bool:
-    code = getattr(error, "code", None)
-    return code in {"NoSuchKey", "NoSuchBucket", "NotFound", "NoSuchObject"}
+def _is_atomic_conflict(error: Exception) -> bool:
+    return getattr(error, "code", None) in {
+        "PreconditionFailed",
+        "ConditionalRequestConflict",
+    } or getattr(error, "status", None) in {409, 412}
+
+
+def _release_response(response: Any) -> None:
+    close = getattr(response, "close", None)
+    if close is not None:
+        close()
+    release = getattr(response, "release_conn", None)
+    if release is not None:
+        release()

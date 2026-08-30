@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from app.auth.oidc import TenantAuthorizationContext
+from app.config import get_settings
 from app.secrets.vault import VaultSecretStore, vault_webhook_secret_path
 from packages.contracts.intake import IntakeStatus, RazorpayWebhookRequest
 
@@ -44,6 +45,7 @@ class WebhookVerification:
     event_type: str | None = None
     event_timestamp: datetime | None = None
     reason: str | None = None
+    payload_size_exceeded: bool = False
 
     def __post_init__(self) -> None:
         if self.status in {IntakeStatus.ACCEPTED, IntakeStatus.DUPLICATE}:
@@ -95,6 +97,7 @@ class RazorpayWebhookVerifier:
         secret_resolver: SecretResolver,
         secret_reference: str | None = None,
         signature_encoding: str = "hex",
+        max_payload_bytes: int | None = None,
     ) -> None:
         if not configured_tenant_id.strip() or not connector_id.strip():
             raise WebhookVerificationError("configured tenant and connector are required")
@@ -104,6 +107,11 @@ class RazorpayWebhookVerifier:
             )
         self.configured_tenant_id = configured_tenant_id
         self.connector_id = connector_id
+        self.max_payload_bytes = (
+            get_settings().webhook_max_bytes if max_payload_bytes is None else max_payload_bytes
+        )
+        if self.max_payload_bytes < 1:
+            raise WebhookVerificationError("webhook payload limit must be positive")
         self.secret_reference = secret_reference or vault_webhook_secret_path(
             configured_tenant_id, connector_id
         )
@@ -130,6 +138,12 @@ class RazorpayWebhookVerifier:
             return self._quarantine(request, "tenant does not match configured connector")
         if request.connector_id != self.connector_id:
             return self._quarantine(request, "connector does not match configured connector")
+        if len(request.original_payload) > self.max_payload_bytes:
+            return self._quarantine(
+                request,
+                "webhook payload exceeds configured size limit",
+                payload_size_exceeded=True,
+            )
 
         actual_checksum = _payload_checksum(request.original_payload)
         if _normalize_checksum(request.payload_checksum) != actual_checksum:
@@ -188,12 +202,13 @@ class RazorpayWebhookVerifier:
         """Build a strict request from HTTP metadata and run the same verifier."""
 
         body: dict[str, Any] = {}
-        try:
-            parsed = json.loads(original_payload)
-            if isinstance(parsed, dict):
-                body = parsed
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            pass
+        if len(original_payload) <= self.max_payload_bytes:
+            try:
+                parsed = json.loads(original_payload)
+                if isinstance(parsed, dict):
+                    body = parsed
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                pass
         provider_event_id = _header(headers, DEFAULT_PROVIDER_EVENT_ID_HEADER) or _optional_text(
             body.get("id") or body.get("event_id")
         )
@@ -236,7 +251,13 @@ class RazorpayWebhookVerifier:
             raise WebhookVerificationError("webhook secret resolver returned invalid material")
         return values
 
-    def _quarantine(self, request: RazorpayWebhookRequest, reason: str) -> WebhookVerification:
+    def _quarantine(
+        self,
+        request: RazorpayWebhookRequest,
+        reason: str,
+        *,
+        payload_size_exceeded: bool = False,
+    ) -> WebhookVerification:
         return WebhookVerification(
             tenant_id=self.configured_tenant_id,
             correlation_id=request.correlation_id,
@@ -248,6 +269,7 @@ class RazorpayWebhookVerifier:
             event_type=request.event_type,
             event_timestamp=request.event_timestamp,
             reason=reason,
+            payload_size_exceeded=payload_size_exceeded,
         )
 
 

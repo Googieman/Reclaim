@@ -27,6 +27,10 @@ class EvidenceConnectorError(RuntimeError):
         self.failure_state = failure_state
 
 
+class EvidencePayloadLimitError(EvidenceConnectorError):
+    """Raised before an oversized connector response can reach storage."""
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceReadResult:
     """A contract response plus the immutable bytes obtained from the connector."""
@@ -136,6 +140,12 @@ class ReadOnlyEvidenceAdapter:
         else:
             raise EvidenceConnectorError(
                 "connector returned an invalid evidence response",
+                failure_state=ConnectorFailureState.INVALID,
+            )
+
+        if len(read_result.raw_payload) > self._manifest.limits.max_payload_bytes:
+            raise EvidencePayloadLimitError(
+                "connector response exceeds declared payload limit",
                 failure_state=ConnectorFailureState.INVALID,
             )
 

@@ -15,8 +15,10 @@ setup, the T009-T017 shared-contract boundary, the T018-T023 authoritative-state
 event-delivery batch, and T024-T035 runtime/security boundaries are complete. The
 post-T035 foundation security remediation for tenant-bound OIDC roles is complete, and
 the T036-T042 US1 contract/property/integration/security test batch is complete. No
-US1 runtime intake, connector, or timeline implementation is claimed complete; T044+
-remain not started.
+US1 evidence or timeline implementation is claimed complete. The T043 canonical
+acceptance target is present but intentionally red because its required evidence runtime
+is not implemented. The first coherent US1 implementation batch completed T044 and T047
+locally; Razorpay, evidence, timeline, and workflow runtime tasks remain pending.
 
 ## Governance approvals
 
@@ -44,14 +46,17 @@ remain not started.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup and T009-T035 foundation complete | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, and security boundaries are present |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, and T044/T047 intake batch present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, and authoritative incident/case creation are present; evidence/timeline runtime remains pending |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T042 validation complete; evaluation not started | 128 tests pass and 12 live-service tests skip without configured services; no held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T042 validation complete; T043 target added; evaluation not started | Baseline was 128 passed and 12 skipped. The T044/T047 focused service batch is 5 passed and 1 live skip; the full suite now has an expected T043 collection error until evidence runtime exists. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current default suite is `128 passed, 12 skipped in 0.70s`; the focused
-  T036-T042 suite is `62 passed, 2 skipped in 0.28s`. Skips require live PostgreSQL,
+- Tests: the pre-T043 default suite was `128 passed, 12 skipped in 0.70s`; the focused
+  T036-T042 suite is `62 passed, 2 skipped in 0.28s`. The latest T044/T047 focused
+  service suite is `5 passed, 1 skipped` (live PostgreSQL unavailable), and the
+  canonical T043 suite fails during collection because `app.evidence.orchestrator`
+  is not implemented yet. Skips require live PostgreSQL,
   Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. A
   previous all-service foundation result of `70 passed in 14.68s` remains historical
   evidence. No benchmark or production fraud metric is claimed.
@@ -62,9 +67,9 @@ remain not started.
 - Python: `.venv` Python 3.12.13; targeted backend/application/projection/workflow/test
   `compileall` passed. Targeted T024-T035 Ruff using available Ruff 0.16.2 passed.
 - Repository-wide Ruff using Ruff 0.16.2 reports the same 39 existing issues in
-  Spec Kit tooling, provenance/audit, and repository foundation files; none are in the
-  T036-T042 files or the hardened Redpanda path. The findings touching future US1
-  repository paths remain in their owning implementation scope.
+  Spec Kit tooling, provenance/audit, and repository foundation files; the touched
+  T043/T044/T047 Python paths pass Ruff and formatting checks. Existing findings remain
+  in their owning implementation scope.
 - Backend mypy/pyright: no type-check executable is installed in this environment; no
   type-check pass is claimed.
 - Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
@@ -78,9 +83,12 @@ remain not started.
 - CI/CD: not configured.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Git: repository is on `main`; the tenant-role remediation is committed separately and
-  the T036-T042 batch is the current implementation commit. The pre-existing untracked
-  `security-audits/` artifacts remain preserved.
+- Current local service check: the Docker CLI is not available on PATH, FastAPI is not
+  installed in the active `.venv`, and no `RECLAIM_DATABASE_URL` is configured; no live
+  T044 API or PostgreSQL intake validation is claimed.
+- Git: repository is on `main`; the tenant-role remediation and T036-T042 batch remain
+  committed separately, while the T043/T044/T047 work is currently in the working tree.
+  The pre-existing untracked `security-audits/` artifacts remain preserved.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
 
@@ -125,10 +133,14 @@ production performance, fraud, or containment metric is claimed.
 - Full Compose, operational observability services, frontend workflow, model gateway,
   Razorpay Test Mode, and benchmark/evaluation execution remain later tasks and were
   intentionally not started.
-- T044+ US1 implementation remains not started. The T036-T042 test batch is complete;
-  its live MinIO and Redpanda checks were skipped because no endpoints/credentials were
-  configured. No event consumer was introduced. The existing Redpanda transport wiring
-  now requires an authenticated single-tenant service context and validates event
+- T044 and T047 are the first implementation batch: authenticated intake, authoritative
+  incident/case creation, duplicate identity handling, intake audit, and the
+  `incident.accepted` transactional outbox hand-off are present. The API test is skipped
+  because FastAPI is declared but not installed in the active virtual environment; the
+  live PostgreSQL intake test is skipped because `RECLAIM_DATABASE_URL` is absent. No
+  Razorpay handler, evidence connector/orchestrator, timeline runtime, Temporal intake
+  activity, or event consumer was introduced. The existing Redpanda transport wiring
+  still requires an authenticated single-tenant service context and validates event
   tenant binding before obtaining a tenant-scoped UoW.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
@@ -136,7 +148,7 @@ production performance, fraud, or containment metric is claimed.
 - No external credentials are required for the completed local foundation tests; live
   provider/model behavior remains unavailable until explicitly configured.
 
-## Next milestone: Phase 3 User Story 1 implementation (T044 onward; not started)
+## Next milestone: Phase 3 User Story 1 implementation (T045/T046/T048 onward)
 
 Readiness evidence:
 
@@ -163,4 +175,5 @@ Current artifacts: the approved/generated FS-001 specification and planning pack
 under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
 requirements. T036-T042 are complete with local contract/property/integration/security
-evidence; T043 and T044 onward are not started in this batch.
+evidence; T043 is an unchecked executable target; T044 and T047 are complete from the
+first implementation batch; T045, T046, T048, T049, and later US1 tasks remain pending.

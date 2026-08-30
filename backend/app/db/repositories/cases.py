@@ -41,6 +41,19 @@ class CaseRepository(TenantScopedRepository):
             raise RuntimeError("case insert returned no row")
         return row
 
+    def find_by_incident_id(self, *, incident_id: str) -> object | None:
+        if not incident_id.strip():
+            raise ValueError("incident_id is required")
+        return self.fetch_one(
+            """
+            SELECT tenant_id, case_id, incident_id, current_state, workflow_id,
+                   created_at, updated_at, terminal_at
+            FROM cases
+            WHERE tenant_id = %s AND incident_id = %s
+            """,
+            (self.tenant_context.tenant_id, incident_id),
+        )
+
     def get(self, *, case_id: str) -> object | None:
         return self.fetch_one(
             """

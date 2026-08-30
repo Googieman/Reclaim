@@ -100,15 +100,15 @@ description: "Dependency-ordered implementation tasks for FS-001"
 - [X] T040 [P] [US1] Add raw-object checksum and normalized-provenance integration tests in `tests/integration/test_evidence_provenance.py` using `tests/fixtures/evidence/` and `infra/minio/`.
 - [X] T041 [P] [US1] Add deterministic timestamp-precedence, UTC normalization, stable tie-breaking, deduplication, and conflicting-source tests in `tests/unit/test_timeline_reconstruction.py`.
 - [X] T042 [P] [US1] Add intake security tests in `tests/security/test_intake_boundaries.py` for cross-tenant webhook isolation, untrusted report instructions, oversized/schema-invalid payloads, and absence of direct remote mutation.
-- [ ] T043 [US1] Add the canonical US1 acceptance test in `tests/acceptance/test_intake_to_timeline.py`, asserting the independent-test criteria and explicit success/failure/quarantine outcomes for every stage.
+- [X] T043 [US1] Add the canonical US1 acceptance test in `tests/acceptance/test_intake_to_timeline.py`, asserting the independent-test criteria and explicit success/failure/quarantine outcomes for every stage.
 
 <!--
-Validation note (2026-08-30): the canonical acceptance target is present but
-intentionally remains unchecked. It now collects and executes; the current run
-reaches an assertion because the T052 evidence orchestrator and T055 timeline
-runtime are not implemented, while live PostgreSQL scenarios remain skipped
-without `RECLAIM_DATABASE_URL`. This is the executable target for the remaining
-US1 implementation tasks. T044 and T047 were completed in the first coherent
+Validation note (2026-08-30): the canonical acceptance target is complete after
+a live run against fresh PostgreSQL and MinIO services; all four scenarios
+passed, including the evidence-orchestrator/runtime behavior. Without live
+database variables, the two database-backed scenarios skip while the two
+runtime/checksum scenarios pass. T044–T055 are complete; live service checks
+remain environment-qualified and simulator output is not production evidence.
 implementation batch below; their live checks remain environment-qualified in
 PROJECT_STATUS.md. T045, T046, T048, and T049 were completed in the second
 dependency-safe batch below; live provider and service checks remain
@@ -126,12 +126,12 @@ environment-qualified in PROJECT_STATUS.md.
 
 ### Evidence connectors, MinIO, Redpanda, and timeline
 
-- [ ] T050 [US1] Implement versioned read-only evidence connector adapters and allowlist checks in `backend/connectors/evidence/` for sessions, devices, profile changes, orders, fulfillment, and payments, with no attacker-facing or arbitrary-network operation.
-- [ ] T051 [P] [US1] Implement deterministic evidence simulators using the same manifests and schemas in `backend/connectors/simulators/evidence.py` and `tests/fixtures/evidence/variants/`; fixtures must cover valid, partial, stale, duplicate, out-of-order, timeout, and unavailable outcomes.
-- [ ] T052 [US1] Implement the evidence collection orchestrator and Temporal activities in `backend/evidence/orchestrator.py` and `backend/workflows/activities/evidence.py`; record unavailable and partial sources rather than inventing facts.
-- [ ] T053 [US1] Persist immutable raw evidence/artifacts through MinIO and normalized evidence metadata through PostgreSQL in `backend/evidence/storage.py`, `backend/app/storage/minio_evidence.py`, and `backend/app/db/repositories/evidence.py`, including checksum, source, observed/received times, completeness, integrity, and untrusted classification.
-- [ ] T054 [US1] Implement evidence normalization and source-reference preservation in `backend/evidence/normalization.py` and `backend/tests/unit/test_evidence_normalization.py`; original timestamps and provider identifiers remain available for audit.
-- [ ] T055 [US1] Implement deterministic deduplication, UTC timestamp precedence, stable tie-breaking, and timeline state transitions in `backend/timeline/reconstruct.py`, `backend/timeline/models.py`, and `backend/app/db/repositories/timeline.py`.
+- [X] T050 [US1] Implement versioned read-only evidence connector adapters and allowlist checks in `backend/connectors/evidence/` for sessions, devices, profile changes, orders, fulfillment, and payments, with no attacker-facing or arbitrary-network operation.
+- [X] T051 [P] [US1] Implement deterministic evidence simulators using the same manifests and schemas in `backend/connectors/simulators/evidence.py` and `tests/fixtures/evidence/variants/`; fixtures must cover valid, partial, stale, duplicate, out-of-order, timeout, and unavailable outcomes.
+- [X] T052 [US1] Implement the evidence collection orchestrator and Temporal activities in `backend/evidence/orchestrator.py` and `backend/workflows/activities/evidence.py`; record unavailable and partial sources rather than inventing facts.
+- [X] T053 [US1] Persist immutable raw evidence/artifacts through MinIO and normalized evidence metadata through PostgreSQL in `backend/evidence/storage.py`, `backend/app/storage/minio_evidence.py`, and `backend/app/db/repositories/evidence.py`, including checksum, source, observed/received times, completeness, integrity, and untrusted classification.
+- [X] T054 [US1] Implement evidence normalization and source-reference preservation in `backend/evidence/normalization.py` and `backend/tests/unit/test_evidence_normalization.py`; original timestamps and provider identifiers remain available for audit.
+- [X] T055 [US1] Implement deterministic deduplication, UTC timestamp precedence, stable tie-breaking, and timeline state transitions in `backend/timeline/reconstruct.py`, `backend/timeline/models.py`, and `backend/app/db/repositories/timeline.py`.
 - [ ] T056 [US1] Emit `incident.accepted`, `webhook.quarantined`, `evidence.collected`, and `timeline.rebuilt` through PostgreSQL outbox and Redpanda consumers in `backend/app/events/incident_events.py` and `backend/app/events/timeline_events.py`.
 - [ ] T057 [US1] Implement the Neo4j case/evidence/timeline projection consumer and replayable projection checkpoint in `backend/projections/neo4j_case_projection.py` and `tests/integration/test_neo4j_case_projection.py`; projection delay/loss must not change authoritative results.
 - [ ] T058 [US1] Run the US1 vertical-slice gate in `tests/integration/test_us1_vertical_slice.py` and write expected reviewer evidence to `docs/validation/us1-intake-timeline.md` without presenting simulator output as live production evidence.

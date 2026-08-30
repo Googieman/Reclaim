@@ -14,12 +14,11 @@ Application implementation has completed Phase 2 Foundation through T035: Phase 
 setup, the T009-T017 shared-contract boundary, the T018-T023 authoritative-state/audit/
 event-delivery batch, and T024-T035 runtime/security boundaries are complete. The
 post-T035 foundation security remediation for tenant-bound OIDC roles is complete, and
-the T036-T042 US1 contract/property/integration/security test batch is complete. No
-US1 evidence or timeline implementation is claimed complete. The T043 canonical
-acceptance target now collects and executes but is intentionally red because its required
-evidence and timeline runtime are not implemented. The first two coherent US1
-implementation batches completed T044-T049 locally; evidence and timeline runtime tasks
-remain pending.
+the T036-T042 US1 contract/property/integration/security test batch is complete. The
+T043 canonical acceptance target is now complete: all four acceptance scenarios passed
+against fresh live PostgreSQL and MinIO services after the T050-T055 implementation
+batch. T044-T055 are complete locally, with live validation recorded below; later event
+consumer, projection, and full vertical-slice gate tasks remain pending.
 
 ## Governance approvals
 
@@ -47,19 +46,17 @@ remain pending.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, and T044-T049 intake batch present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, and tenant-bound case workflow commands are present; evidence/timeline runtime remains pending |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, and T044-T055 US1 intake/evidence/timeline batch present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, tenant-bound case workflow commands, versioned evidence connectors/simulators, MinIO/PG evidence persistence, normalization, and deterministic timeline reconstruction are present; later event consumers/projections remain pending |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T049 validation complete; T043 executable target remains intentionally red; evaluation not started | The post-batch focused implementation suite is 44 passed and 1 skipped. T043 remains 1 failed assertion, 1 passed, and 2 skips because the evidence/timeline runtime and live database are unavailable. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T055 validation complete; evaluation not started | The final default suite is 192 passed and 15 skipped. The live T043 acceptance run is 4 passed; the focused T050-T055 suite is 50 passed and 2 skipped, and the combined live acceptance/provenance/MinIO run is 12 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the pre-T043 default suite was `128 passed, 12 skipped in 0.70s`; the focused
-  T036-T042 suite is `62 passed, 2 skipped in 0.28s`. The latest T045/T046/T048/T049
-  focused batch is `44 passed, 1 skipped` (the live Vault check is unavailable). The
-  canonical T043 suite remains `1 failed, 1 passed, 2 skipped`: it fails at an assertion
-  that the pending evidence runtime is available, not during collection. The post-batch
-  full suite is `163 passed, 15 skipped, 1 failed`, with that same intentional T043
-  failure. Skips require live PostgreSQL,
+- Tests: the pre-implementation T043 baseline was `1 failed, 1 passed, 2 skipped`, with
+  the failure specifically at the missing evidence-orchestrator/runtime assertion. The
+  final no-service default suite is `192 passed, 15 skipped`; the focused T050-T055
+  suite is `50 passed, 2 skipped`; and the live combined acceptance/provenance/MinIO
+  suite is `12 passed`, including a clean live T043 result of `4 passed`. Skips require live PostgreSQL,
   Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. A
   previous all-service foundation result of `70 passed in 14.68s` remains historical
   evidence. No benchmark or production fraud metric is claimed.
@@ -71,7 +68,7 @@ remain pending.
   `compileall` passed. Ruff 0.8.6 passed on all touched Python paths, including formatting.
 - Repository-wide Ruff using Ruff 0.16.2 reports the same 39 existing issues in
   Spec Kit tooling, provenance/audit, and repository foundation files; the touched
-  T043-T049 Python paths pass Ruff and formatting checks. Existing findings remain
+  T043-T055 Python paths pass Ruff and formatting checks. Existing findings remain
   in their owning implementation scope.
 - Backend mypy/pyright: no type-check executable is installed in this environment; no
   type-check pass is claimed.
@@ -86,14 +83,13 @@ remain pending.
 - CI/CD: not configured.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Current local service check: the Docker CLI is not available on PATH, FastAPI 0.115.6
-  and httpx 0.27.2 are installed in `.venv` through the backend dependency definition,
-  and no `RECLAIM_DATABASE_URL` is configured; no live PostgreSQL intake validation is
-  claimed. The test extra uses httpx 0.27.2 because declared litellm 1.55.8 requires
-  httpx below 0.28.
-- Git: repository is on `main`; the tenant-role remediation and T036-T042 batch remain
-  committed separately, while the T045-T049 implementation and status updates are being
-  committed as the second intake batch.
+- Current local service check: Docker Desktop was available through its installed
+  executable for this validation run, but no persistent `RECLAIM_*` service configuration
+  is present in the default shell. FastAPI 0.115.6 and httpx 0.27.2 are installed in
+  `.venv` through the backend dependency definition. The test extra uses httpx 0.27.2
+  because declared litellm 1.55.8 requires httpx below 0.28.
+- Git: repository is on `main`; the tenant-role remediation, T036-T042 batch, T044-T049
+  intake batch, and this T050-T055 evidence/timeline batch are committed separately.
   The pre-existing untracked `security-audits/` artifacts remain preserved.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
@@ -121,6 +117,14 @@ remain pending.
   with service-specific memory caps rather than starting the full future topology. The
   full Compose topology, observability servers, model providers, Razorpay, and financial
   action systems were not started.
+- For T050-T055, fresh temporary PostgreSQL and MinIO services were started with the
+  backend migrations and tenant seeds. The live T043 acceptance run passed `4/4`; a
+  database query confirmed six tenant-a evidence rows with six raw references and six
+  untrusted items, plus six tenant-a timeline rows and six unique dedupe keys. Live MinIO
+  checksum/integrity coverage passed `8/8`. A Temporal client connected successfully to
+  `localhost:7233`; the existing Temporal worker integration could not construct its
+  sandbox in this environment because the installed cryptography binding raised an
+  internal import error, so no worker-integration pass is claimed for this batch.
 
 ## Architecture and safety
 
@@ -145,18 +149,20 @@ production performance, fraud, or containment metric is claimed.
 - T044-T049 are the completed intake batch: authenticated intake, authoritative
   incident/case creation, Razorpay Test Mode verification/configuration, webhook
   idempotency/quarantine/raw-object references/audit, and tenant-bound Temporal case
-  workflow commands and intake activities are present. The focused local batch passes;
-  live PostgreSQL, provider, and service checks remain environment-qualified. No
-  evidence connector/orchestrator, timeline runtime, or event consumer was introduced.
+  workflow commands and intake activities are present. T050-T055 now add the evidence
+  connector/simulator, collection, persistence, normalization, and timeline runtime;
+  no event consumer or projection was introduced.
   The existing Redpanda transport wiring still requires an authenticated single-tenant
   service context and validates event tenant binding before obtaining a tenant-scoped UoW.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
-- No external credentials are required for the completed local foundation tests; live
-  provider/model behavior remains unavailable until explicitly configured.
+- No external credentials are required for the completed local evidence tests; live
+  provider/model behavior remains unavailable until explicitly configured. The remaining
+  T050-T055 environment limitation is the Temporal worker sandbox cryptography import
+  error described above, not an evidence/runtime acceptance failure.
 
-## Next milestone: Phase 3 User Story 1 evidence and timeline implementation (T050-T055)
+## Next milestone: Phase 3 User Story 1 event delivery and projection (T056-T058)
 
 Readiness evidence:
 
@@ -183,5 +189,5 @@ Current artifacts: the approved/generated FS-001 specification and planning pack
 under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
 requirements. T036-T042 are complete with local contract/property/integration/security
-evidence; T043 is an unchecked executable target; T044-T049 are complete with local
-focused validation; T050 onward remain pending.
+  evidence; T043 and T044-T055 are complete with local and environment-qualified live
+  validation; T056-T058 are the next dependency-safe queue.

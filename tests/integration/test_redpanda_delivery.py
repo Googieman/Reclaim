@@ -17,7 +17,7 @@ from app.events.redpanda import (
     serialize_event,
 )
 
-from backend.tests.integration.support import make_event
+from backend.tests.integration.support import make_authorization_context, make_event
 
 
 class FakeProducer:
@@ -125,8 +125,8 @@ async def test_outbox_publisher_marks_only_broker_acknowledged_rows() -> None:
     publisher = RedpandaOutboxPublisher(producer)
 
     result = await publisher.publish_pending(
-        unit_of_work_factory=lambda tenant_id: FakeUnitOfWork(outbox=outbox),
-        tenant_id="tenant-a",
+        unit_of_work_factory=lambda _context: FakeUnitOfWork(outbox=outbox),
+        authorization_context=make_authorization_context(),
     )
 
     assert len(result) == 1
@@ -147,15 +147,25 @@ async def test_inbox_dispatcher_handles_duplicate_and_out_of_order_messages_once
 
     newer = make_event(event_id="event-newer")
     older = make_event(event_id="event-older")
-    factory = lambda tenant_id: FakeUnitOfWork(inbox=inbox)
+    factory = lambda _context: FakeUnitOfWork(inbox=inbox)
+    authorization_context = make_authorization_context()
     await dispatcher.dispatch(
-        serialize_event(newer), unit_of_work_factory=factory, handler=handler
+        serialize_event(newer),
+        unit_of_work_factory=factory,
+        authorization_context=authorization_context,
+        handler=handler,
     )
     await dispatcher.dispatch(
-        serialize_event(older), unit_of_work_factory=factory, handler=handler
+        serialize_event(older),
+        unit_of_work_factory=factory,
+        authorization_context=authorization_context,
+        handler=handler,
     )
     duplicate = await dispatcher.dispatch(
-        serialize_event(newer), unit_of_work_factory=factory, handler=handler
+        serialize_event(newer),
+        unit_of_work_factory=factory,
+        authorization_context=authorization_context,
+        handler=handler,
     )
 
     assert handled == ["event-newer", "event-older"]

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "evidence-session-observation-001",
+  "seed": "us1-evidence-development-001",
+  "mode": "replay",
+  "provenance": {
+    "source": "development-fixture",
+    "version": "2026-08-30"
+  },
+  "tenant_id": "tenant-a",
+  "case_id": "case-1",
+  "correlation_id": "corr-evidence-1",
+  "resource_type": "sessions",
+  "observed_at": "2026-08-30T09:00:00Z",
+  "collected_at": "2026-08-30T09:01:00Z",
+  "normalized_facts": [
+    {
+      "source_event_id": "session-event-1",
+      "session_id": "session-1",
+      "state": "opened"
+    }
+  ]
+}

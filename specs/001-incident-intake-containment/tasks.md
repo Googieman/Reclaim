@@ -81,7 +81,7 @@ description: "Dependency-ordered implementation tasks for FS-001"
 ### Post-T035 Foundation Security Remediation
 
 - [X] SR-001 Remediate tenant-role binding so verified OIDC authorization binds subject, tenant membership, and roles; derive the PostgreSQL UoW/repository tenant context only from the authenticated single-tenant context; add adversarial cross-tenant authorization coverage. Validated with focused authorization/UoW tests and the default full Python suite on 2026-08-30. No contract or ADR was changed.
-- [ ] T036 remains blocked and not started until the foundation security remediation is accepted for the next milestone.
+- T036–T042 are unblocked by the accepted SR-001 remediation; the current US1 test batch is marked complete below.
 
 ---
 
@@ -93,13 +93,13 @@ description: "Dependency-ordered implementation tasks for FS-001"
 
 ### Tests for User Story 1
 
-- [ ] T036 [P] [US1] Add incident intake contract and API validation tests in `tests/contract/test_incident_intake.py` for tenant identity, source, receipt time, reporter context, stable correlation identity, duplicate acknowledgement, rejection, and quarantine.
-- [ ] T037 [P] [US1] Add Razorpay Test Mode original-payload authenticity, required-provider-event-ID, checksum, tenant mismatch, invalid signature, incomplete payload, and duplicate-delivery tests in `tests/contract/test_razorpay_webhook.py`.
-- [ ] T038 [P] [US1] Add property tests for duplicate and out-of-order convergence in `tests/property/test_timeline_convergence.py`; repeated runs must yield identical business facts, timeline ordering, and no duplicate financial/action facts.
-- [ ] T039 [P] [US1] Add evidence connector and deterministic simulator contract tests in `tests/contract/test_evidence_connectors.py` for sessions, devices, profile changes, orders, fulfillment, and payments plus partial, stale, unavailable, duplicate, out-of-order, timeout, and invalid states.
-- [ ] T040 [P] [US1] Add raw-object checksum and normalized-provenance integration tests in `tests/integration/test_evidence_provenance.py` using `tests/fixtures/evidence/` and `infra/minio/`.
-- [ ] T041 [P] [US1] Add deterministic timestamp-precedence, UTC normalization, stable tie-breaking, deduplication, and conflicting-source tests in `tests/unit/test_timeline_reconstruction.py`.
-- [ ] T042 [P] [US1] Add intake security tests in `tests/security/test_intake_boundaries.py` for cross-tenant webhook isolation, untrusted report instructions, oversized/schema-invalid payloads, and absence of direct remote mutation.
+- [X] T036 [P] [US1] Add incident intake contract and API validation tests in `tests/contract/test_incident_intake.py` for tenant identity, source, receipt time, reporter context, stable correlation identity, duplicate acknowledgement, rejection, and quarantine.
+- [X] T037 [P] [US1] Add Razorpay Test Mode original-payload authenticity, required-provider-event-ID, checksum, tenant mismatch, invalid signature, incomplete payload, and duplicate-delivery tests in `tests/contract/test_razorpay_webhook.py`.
+- [X] T038 [P] [US1] Add property tests for duplicate and out-of-order convergence in `tests/property/test_timeline_convergence.py`; repeated runs must yield identical business facts, timeline ordering, and no duplicate financial/action facts.
+- [X] T039 [P] [US1] Add evidence connector and deterministic simulator contract tests in `tests/contract/test_evidence_connectors.py` for sessions, devices, profile changes, orders, fulfillment, and payments plus partial, stale, unavailable, duplicate, out-of-order, timeout, and invalid states.
+- [X] T040 [P] [US1] Add raw-object checksum and normalized-provenance integration tests in `tests/integration/test_evidence_provenance.py` using `tests/fixtures/evidence/` and `infra/minio/`.
+- [X] T041 [P] [US1] Add deterministic timestamp-precedence, UTC normalization, stable tie-breaking, deduplication, and conflicting-source tests in `tests/unit/test_timeline_reconstruction.py`.
+- [X] T042 [P] [US1] Add intake security tests in `tests/security/test_intake_boundaries.py` for cross-tenant webhook isolation, untrusted report instructions, oversized/schema-invalid payloads, and absence of direct remote mutation.
 - [ ] T043 [US1] Add the canonical US1 acceptance test in `tests/acceptance/test_intake_to_timeline.py`, asserting the independent-test criteria and explicit success/failure/quarantine outcomes for every stage.
 
 ### Intake and Razorpay Test Mode integration

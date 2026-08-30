@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from packages.contracts.events import EventEnvelope
 
+from app.auth.oidc import IdentityType, TenantAuthorizationContext
 from app.db.unit_of_work import PostgresUnitOfWork
 from app.events.inbox import InboxDisposition
 from app.events.outbox import OutboxEvent
@@ -96,16 +97,18 @@ class RedpandaOutboxPublisher:
     async def publish_pending(
         self,
         *,
-        unit_of_work_factory: Callable[[str], PostgresUnitOfWork],
-        tenant_id: str,
+        unit_of_work_factory: Callable[[TenantAuthorizationContext], PostgresUnitOfWork],
+        authorization_context: TenantAuthorizationContext,
         limit: int = 100,
         published_at: datetime | None = None,
     ) -> tuple[PublishedEvent, ...]:
-        with unit_of_work_factory(tenant_id) as unit_of_work:
+        _require_service_context(authorization_context)
+        with unit_of_work_factory(authorization_context) as unit_of_work:
             pending = unit_of_work.outbox.unpublished(limit=limit)
 
         published: list[PublishedEvent] = []
         for outbox_event in pending:
+            _require_event_tenant_binding(outbox_event.tenant_id, authorization_context)
             event = _event_from_outbox(outbox_event)
             metadata = await self.producer.send_and_wait(
                 self.topic,
@@ -113,14 +116,14 @@ class RedpandaOutboxPublisher:
                 value=serialize_event(event),
                 headers=event_headers(event),
             )
-            with unit_of_work_factory(tenant_id) as unit_of_work:
+            with unit_of_work_factory(authorization_context) as unit_of_work:
                 unit_of_work.outbox.mark_published(
                     outbox_id=outbox_event.outbox_id,
                     published_at=published_at,
                 )
             published.append(
                 PublishedEvent(
-                    tenant_id=tenant_id,
+                    tenant_id=authorization_context.tenant_id,
                     event_id=event.event_id,
                     outbox_id=outbox_event.outbox_id,
                     topic=self.topic,
@@ -142,13 +145,16 @@ class RedpandaInboxDispatcher:
         self,
         value: bytes | bytearray | str,
         *,
-        unit_of_work_factory: Callable[[str], PostgresUnitOfWork],
+        unit_of_work_factory: Callable[[TenantAuthorizationContext], PostgresUnitOfWork],
+        authorization_context: TenantAuthorizationContext,
         handler: EventHandler,
         received_at: datetime | None = None,
     ) -> DispatchResult:
         event = deserialize_event(value)
+        _require_service_context(authorization_context)
+        _require_event_tenant_binding(event.tenant_id, authorization_context)
         try:
-            with unit_of_work_factory(event.tenant_id) as unit_of_work:
+            with unit_of_work_factory(authorization_context) as unit_of_work:
                 claim = unit_of_work.inbox.claim(
                     consumer_name=self.consumer_name,
                     event=event,
@@ -180,6 +186,7 @@ class RedpandaInboxDispatcher:
             self._record_failed_claim(
                 event,
                 unit_of_work_factory=unit_of_work_factory,
+                authorization_context=authorization_context,
                 error=str(exc),
                 received_at=received_at,
             )
@@ -189,11 +196,12 @@ class RedpandaInboxDispatcher:
         self,
         event: EventEnvelope,
         *,
-        unit_of_work_factory: Callable[[str], PostgresUnitOfWork],
+        unit_of_work_factory: Callable[[TenantAuthorizationContext], PostgresUnitOfWork],
+        authorization_context: TenantAuthorizationContext,
         error: str,
         received_at: datetime | None,
     ) -> None:
-        with unit_of_work_factory(event.tenant_id) as unit_of_work:
+        with unit_of_work_factory(authorization_context) as unit_of_work:
             claim = unit_of_work.inbox.claim(
                 consumer_name=self.consumer_name,
                 event=event,
@@ -206,6 +214,20 @@ class RedpandaInboxDispatcher:
                     payload_checksum=event.payload_checksum,
                     error=error or "event handler failed",
                 )
+
+
+def _require_service_context(context: TenantAuthorizationContext) -> None:
+    if context.identity_type is not IdentityType.SERVICE:
+        raise EventTransportError("event consumers require an authenticated service context")
+
+
+def _require_event_tenant_binding(
+    event_tenant_id: str, authorization_context: TenantAuthorizationContext
+) -> None:
+    if event_tenant_id != authorization_context.tenant_id:
+        raise EventTransportError(
+            "event tenant does not match the authenticated service context"
+        )
 
 
 def _event_from_outbox(outbox_event: OutboxEvent) -> EventEnvelope:

@@ -42,6 +42,10 @@ class WebhookProcessingError(RuntimeError):
     """Raised when a verified delivery cannot be durably recorded."""
 
 
+class WebhookAssociationError(WebhookProcessingError):
+    """Raised when caller-supplied case and incident identities do not agree."""
+
+
 class WebhookProcessingService:
     """Persist webhook evidence and outcomes in one tenant-scoped transaction.
 
@@ -79,11 +83,11 @@ class WebhookProcessingService:
             request,
             authorization_context=authorization_context,
         )
-        raw_object_uri = self._store_raw_payload(verification)
         recorded_at = request.received_at
 
         if verification.status is IntakeStatus.QUARANTINED:
             quarantine_id = self.id_factory("quarantine")
+            raw_object_uri = self._store_raw_payload(verification)
             with self.unit_of_work_factory(authorization_context) as unit_of_work:
                 quarantine = unit_of_work.webhooks.quarantine(
                     quarantine_id=quarantine_id,
@@ -140,6 +144,13 @@ class WebhookProcessingService:
         if verification.provider_event_id is None:
             raise WebhookProcessingError("accepted webhook has no provider event identity")
         with self.unit_of_work_factory(authorization_context) as unit_of_work:
+            authoritative_incident_id, authoritative_case_id = _resolve_association(
+                unit_of_work,
+                incident_id=incident_id,
+                case_id=case_id,
+                tenant_id=authorization_context.tenant_id,
+            )
+            raw_object_uri = self._store_raw_payload(verification)
             result = unit_of_work.webhooks.create_or_get(
                 connector_id=verification.connector_id,
                 provider_event_id=verification.provider_event_id,
@@ -150,8 +161,8 @@ class WebhookProcessingService:
                 event_type=verification.event_type,
                 event_timestamp=verification.event_timestamp,
                 received_at=recorded_at,
-                incident_id=incident_id,
-                case_id=case_id,
+                incident_id=authoritative_incident_id,
+                case_id=authoritative_case_id,
             )
             outcome = IntakeStatus.ACCEPTED if result.inserted else IntakeStatus.DUPLICATE
             audit = append_webhook_audit(
@@ -215,3 +226,51 @@ def _hex_identity(value: str) -> str:
     import hashlib
 
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _resolve_association(
+    unit_of_work: PostgresUnitOfWork,
+    *,
+    incident_id: str | None,
+    case_id: str | None,
+    tenant_id: str,
+) -> tuple[str | None, str | None]:
+    """Resolve optional IDs from the authoritative tenant-scoped case mapping."""
+
+    if incident_id is None and case_id is None:
+        return None, None
+    if incident_id is not None and not incident_id.strip():
+        raise WebhookAssociationError("webhook incident association cannot be blank")
+    if case_id is not None and not case_id.strip():
+        raise WebhookAssociationError("webhook case association cannot be blank")
+    if case_id is not None:
+        case_row = unit_of_work.cases.get(case_id=case_id)
+    else:
+        case_row = unit_of_work.cases.find_by_incident_id(incident_id=incident_id or "")
+    if case_row is None:
+        raise WebhookAssociationError(
+            "webhook case/incident association is not authoritative"
+        )
+    if str(case_row[0]) != tenant_id or (
+        case_id is not None and str(case_row[1]) != case_id
+    ):
+        raise WebhookAssociationError("webhook case association crosses tenant boundary")
+    resolved_incident_id = str(case_row[2])
+    resolved_case_id = str(case_row[1])
+    if incident_id is not None and incident_id != resolved_incident_id:
+        raise WebhookAssociationError("webhook incident does not belong to the supplied case")
+    incidents = getattr(unit_of_work, "incidents", None)
+    if incidents is not None:
+        incident_row = incidents.get(incident_id=resolved_incident_id)
+        if incident_row is None or str(incident_row[0]) != tenant_id:
+            raise WebhookAssociationError(
+                "webhook incident is not authoritative for the case"
+            )
+    return resolved_incident_id, resolved_case_id
+
+
+__all__ = [
+    "WebhookAssociationError",
+    "WebhookProcessingError",
+    "WebhookProcessingService",
+]

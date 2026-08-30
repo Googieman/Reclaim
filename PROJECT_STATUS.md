@@ -17,8 +17,10 @@ post-T035 foundation security remediation for tenant-bound OIDC roles is complet
 the T036-T042 US1 contract/property/integration/security test batch is complete. The
 T043 canonical acceptance target is now complete: all four acceptance scenarios passed
 against fresh live PostgreSQL and MinIO services after the T050-T055 implementation
-batch. T044-T058 are complete locally, with the full US1 vertical-slice gate and live
-event-delivery/projection validation recorded below; the next queue begins at T059.
+batch. T044-T058 and Remediation Batch A for MAJOR-1, MAJOR-3, MAJOR-4, and MAJOR-5
+are complete locally, with the revised production Temporal workflow gate and live
+event-delivery/projection validation recorded below. T059 remains blocked pending
+follow-up review; no T059 or US2 implementation was started.
 
 ## Governance approvals
 
@@ -46,16 +48,17 @@ event-delivery/projection validation recorded below; the next queue begins at T0
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, and T044-T058 US1 vertical slice present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda delivery, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, tenant-bound case workflow commands, versioned evidence connectors/simulators, MinIO/PG evidence persistence, normalization, deterministic timeline reconstruction, and the T058 live gate are present |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, and Remediation Batch A present | PostgreSQL authority/RLS, repositories/UoW, audit, outbox/inbox, Temporal, Redpanda delivery, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, authoritative webhook case/incident association, normalization, and the T058 live gate are present |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T058 validation complete; evaluation not started | The final default suite is 200 passed and 17 skipped. The live T058 US1 gate is 1 passed; independent live Redpanda, Neo4j, PostgreSQL, and T043 checks are recorded below. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T058 plus Remediation Batch A validation complete; evaluation not started | The final default suite is 208 passed and 19 skipped. The revised live T058 US1 gate is 1 passed and the production Temporal retry/restart suite is 2 passed; independent live Redpanda, Neo4j, PostgreSQL, and T043 checks are recorded below. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
 - Tests: the current no-service T043 acceptance baseline was re-run before this batch
-  as `2 passed, 2 skipped`. The final default suite is `200 passed, 17 skipped`; the
-  focused T056-T058 suite is `10 passed, 3 skipped`; the live T058 gate is `1 passed`;
-  and the existing live T043 acceptance is `4 passed`. Skips require live PostgreSQL,
+  as `2 passed, 2 skipped`. The final default suite is `208 passed, 19 skipped`; the
+  focused Batch A suite is `29 passed, 4 skipped`; the revised live T058 gate is
+  `1 passed`; the live production Temporal retry/restart suite is `2 passed`; and
+  the existing live T043 acceptance is `4 passed`. Skips require live PostgreSQL,
   Temporal, Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. No
   benchmark or production fraud metric is claimed.
 - Post-remediation default suite: `69 passed, 11 skipped` in `0.66s`; skipped tests
@@ -63,8 +66,9 @@ event-delivery/projection validation recorded below; the next queue begins at T0
   environment variables. Focused authorization/UoW/foundation checks passed with
   `17 passed, 2 skipped`, and the focused OIDC/UoW set passed with `15 passed`.
 - Python: `.venv` Python 3.12.13; `compileall` passed with only the benign existing
-  `.pytest_cache` directory-listing message. Ruff passed on all T056-T058 touched
-  Python paths, including formatting. Repository-wide Ruff 0.8.6 reports 22 existing
+  `.pytest_cache` directory-listing message. Ruff passed on all T056-T058 and
+  Remediation Batch A touched Python paths, including formatting. Repository-wide Ruff
+  0.8.6 reports 22 existing
   findings outside the completed batch; repository-wide format check reports 18
   pre-existing files needing formatting. Existing findings remain in their owning scope.
 - Backend mypy/pyright: no type-check executable is installed in this environment; no
@@ -130,10 +134,19 @@ event-delivery/projection validation recorded below; the next queue begins at T0
   reversed-order delivery converged, and PostgreSQL truth remained unchanged after
   Neo4j reset/rebuild. Exact reviewer evidence is in
   `docs/validation/us1-intake-timeline.md`.
+- For Remediation Batch A, the revised T058 gate passed against the running temporary
+  PostgreSQL 16, MinIO, Redpanda, Neo4j, and Temporal services. The canonical case was
+  started through the authenticated workflow command service, the registered
+  production worker executed `case.collect_evidence` and `case.rebuild_timeline`,
+  PostgreSQL was re-read after workflow completion as `timeline_ready`, and the live
+  MinIO report object checksum/content and PostgreSQL incident/audit references were
+  verified. The live production Temporal retry and worker-restart recovery tests
+  passed `2/2`; both verified PostgreSQL state and evidence/timeline persistence.
 
 ## Architecture and safety
 
-No architecture or ADR deviation was made. One implementation compatibility defect in
+No architecture or ADR deviation was made. Remediation Batch A changed no approved
+contract or ADR. One implementation compatibility defect in
 the shared optional UTC timestamp validation was fixed so incomplete webhook timestamps
 remain representable for quarantine; contract shape and approved ADRs are unchanged.
 PostgreSQL remains the
@@ -156,6 +169,9 @@ production performance, fraud, or containment metric is claimed.
   rebuildable Neo4j projection/checkpoints, and the complete US1 live gate. The event
   transport still requires an authenticated single-tenant service context and validates
   event tenant binding before obtaining a tenant-scoped UoW.
+- Remediation Batch A closed MAJOR-1, MAJOR-3, MAJOR-4, and MAJOR-5 with no contract or
+  ADR changes. T059 remains blocked for follow-up review; no US2 implementation was
+  started.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -164,7 +180,7 @@ production performance, fraud, or containment metric is claimed.
   gate used a test-only local Razorpay verifier and replay-labeled evidence simulators;
   it did not claim live Razorpay or production-provider behavior.
 
-## Next milestone: Phase 4 User Story 2 attribution and exposure (T059-T078)
+## Next milestone: Phase 4 User Story 2 attribution and exposure (T059-T078) - blocked
 
 Readiness evidence:
 
@@ -194,4 +210,5 @@ under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
 requirements. T036-T042 are complete with local contract/property/integration/security
   evidence; T043 and T044-T058 are complete with local and environment-qualified live
-  validation. T059 is the next dependency-safe queue; no T059+ implementation was started.
+  validation. T059 is the next dependency-safe queue but remains blocked pending
+  Remediation Batch A follow-up review; no T059+ implementation was started.

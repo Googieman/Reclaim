@@ -11,6 +11,9 @@ from app.db.unit_of_work import PostgresUnitOfWork
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from workflows.case_workflow import CASE_WORKFLOW_NAME, CaseWorkflow, case_workflow_id
 from workflows.commands import (
+    IMPLEMENTED_STAGE_NAMES,
+    IMPLEMENTED_STAGE_ORDER,
+    US1_STAGE_ORDER,
     CaseWorkflowCommand,
     CaseWorkflowSignal,
     RecoveryCommand,
@@ -25,17 +28,7 @@ class WorkflowClient(Protocol):
 
 
 UnitOfWorkFactory = Callable[[TenantAuthorizationContext], PostgresUnitOfWork]
-API_ALLOWED_STAGES = frozenset(
-    {
-        "start_intake",
-        "collect_evidence",
-        "rebuild_timeline",
-        "analyze_case",
-        "evaluate_policy",
-        "execute_actions",
-        "verify_case",
-    }
-)
+API_ALLOWED_STAGES = IMPLEMENTED_STAGE_NAMES
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,12 +55,17 @@ class WorkflowStartRequest(BaseModel):
     correlation_id: str = Field(min_length=1)
     command_id: str = Field(min_length=1)
     expected_state: str = Field(default="intake_received", min_length=1)
-    stages: tuple[str, ...] = ("start_intake",)
+    stages: tuple[str, ...] = US1_STAGE_ORDER
 
     @model_validator(mode="after")
     def validate_stages(self) -> WorkflowStartRequest:
         if not self.stages or any(stage not in API_ALLOWED_STAGES for stage in self.stages):
             raise ValueError("workflow stages are not allowlisted")
+        if len(set(self.stages)) != len(self.stages):
+            raise ValueError("workflow stages cannot be repeated")
+        positions = tuple(IMPLEMENTED_STAGE_ORDER.index(stage) for stage in self.stages)
+        if positions != tuple(sorted(positions)):
+            raise ValueError("workflow stages must follow the production order")
         return self
 
 

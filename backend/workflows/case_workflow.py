@@ -87,6 +87,7 @@ class CaseWorkflowResult:
     terminal_state: str | None
     completed_stages: tuple[str, ...]
     recovered_count: int
+    authoritative_state: str
 
 
 def case_workflow_id(tenant_id: str, case_id: str) -> str:
@@ -130,7 +131,7 @@ class CaseWorkflow:
             if self._recovery_requested:
                 await self._recover(command)
             result = await self._execute(
-                ACTIVITY_NAMES.get(stage, f"case.{stage}"),
+                ACTIVITY_NAMES[stage],
                 command,
                 RETRY_POLICIES["connector" if stage == "collect_evidence" else "repository"],
             )
@@ -147,6 +148,19 @@ class CaseWorkflow:
                 self._state = str(result["terminal_state"])
                 break
 
+        # A workflow result is never business completion.  Re-read PostgreSQL
+        # after all stages so the result cannot report success from workflow
+        # history when the authoritative transaction did not commit.
+        final_state = await self._execute(
+            ACTIVITY_NAMES["read_authoritative_state"],
+            command,
+            RETRY_POLICIES["repository"],
+        )
+        self._validate_activity_result(final_state, command)
+        self._state = str(final_state.get("state", self._state))
+        if "rebuild_timeline" in command.stages and self._state != "timeline_ready":
+            raise ValueError("workflow completed without authoritative timeline_ready state")
+
         return CaseWorkflowResult(
             tenant_id=command.tenant_id,
             case_id=command.case_id,
@@ -161,6 +175,7 @@ class CaseWorkflow:
             else None,
             completed_stages=tuple(self._completed_stages),
             recovered_count=self._recovery_count,
+            authoritative_state=self._state,
         )
 
     @workflow.signal(name="case.signal")

@@ -164,6 +164,84 @@ def test_conflicting_sources_choose_stably_and_surface_uncertainty() -> None:
     assert first.uncertainty == ("payment:p-1:conflicting_sources",)
 
 
+def test_exact_tie_conflicts_converge_for_every_adversarial_arrival_order() -> None:
+    timestamp = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    first = fact(
+        dedupe_key="payment:p-1",
+        source_event_id="same-event",
+        event_type="payment.captured",
+        effective_at=timestamp,
+        source_identity="same-source",
+        source_priority=10,
+        payload={"status": "captured", "amount": 100},
+    )
+    second = replace(
+        first,
+        evidence_id="evidence-second",
+        payload={"status": "authorized", "amount": 100},
+        evidence_references=("evidence-second",),
+    )
+    candidates = (first, second)
+    reconstructor = TimelineReconstructor()
+    expected = reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(),
+        normalized_facts=candidates,
+        authorization_context=context(),
+    )
+
+    for ordering in permutations(candidates):
+        result = reconstructor.rebuild(
+            case_id="case-1",
+            evidence=(),
+            normalized_facts=ordering,
+            authorization_context=context(),
+        )
+        assert result.events == expected.events
+        assert result.events[0].source_event_id == "same-event"
+        assert result.events[0].event_payload == expected.events[0].event_payload
+
+
+def test_final_event_order_is_deterministic_when_existing_sort_keys_are_equal() -> None:
+    timestamp = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    events = (
+        fact(
+            dedupe_key="payment:z-1",
+            source_event_id="same-event",
+            event_type="payment.captured",
+            effective_at=timestamp,
+            source_identity="same-source",
+        ),
+        fact(
+            dedupe_key="payment:a-1",
+            source_event_id="same-event",
+            event_type="payment.captured",
+            effective_at=timestamp,
+            source_identity="same-source",
+        ),
+    )
+    reconstructor = TimelineReconstructor()
+
+    first = reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(),
+        normalized_facts=events,
+        authorization_context=context(),
+    )
+    second = reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(),
+        normalized_facts=tuple(reversed(events)),
+        authorization_context=context(),
+    )
+
+    assert first.events == second.events
+    assert [event.dedupe_key for event in first.events] == [
+        "payment:a-1",
+        "payment:z-1",
+    ]
+
+
 def test_timeline_rejects_cross_tenant_fact_even_when_request_context_matches_it() -> (
     None
 ):

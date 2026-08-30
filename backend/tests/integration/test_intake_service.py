@@ -15,6 +15,8 @@ from app.auth.oidc import (
     TenantAuthorizationError,
 )
 from app.intake.service import IncidentIntakeService
+from app.storage.minio_evidence import ImmutableEvidenceStore
+from evidence.storage import InMemoryObjectStorage
 from packages.contracts.intake import IncidentIntakeRequest, IntakeStatus
 
 TENANT_A = "tenant-a"
@@ -121,6 +123,7 @@ class MemoryState:
         self.commits = 0
         self.rollbacks = 0
         self.factory_calls = 0
+        self.raw_report_store = ImmutableEvidenceStore(InMemoryObjectStorage())
 
 
 class MemoryUnitOfWork:
@@ -152,7 +155,11 @@ def make_service(state: MemoryState) -> IncidentIntakeService:
         counters[prefix] = counters.get(prefix, 0) + 1
         return f"{prefix}-{counters[prefix]}"
 
-    return IncidentIntakeService(unit_of_work_factory=factory, id_factory=id_factory)
+    return IncidentIntakeService(
+        unit_of_work_factory=factory,
+        raw_report_store=state.raw_report_store,
+        id_factory=id_factory,
+    )
 
 
 def test_authenticated_intake_creates_case_and_incident_event_atomically() -> None:
@@ -172,6 +179,9 @@ def test_authenticated_intake_creates_case_and_incident_event_atomically() -> No
     assert event.event_type.value == "incident.accepted"
     assert event.payload["report_content_present"] is True
     assert "report_content" not in event.payload
+    assert len(state.raw_report_store.client.objects) == 1
+    raw_reference = json.loads(state.audit[0].evidence_references[0])
+    assert raw_reference["checksum"].startswith("sha256:")
     assert len(state.audit) == 1
     assert state.audit[0].case_id == "case-1"
     assert state.commits == 1
@@ -229,6 +239,33 @@ def test_untrusted_report_content_is_not_interpreted_as_event_authority() -> Non
     assert event.aggregate_type == "incident"
 
 
+def test_external_report_reference_is_preserved_in_immutable_capture() -> None:
+    state = MemoryState()
+    request = intake_request()
+    request = request.model_copy(
+        update={
+            "report_content": None,
+            "report_reference": "merchant://ticket/incident-1",
+            "idempotency_key": "external-report-1",
+        }
+    )
+
+    result = make_service(state).accept(
+        request,
+        authorization_context=authorization_context(),
+    )
+
+    assert result.status is IntakeStatus.ACCEPTED
+    assert len(state.raw_report_store.client.objects) == 1
+    raw_object = next(iter(state.raw_report_store.client.objects.values()))
+    capture = json.loads(raw_object[0])
+    assert capture["report_content"] is None
+    assert capture["report_reference"] == "merchant://ticket/incident-1"
+    reference = json.loads(state.audit[0].evidence_references[0])
+    assert reference["reference_id"].startswith("minio://")
+    assert reference["checksum"].startswith("sha256:")
+
+
 @pytest.mark.skipif(
     not os.getenv("RECLAIM_DATABASE_URL"),
     reason="RECLAIM_DATABASE_URL is required for live intake validation",
@@ -244,7 +281,8 @@ def test_live_postgres_intake_persists_duplicate_safe_case_and_outbox() -> None:
         unit_of_work_factory=lambda auth_context: PostgresUnitOfWork(
             lambda: psycopg.connect(database_url),
             authorization_context=auth_context,
-        )
+        ),
+        raw_report_store=ImmutableEvidenceStore(InMemoryObjectStorage()),
     )
     request = intake_request(tenant_id=tenant_id, idempotency_key=f"live-{uuid4().hex}")
 

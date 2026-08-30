@@ -1,20 +1,23 @@
 """Durable webhook processing and identity-isolation tests."""
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import hashlib
 import hmac
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Self
 
 import pytest
 from app.auth.oidc import AuthenticatedPrincipal, IdentityType
-from app.intake.webhook_processing import WebhookProcessingService
 from app.db.repositories.webhooks import WebhookDelivery, WebhookQuarantine
+from app.intake.webhook_processing import (
+    WebhookAssociationError,
+    WebhookProcessingService,
+)
 from connectors.razorpay.webhook import RazorpayWebhookVerifier, payload_checksum
+
 from packages.contracts.events import EventEnvelope
 from packages.contracts.intake import IntakeStatus, RazorpayWebhookRequest
-
 
 PAYLOAD = json.dumps(
     {"entity": "event", "id": "evt-1", "type": "payment.captured"},
@@ -121,6 +124,30 @@ class MemoryWebhookRepository:
         return row
 
 
+class MemoryCaseRepository:
+    def __init__(self) -> None:
+        self.rows = {
+            "case-1": ("tenant-a", "case-1", "incident-1"),
+            "case-2": ("tenant-a", "case-2", "incident-2"),
+        }
+
+    def get(self, *, case_id: str) -> tuple[str, str, str] | None:
+        return self.rows.get(case_id)
+
+    def find_by_incident_id(self, *, incident_id: str) -> tuple[str, str, str] | None:
+        return next(
+            (row for row in self.rows.values() if row[2] == incident_id),
+            None,
+        )
+
+
+class MemoryIncidentRepository:
+    def get(self, *, incident_id: str) -> tuple[str, str] | None:
+        if incident_id in {"incident-1", "incident-2"}:
+            return ("tenant-a", incident_id)
+        return None
+
+
 class MemoryAudit:
     def __init__(self) -> None:
         self.records: list[Any] = []
@@ -151,6 +178,8 @@ class MemoryUnitOfWork:
         outbox: MemoryOutbox,
     ) -> None:
         self.webhooks = webhooks
+        self.cases = MemoryCaseRepository()
+        self.incidents = MemoryIncidentRepository()
         self.audit = audit
         self.outbox = outbox
 
@@ -225,6 +254,36 @@ def test_valid_duplicate_acknowledges_without_second_delivery_record() -> None:
     assert duplicate.provider_event_id == first.provider_event_id
     assert len(webhooks.deliveries) == 1
     assert len(audit.records) == 2
+
+
+def test_case_only_association_is_resolved_from_the_authoritative_mapping() -> None:
+    processor, webhooks, _, _, _ = service()
+
+    result = processor.process(
+        request(),
+        authorization_context=context(),
+        case_id="case-1",
+    )
+
+    assert result.incident_id == "incident-1"
+    assert result.case_id == "case-1"
+    assert next(iter(webhooks.deliveries.values())).incident_id == "incident-1"
+
+
+def test_mismatched_same_tenant_case_and_incident_are_rejected_before_persistence() -> None:
+    processor, webhooks, raw_store, audit, _ = service()
+
+    with pytest.raises(WebhookAssociationError, match="does not belong"):
+        processor.process(
+            request(),
+            authorization_context=context(),
+            incident_id="incident-2",
+            case_id="case-1",
+        )
+
+    assert webhooks.deliveries == {}
+    assert audit.records == []
+    assert raw_store.objects == {}
 
 
 def test_incomplete_delivery_is_quarantined_without_hash_identity_fallback() -> None:

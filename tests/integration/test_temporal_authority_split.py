@@ -68,12 +68,12 @@ async def test_temporal_retries_activity_and_reads_authoritative_postgres_state(
             "authoritative": True,
         }
 
-    @activity.defn(name="case.read_only_test_stage")
-    async def read_only_test_stage(command: CaseWorkflowCommand) -> dict[str, object]:
+    @activity.defn(name="case.collect_evidence")
+    async def collect_evidence(command: CaseWorkflowCommand) -> dict[str, object]:
         return {
             "tenant_id": command.tenant_id,
             "case_id": command.case_id,
-            "state": "intake_received",
+            "state": "collecting_evidence",
             "authoritative": True,
         }
 
@@ -106,14 +106,14 @@ async def test_temporal_retries_activity_and_reads_authoritative_postgres_state(
         case_id=case_id,
         correlation_id=f"corr-{case_id}",
         command_id=f"command-{case_id}",
-        stages=("read_only_test_stage",),
+        stages=("collect_evidence",),
     )
     workflow_id = case_workflow_id(tenant_id, case_id)
     worker = Worker(
         client,
         task_queue=task_queue,
         workflows=[CaseWorkflow],
-        activities=[read_authoritative_state, read_only_test_stage],
+        activities=[read_authoritative_state, collect_evidence],
     )
     async with worker:
         handle = await client.start_workflow(
@@ -138,6 +138,8 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
     from temporalio.client import Client
     from temporalio.worker import Worker
 
+    authoritative_state = "intake_received"
+
     @activity.defn(name="case.read_authoritative_state")
     async def read_authoritative_state(
         command: CaseWorkflowCommand,
@@ -145,16 +147,18 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
         return {
             "tenant_id": command.tenant_id,
             "case_id": command.case_id,
-            "state": "intake_received",
+            "state": authoritative_state,
             "authoritative": True,
         }
 
-    @activity.defn(name="case.await_approval")
-    async def await_approval(command: CaseWorkflowCommand) -> dict[str, object]:
+    @activity.defn(name="case.rebuild_timeline")
+    async def rebuild_timeline(command: CaseWorkflowCommand) -> dict[str, object]:
+        nonlocal authoritative_state
+        authoritative_state = "timeline_ready"
         return {
             "tenant_id": command.tenant_id,
             "case_id": command.case_id,
-            "state": "action_pending",
+            "state": "timeline_ready",
             "wait_for": "approval",
             "authoritative": True,
         }
@@ -166,7 +170,7 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
         case_id=case_id,
         correlation_id=f"corr-{case_id}",
         command_id=f"command-{case_id}",
-        stages=("await_approval",),
+        stages=("rebuild_timeline",),
     )
     client = await Client.connect(target)
     task_queue = f"reclaim-temporal-signal-{uuid.uuid4().hex}"
@@ -175,7 +179,7 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
         client,
         task_queue=task_queue,
         workflows=[CaseWorkflow],
-        activities=[read_authoritative_state, await_approval],
+        activities=[read_authoritative_state, rebuild_timeline],
     )
     await worker.__aenter__()
     try:
@@ -199,7 +203,7 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
         client,
         task_queue=task_queue,
         workflows=[CaseWorkflow],
-        activities=[read_authoritative_state, await_approval],
+        activities=[read_authoritative_state, rebuild_timeline],
     ):
         await handle.signal(
             CaseWorkflow.signal,
@@ -213,4 +217,4 @@ async def test_temporal_signal_wakes_waiting_workflow_without_business_state_in_
         )
         result = await handle.result()
 
-    assert result.completed_stages == ("await_approval",)
+    assert result.completed_stages == ("rebuild_timeline",)

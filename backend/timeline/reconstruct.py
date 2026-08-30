@@ -112,7 +112,7 @@ class TimelineReconstructor:
             case_id=case_id,
             events=ordered_events,
             normalized_facts=tuple(
-                sorted(facts, key=lambda fact: (*_selection_key(fact), fact.evidence_id))
+                sorted(facts, key=_selection_key)
             ),
             uncertainty=uncertainties,
             state="timeline_ready",
@@ -224,6 +224,7 @@ def _selection_key(fact: NormalizedFact) -> tuple[object, ...]:
         fact.source_priority,
         fact.source_identity,
         fact.source_event_id,
+        _fact_identity_checksum(fact),
     )
 
 
@@ -233,6 +234,8 @@ def _event_sort_key(event: TimelineEvent) -> tuple[object, ...]:
         event.canonical_event_type,
         event.source_identity,
         event.source_event_id,
+        event.dedupe_key,
+        event.ordering_key,
     )
 
 
@@ -243,6 +246,7 @@ def _ordering_key(fact: NormalizedFact) -> str:
             fact.canonical_event_type,
             fact.source_identity,
             fact.source_event_id,
+            _fact_identity_checksum(fact),
         )
     )
 
@@ -254,6 +258,31 @@ def _timeline_event_id(*, tenant_id: str, case_id: str, dedupe_key: str) -> str:
 
 def _canonical_json(value: Mapping[str, Any]) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _fact_identity_checksum(fact: NormalizedFact) -> str:
+    """Return the canonical final key for otherwise indistinguishable facts."""
+
+    identity: dict[str, Any] = {
+        "tenant_id": fact.tenant_id,
+        "case_id": fact.case_id,
+        "evidence_id": fact.evidence_id,
+        "resource_type": fact.resource_type,
+        "source_identity": fact.source_identity,
+        "source_event_id": fact.source_event_id,
+        "canonical_event_type": fact.canonical_event_type,
+        "dedupe_key": fact.dedupe_key,
+        "effective_at": effective_at(fact).isoformat(),
+        "observed_at": fact.observed_at.astimezone(UTC).isoformat(),
+        "received_at": fact.received_at.astimezone(UTC).isoformat(),
+        "event_at": None if fact.event_at is None else fact.event_at.astimezone(UTC).isoformat(),
+        "source_priority": fact.source_priority,
+        "payload": fact.payload,
+        "provider_identifiers": fact.provider_identifiers,
+        "original_timestamps": fact.original_timestamps,
+        "evidence_references": fact.evidence_references,
+    }
+    return hashlib.sha256(_canonical_json(identity).encode("utf-8")).hexdigest()
 
 
 __all__ = [

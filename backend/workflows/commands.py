@@ -32,6 +32,14 @@ class RecoveryKind(StrEnum):
     ESCALATE = "escalate"
 
 
+# Only activities with a production implementation may be dispatched by the
+# current US1 worker.  Future story stages are deliberately not accepted until
+# their activities and authoritative persistence paths exist.
+IMPLEMENTED_STAGE_ORDER = ("start_intake", "collect_evidence", "rebuild_timeline")
+US1_STAGE_ORDER = ("collect_evidence", "rebuild_timeline")
+IMPLEMENTED_STAGE_NAMES = frozenset(IMPLEMENTED_STAGE_ORDER)
+
+
 @dataclass(frozen=True, slots=True)
 class CaseWorkflowCommand:
     """Start/resume intent for one tenant-scoped case workflow."""
@@ -42,14 +50,7 @@ class CaseWorkflowCommand:
     command_id: str
     kind: WorkflowCommandKind = WorkflowCommandKind.START
     expected_state: str = "intake_received"
-    stages: tuple[str, ...] = (
-        "collect_evidence",
-        "rebuild_timeline",
-        "analyze_case",
-        "evaluate_policy",
-        "execute_actions",
-        "verify_case",
-    )
+    stages: tuple[str, ...] = US1_STAGE_ORDER
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -66,6 +67,13 @@ class CaseWorkflowCommand:
             raise ValueError("workflow must contain at least one activity stage")
         if any(not stage.strip() for stage in self.stages):
             raise ValueError("workflow stages cannot be blank")
+        if any(stage not in IMPLEMENTED_STAGE_NAMES for stage in self.stages):
+            raise ValueError("workflow stage does not have a registered production activity")
+        if len(set(self.stages)) != len(self.stages):
+            raise ValueError("workflow stages cannot be repeated")
+        positions = tuple(IMPLEMENTED_STAGE_ORDER.index(stage) for stage in self.stages)
+        if positions != tuple(sorted(positions)):
+            raise ValueError("workflow stages must follow the production order")
         object.__setattr__(self, "metadata", dict(self.metadata))
 
 

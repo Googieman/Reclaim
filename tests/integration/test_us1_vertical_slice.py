@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import jwt
 import pytest
+from api.workflow_commands import CaseWorkflowCommandService
 from app.auth.oidc import (
     AuthenticatedPrincipal,
     IdentityType,
@@ -27,8 +28,8 @@ from app.events.timeline_events import TimelineEventConsumer
 from app.intake.service import IncidentIntakeService
 from app.intake.webhook_processing import WebhookProcessingService
 from app.storage.minio_evidence import ImmutableEvidenceStore, checksum_for_bytes
-from connectors.razorpay.webhook import RazorpayWebhookVerifier
 from connectors.razorpay.manifest import build_razorpay_test_mode_manifest
+from connectors.razorpay.webhook import RazorpayWebhookVerifier
 from connectors.simulators.evidence import (
     EvidenceSimulatorScenario,
     build_default_evidence_simulators,
@@ -39,12 +40,12 @@ from projections.neo4j_case_projection import (
     Neo4jCaseProjection,
     Neo4jCaseProjectionConsumer,
 )
-from temporalio import activity
 from temporalio.client import Client
-from temporalio.worker import UnsandboxedWorkflowRunner, Worker
+from temporalio.worker import UnsandboxedWorkflowRunner
 from timeline.reconstruct import TimelineReconstructor
-from workflows.case_workflow import CaseWorkflow, case_workflow_id
 from workflows.commands import CaseWorkflowCommand
+from workflows.worker import CaseWorkerDependencies, create_case_worker
+
 from packages.contracts.connectors import EvidenceRequest
 from packages.contracts.events import EventType
 from packages.contracts.intake import (
@@ -52,7 +53,6 @@ from packages.contracts.intake import (
     IntakeStatus,
     RazorpayWebhookRequest,
 )
-
 
 ISSUER = "https://identity.example/realms/reclaim"
 AUDIENCE = "reclaim-api"
@@ -280,7 +280,15 @@ async def test_us1_live_vertical_slice_gate() -> None:
             tenant_id=tenant_b, display_name="T058 Boundary Tenant"
         )
 
-    intake_service = IncidentIntakeService(unit_of_work_factory=factory)
+    minio_store = ImmutableEvidenceStore.from_endpoint(
+        settings["RECLAIM_MINIO_ENDPOINT"],
+        access_key=settings["RECLAIM_MINIO_ACCESS_KEY"],
+        secret_key=settings["RECLAIM_MINIO_SECRET_KEY"],
+    )
+    intake_service = IncidentIntakeService(
+        unit_of_work_factory=factory,
+        raw_report_store=minio_store,
+    )
     verifier = OIDCVerifier(
         issuer=ISSUER,
         audience=AUDIENCE,
@@ -326,11 +334,7 @@ async def test_us1_live_vertical_slice_gate() -> None:
             secret_resolver=lambda **_: WEBHOOK_SECRET,
         ),
         unit_of_work_factory=factory,
-        raw_payload_store=ImmutableEvidenceStore.from_endpoint(
-            settings["RECLAIM_MINIO_ENDPOINT"],
-            access_key=settings["RECLAIM_MINIO_ACCESS_KEY"],
-            secret_key=settings["RECLAIM_MINIO_SECRET_KEY"],
-        ),
+        raw_payload_store=minio_store,
         id_factory=lambda prefix: f"{prefix}-{uuid4().hex}",
     )
     webhook_payload = json.dumps(
@@ -371,75 +375,13 @@ async def test_us1_live_vertical_slice_gate() -> None:
     assert duplicate_webhook.status is IntakeStatus.DUPLICATE
     assert invalid_webhook.status is IntakeStatus.QUARANTINED
 
-    evidence_storage = EvidenceStorage(
-        ImmutableEvidenceStore.from_endpoint(
-            settings["RECLAIM_MINIO_ENDPOINT"],
-            access_key=settings["RECLAIM_MINIO_ACCESS_KEY"],
-            secret_key=settings["RECLAIM_MINIO_SECRET_KEY"],
-        )
-    )
+    evidence_storage = EvidenceStorage(minio_store)
     orchestrator = EvidenceOrchestrator(
         build_default_evidence_simulators(tenant_id),
         storage=evidence_storage,
         unit_of_work_factory=factory,
     )
-    requests = _evidence_requests(
-        orchestrator,
-        tenant_id=tenant_id,
-        case_id=case_id,
-        correlation_id=intake.correlation_id,
-    )
-    evidence_first = orchestrator.collect(
-        case_id=case_id,
-        requests=requests,
-        authorization_context=user_context,
-    )
-    evidence_second = orchestrator.collect(
-        case_id=case_id,
-        requests=tuple(reversed(requests)),
-        authorization_context=user_context,
-    )
-    assert evidence_first.items == evidence_second.items
-    assert len(evidence_first.items) == 6
-    assert all(item.tenant_id == tenant_id for item in evidence_first.items)
-    assert all(item.untrusted for item in evidence_first.items)
-    assert all(
-        item.provenance is not None and item.provenance.mode == "replay"
-        for item in evidence_first.items
-    )
     assert build_razorpay_test_mode_manifest(tenant_id).label == "replay"
-    assert all(
-        item.raw_object_uri and item.raw_checksum == item.expected_checksum
-        for item in evidence_first.items
-    )
-    for item in evidence_first.items:
-        assert item.raw_object_uri is not None
-        object_path = urlsplit(item.raw_object_uri).path.lstrip("/")
-        tenant_prefix = f"tenants/{tenant_id}/"
-        assert object_path.startswith(tenant_prefix)
-        object_name = object_path.removeprefix(tenant_prefix)
-        verified, _ = evidence_storage.store.get_verified(
-            tenant_id=tenant_id,
-            object_name=object_name,
-        )
-        assert verified.checksum == item.raw_checksum
-
-    reconstructor = TimelineReconstructor(unit_of_work_factory=factory)
-    timeline_first = reconstructor.rebuild(
-        case_id=case_id,
-        evidence=evidence_first.items,
-        normalized_facts=tuple(reversed(evidence_first.normalized_facts)),
-        authorization_context=user_context,
-    )
-    timeline_second = reconstructor.rebuild(
-        case_id=case_id,
-        evidence=evidence_second.items,
-        normalized_facts=evidence_second.normalized_facts,
-        authorization_context=user_context,
-    )
-    assert timeline_first.events == timeline_second.events
-    assert len(timeline_first.events) == 6
-    assert len({event.dedupe_key for event in timeline_first.events}) == 6
 
     partial_case = intake_service.accept(
         _intake_request(
@@ -490,7 +432,60 @@ async def test_us1_live_vertical_slice_gate() -> None:
     )
     assert len(partial_timeline.events) == 1
 
+    temporal_client = await Client.connect(settings["RECLAIM_TEMPORAL_TARGET"])
+    temporal_queue = f"t058-gate-{uuid4().hex}"
+    timeline_reconstructor = TimelineReconstructor(unit_of_work_factory=factory)
+    worker_dependencies = CaseWorkerDependencies(
+        unit_of_work_factory=factory,
+        authorization_context_factory=lambda value: _principal(
+            value,
+            subject="t058-service",
+            identity_type=IdentityType.SERVICE,
+            roles=frozenset({"service"}),
+        ),
+        evidence_orchestrator=orchestrator,
+        evidence_storage=evidence_storage,
+        timeline_reconstructor=timeline_reconstructor,
+    )
+    workflow_command = CaseWorkflowCommand(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        correlation_id=intake.correlation_id,
+        command_id=f"t058-command-{uuid4().hex}",
+    )
+    command_service = CaseWorkflowCommandService(
+        temporal_client=temporal_client,
+        unit_of_work_factory=factory,
+        task_queue=temporal_queue,
+    )
+    async with create_case_worker(
+        temporal_client,
+        worker_dependencies,
+        task_queue=temporal_queue,
+        workflow_runner=UnsandboxedWorkflowRunner(),
+    ):
+        started = await command_service.start_case(
+            workflow_command,
+            authorization_context=user_context,
+        )
+        temporal_result = await temporal_client.get_workflow_handle(
+            started.workflow_id
+        ).result()
+    assert started.started is True
+    assert temporal_result["completed_stages"] == [
+        "collect_evidence",
+        "rebuild_timeline",
+    ]
+    assert temporal_result["authoritative_state"] == "timeline_ready"
     with psycopg.connect(settings["RECLAIM_DATABASE_URL"]) as connection:
+        case_state = connection.execute(
+            "SELECT current_state FROM cases WHERE tenant_id = %s AND case_id = %s",
+            (tenant_id, case_id),
+        ).fetchone()
+        raw_report_reference = connection.execute(
+            "SELECT raw_input_reference FROM incidents WHERE tenant_id = %s AND incident_id = %s",
+            (tenant_id, accepted.json()["incident_id"]),
+        ).fetchone()[0]
         counts_before_delivery = connection.execute(
             """
             SELECT
@@ -507,6 +502,17 @@ async def test_us1_live_vertical_slice_gate() -> None:
             "SELECT previous_record_checksum, record_checksum FROM audit_records WHERE tenant_id = %s ORDER BY chain_sequence",
             (tenant_id,),
         ).fetchall()
+    assert case_state == ("timeline_ready",)
+    parsed_report_reference = json.loads(raw_report_reference)
+    report_path = urlsplit(parsed_report_reference["reference_id"]).path.lstrip("/")
+    assert report_path.startswith(f"tenants/{tenant_id}/")
+    report_object_name = report_path.removeprefix(f"tenants/{tenant_id}/")
+    stored_report, report_content = minio_store.get_verified(
+        tenant_id=tenant_id,
+        object_name=report_object_name,
+    )
+    assert stored_report.checksum == parsed_report_reference["checksum"]
+    assert json.loads(report_content)["report_content"] == intake.report_content
     assert counts_before_delivery == (2, 2, 8, 7, 13, 6)
     assert audit_chain[0][0] is None
     assert all(
@@ -590,52 +596,4 @@ async def test_us1_live_vertical_slice_gate() -> None:
         projection.close()
         await producer.stop()
 
-    @activity.defn(name="case.read_authoritative_state")
-    async def read_authoritative_state(
-        command: CaseWorkflowCommand,
-    ) -> dict[str, object]:
-        with factory(service_context) as unit_of_work:
-            row = unit_of_work.cases.get(case_id=command.case_id)
-        if row is None:
-            raise RuntimeError("gate case disappeared from PostgreSQL")
-        return {
-            "tenant_id": command.tenant_id,
-            "case_id": command.case_id,
-            "state": str(row[3]),
-            "authoritative": True,
-        }
-
-    @activity.defn(name="case.read_only_test_stage")
-    async def read_only_test_stage(command: CaseWorkflowCommand) -> dict[str, object]:
-        return {
-            "tenant_id": command.tenant_id,
-            "case_id": command.case_id,
-            "state": "timeline_ready",
-            "authoritative": True,
-        }
-
-    temporal_client = await Client.connect(settings["RECLAIM_TEMPORAL_TARGET"])
-    temporal_queue = f"t058-gate-{uuid4().hex}"
-    workflow_command = CaseWorkflowCommand(
-        tenant_id=tenant_id,
-        case_id=case_id,
-        correlation_id=intake.correlation_id,
-        command_id=f"t058-command-{uuid4().hex}",
-        stages=("read_only_test_stage",),
-    )
-    async with Worker(
-        temporal_client,
-        task_queue=temporal_queue,
-        workflows=[CaseWorkflow],
-        activities=[read_authoritative_state, read_only_test_stage],
-        workflow_runner=UnsandboxedWorkflowRunner(),
-    ):
-        handle = await temporal_client.start_workflow(
-            CaseWorkflow.run,
-            workflow_command,
-            id=case_workflow_id(tenant_id, case_id),
-            task_queue=temporal_queue,
-        )
-        temporal_result = await handle.result()
-    assert temporal_result.completed_stages == ("read_only_test_stage",)
-    assert temporal_result.case_id == case_id
+    assert temporal_result["case_id"] == case_id

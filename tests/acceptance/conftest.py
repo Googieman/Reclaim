@@ -6,8 +6,8 @@ import os
 from typing import Any
 
 import pytest
-
 from app.intake.service import IncidentIntakeService
+from app.storage.minio_evidence import ImmutableEvidenceStore
 
 
 @pytest.fixture
@@ -20,12 +20,14 @@ def postgres_intake_service() -> IncidentIntakeService:
 
     import psycopg
     from app.db.unit_of_work import PostgresUnitOfWork
+    raw_report_store = _raw_report_store()
 
     return IncidentIntakeService(
         unit_of_work_factory=lambda authorization_context: PostgresUnitOfWork(
             lambda: psycopg.connect(database_url),
             authorization_context=authorization_context,
-        )
+        ),
+        raw_report_store=raw_report_store,
     )
 
 
@@ -43,7 +45,6 @@ def _unit_of_work_factory() -> Any | None:
 
 
 def _evidence_storage() -> Any:
-    from app.storage.minio_evidence import ImmutableEvidenceStore
     from evidence.storage import EvidenceStorage, InMemoryObjectStorage
 
     endpoint = os.getenv("RECLAIM_MINIO_ENDPOINT")
@@ -58,6 +59,23 @@ def _evidence_storage() -> Any:
     else:
         store = ImmutableEvidenceStore(InMemoryObjectStorage())
     return EvidenceStorage(store)
+
+
+def _raw_report_store() -> ImmutableEvidenceStore:
+    """Use live MinIO when configured and a deterministic object store otherwise."""
+
+    from evidence.storage import InMemoryObjectStorage
+
+    endpoint = os.getenv("RECLAIM_MINIO_ENDPOINT")
+    access_key = os.getenv("RECLAIM_MINIO_ACCESS_KEY")
+    secret_key = os.getenv("RECLAIM_MINIO_SECRET_KEY")
+    if endpoint and access_key and secret_key:
+        return ImmutableEvidenceStore.from_endpoint(
+            endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+    return ImmutableEvidenceStore(InMemoryObjectStorage())
 
 
 @pytest.fixture

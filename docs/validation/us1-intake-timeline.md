@@ -13,8 +13,16 @@ Command:
 python -m pytest tests/integration/test_us1_vertical_slice.py -q
 ```
 
-Observed result: `1 passed in 5.65s` with the test-only environment configured
+Observed result: `1 passed in 5.22s` with the test-only environment configured
 for the temporary services listed below.
+
+The Remediation Batch A rerun uses the authenticated `CaseWorkflowCommandService`
+and the production `create_case_worker` registration. The canonical case therefore
+executes the real `case.collect_evidence` activity and persisted-evidence
+`case.rebuild_timeline` activity; the workflow performs a final authoritative
+PostgreSQL state read and the gate verifies `timeline_ready`. The rerun also verifies
+the immutable MinIO incident-report object and checksum-linked PostgreSQL incident
+and audit references.
 
 The gate used a newly generated tenant and a separate boundary tenant. It
 proved authenticated tenant-bound intake, duplicate intake idempotency,

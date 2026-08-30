@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.auth.oidc import TenantAuthorizationContext, TenantAuthorizationError
 from app.storage.minio_evidence import (
@@ -100,6 +101,40 @@ class EvidenceStorage:
             size=stored.size,
         )
 
+    def read_raw(
+        self,
+        *,
+        authorization_context: TenantAuthorizationContext,
+        object_uri: str,
+        expected_checksum: str | None,
+    ) -> tuple[bytes, str]:
+        """Read one verified object through its tenant-bound immutable reference."""
+
+        if not isinstance(authorization_context, TenantAuthorizationContext):
+            raise TenantAuthorizationError("raw evidence reads require tenant authorization")
+        parsed = urlsplit(object_uri)
+        if parsed.scheme != "minio" or not parsed.netloc or not parsed.path:
+            raise ObjectIntegrityError("raw evidence reference is not a valid MinIO URI")
+        object_name = parsed.path.lstrip("/")
+        tenant_prefix = f"tenants/{authorization_context.tenant_id}/"
+        if not object_name.startswith(tenant_prefix):
+            raise TenantAuthorizationError("raw evidence reference crosses tenant boundary")
+        relative_name = object_name.removeprefix(tenant_prefix)
+        if parsed.netloc != self.store.bucket or not relative_name:
+            raise ObjectIntegrityError("raw evidence reference does not match the configured store")
+        stored, content = self.store.get_verified(
+            tenant_id=authorization_context.tenant_id,
+            object_name=relative_name,
+        )
+        if (
+            expected_checksum is not None
+            and _normalize_checksum(expected_checksum) != stored.checksum
+        ):
+            raise ObjectIntegrityError(
+                "raw evidence checksum does not match authoritative metadata"
+            )
+        return content, stored.checksum
+
 
 class _ObjectStat:
     def __init__(self, content: bytes, checksum: str) -> None:
@@ -124,6 +159,11 @@ class _ObjectResponse:
 
     def release_conn(self) -> None:
         return None
+
+
+def _normalize_checksum(value: str) -> str:
+    normalized = value.strip().lower()
+    return normalized if normalized.startswith("sha256:") else f"sha256:{normalized}"
 
 
 __all__ = [

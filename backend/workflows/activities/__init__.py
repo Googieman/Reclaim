@@ -10,6 +10,11 @@ from .intake import (
     IntakeActivityDependencies,
     make_intake_activities,
 )
+from .timeline import (
+    TimelineActivities,
+    TimelineActivityDependencies,
+    make_timeline_activities,
+)
 
 __all__ = [
     "EvidenceActivities",
@@ -18,4 +23,7 @@ __all__ = [
     "IntakeActivityDependencies",
     "make_evidence_activities",
     "make_intake_activities",
+    "TimelineActivities",
+    "TimelineActivityDependencies",
+    "make_timeline_activities",
 ]

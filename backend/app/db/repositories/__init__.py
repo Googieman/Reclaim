@@ -13,6 +13,12 @@ from .finance import FinancialExposureRepository
 from .incidents import IncidentCreateResult, IncidentRepository
 from .policy import PolicyDecisionRepository, PolicyVersionRepository
 from .proposals import ActionProposalRepository
+from .provider_correlations import (
+    ProviderCorrelationMapping,
+    ProviderCorrelationMappingConflictError,
+    ProviderCorrelationRepository,
+    ProviderCorrelationResolution,
+)
 from .replay import EvaluationCaseRepository, ReplayRunRepository
 from .tenants import TenantRepository
 from .timeline import TimelineEventRepository
@@ -38,6 +44,10 @@ __all__ = [
     "IncidentCreateResult",
     "PolicyDecisionRepository",
     "PolicyVersionRepository",
+    "ProviderCorrelationMapping",
+    "ProviderCorrelationMappingConflictError",
+    "ProviderCorrelationRepository",
+    "ProviderCorrelationResolution",
     "RepositoryError",
     "ReplayRunRepository",
     "TenantRepository",

@@ -22,6 +22,7 @@ from app.db.repositories import (
     IncidentRepository,
     PolicyDecisionRepository,
     PolicyVersionRepository,
+    ProviderCorrelationRepository,
     ReplayRunRepository,
     TenantRepository,
     TimelineEventRepository,
@@ -71,6 +72,7 @@ class PostgresUnitOfWork:
         self.outbox: OutboxEventRepository
         self.inbox: InboxMessageRepository
         self.webhooks: WebhookDeliveryRepository
+        self.provider_correlations: ProviderCorrelationRepository
 
     def __enter__(self) -> Self:
         self.connection = self._connection_factory()
@@ -97,6 +99,9 @@ class PostgresUnitOfWork:
         self.outbox = OutboxEventRepository(self.connection, self.tenant_context)
         self.inbox = InboxMessageRepository(self.connection, self.tenant_context)
         self.webhooks = WebhookDeliveryRepository(self.connection, self.tenant_context)
+        self.provider_correlations = ProviderCorrelationRepository(
+            self.connection, self.tenant_context
+        )
         return self
 
     def __exit__(

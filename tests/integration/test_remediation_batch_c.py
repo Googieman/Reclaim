@@ -175,7 +175,12 @@ def webhook_verifier(limit: int) -> RazorpayWebhookVerifier:
 
 def test_webhook_raw_limit_is_exact_and_checked_before_json_parsing() -> None:
     payload = json.dumps(
-        {"id": "evt-batch-c", "type": "payment.captured"}, separators=(",", ":")
+        {
+            "id": "evt-batch-c",
+            "type": "payment.captured",
+            "payload": {"payment": {"entity": {"id": "pay-batch-c"}}},
+        },
+        separators=(",", ":"),
     ).encode()
     exact = webhook_verifier(len(payload)).verify(
         webhook_request(payload), authorization_context=reviewer_context()

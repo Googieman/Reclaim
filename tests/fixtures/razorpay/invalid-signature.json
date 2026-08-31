@@ -1,7 +1,8 @@
 {
   "mode": "replay",
   "label": "replay",
-  "fixture_version": "razorpay-test-v1",
+  "contract_version": "2.0.0",
+  "fixture_version": "razorpay-test-v2",
   "tenant_id": "tenant-a",
   "connector_id": "razorpay-test",
   "correlation_id": "corr-razorpay-replay-invalid-signature",
@@ -13,7 +14,15 @@
     "entity": "event",
     "id": "evt_test_invalid_signature_1",
     "type": "payment.captured",
-    "created_at": 1788080400
+    "created_at": 1788080400,
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_test_invalid_signature_1",
+          "order_id": "order_test_invalid_signature_1"
+        }
+      }
+    }
   },
   "signature": "invalid-fixture-signature"
 }

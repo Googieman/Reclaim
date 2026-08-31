@@ -17,6 +17,15 @@ PAYLOAD = json.dumps(
         "id": "evt-1",
         "type": "payment.captured",
         "created_at": 1788080400,
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay-1",
+                    "order_id": "order-1",
+                    "notes": {"merchant_reference": "merchant-ref-1"},
+                }
+            }
+        },
     },
     separators=(",", ":"),
 ).encode()
@@ -66,6 +75,9 @@ def test_valid_original_payload_is_authenticated_and_preserved() -> None:
     assert result.original_payload == PAYLOAD
     assert result.payload_checksum == payload_checksum(PAYLOAD)
     assert result.provider_event_id == "evt-1"
+    assert result.verified_provider_correlation is not None
+    assert result.verified_provider_correlation.provider_payment_id == "pay-1"
+    assert result.verified_provider_correlation.verification.state == "verified"
 
 
 @pytest.mark.parametrize(

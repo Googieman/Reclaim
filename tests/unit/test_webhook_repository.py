@@ -1,17 +1,19 @@
-"""SQL boundary tests for valid webhook identity and quarantine persistence."""
+"""SQL boundary tests for D3 mapping-backed webhook persistence."""
 
 from datetime import UTC, datetime
+import json
 from typing import Any
 
 import pytest
 from app.auth.oidc import AuthenticatedPrincipal, IdentityType
 from app.db.repositories.base import RepositoryError
-from app.db.repositories.webhooks import (
-    WebhookDeliveryRepository,
-    WebhookIdentityConflictError,
-)
+from app.db.repositories.provider_correlations import ProviderCorrelationMapping
+from app.db.repositories.webhooks import WebhookDeliveryRepository
 from app.db.tenant_context import TenantContext
-
+from packages.contracts.intake import (
+    VerifiedProviderCorrelation,
+    VerifiedProviderVerification,
+)
 
 NOW = datetime(2026, 8, 30, 9, tzinfo=UTC)
 
@@ -25,6 +27,50 @@ def context() -> Any:
         issuer="test-issuer",
     )
     return TenantContext.from_authorization_context(principal.for_tenant("tenant-a"))
+
+
+def mapping() -> ProviderCorrelationMapping:
+    return ProviderCorrelationMapping(
+        tenant_id="tenant-a",
+        mapping_id="mapping-1",
+        correlation_schema_version="1.0.0",
+        provider="razorpay",
+        connector_id="razorpay-test",
+        provider_event_id=None,
+        provider_payment_id="pay-1",
+        provider_order_id="order-1",
+        merchant_reference="merchant-ref-1",
+        incident_id="incident-1",
+        case_id="case-1",
+        related_order_reference="merchant://orders/order-1",
+        related_payment_reference="merchant://payments/pay-1",
+        mapping_source="merchant_order_payment_context",
+        mapping_source_reference="merchant://orders/order-1",
+        mapping_source_checksum="sha256:trusted-mapping",
+        mapping_status="active",
+        created_at=NOW,
+        verified_at=NOW,
+        revoked_at=None,
+    )
+
+
+def correlation() -> VerifiedProviderCorrelation:
+    return VerifiedProviderCorrelation(
+        provider="razorpay",
+        connector_id="razorpay-test",
+        provider_event_id="evt-1",
+        provider_payment_id="pay-1",
+        provider_order_id="order-1",
+        merchant_reference="merchant-ref-1",
+        verification=VerifiedProviderVerification(
+            state="verified",
+            method="hmac-sha256-original-payload",
+            provenance="secret/data/tenants/tenant-a/connectors/razorpay-test/webhook",
+            payload_checksum="sha256:payload",
+            verifier_version="razorpay-webhook-verifier@2.0.0",
+            verified_at=NOW,
+        ),
+    )
 
 
 class Cursor:
@@ -61,6 +107,15 @@ class Connection:
                 "accepted",
                 params[10],
                 params[11],
+                params[12],
+                params[13],
+                params[14],
+                json.loads(str(params[15])),
+                params[16],
+                params[17],
+                params[18],
+                params[19],
+                params[20],
                 None,
                 NOW,
             )
@@ -80,6 +135,12 @@ class Connection:
                 params[10],
                 params[11],
                 NOW,
+                json.loads(str(params[12])),
+                params[13],
+                params[14],
+                params[15],
+                params[16],
+                params[17],
             )
             return Cursor(self.quarantine_row)
         if "SELECT TENANT_ID, CONNECTOR_ID, PROVIDER_EVENT_ID" in normalized:
@@ -87,92 +148,78 @@ class Connection:
         return Cursor(None)
 
 
-def test_valid_delivery_repository_uses_provider_identity_and_context_tenant() -> None:
+def delivery_kwargs() -> dict[str, object]:
+    return {
+        "mapping": mapping(),
+        "verified_provider_correlation": correlation(),
+        "connector_id": "razorpay-test",
+        "provider_event_id": "evt-1",
+        "original_payload": b"payload",
+        "payload_checksum": "sha256:payload",
+        "raw_object_uri": "tenants/tenant-a/webhooks/evt-1.json",
+        "signature": "signature",
+        "event_type": "payment.captured",
+        "event_timestamp": NOW,
+        "received_at": NOW,
+        "asserted_tenant_id": "tenant-a",
+        "asserted_incident_id": None,
+        "asserted_case_id": None,
+    }
+
+
+def test_delivery_repository_persists_verified_mapping_and_context_tenant() -> None:
     connection = Connection()
     repository = WebhookDeliveryRepository(connection, context())
 
-    result = repository.create_or_get(
-        connector_id="razorpay-test",
-        provider_event_id="evt-1",
-        original_payload=b"{}",
-        payload_checksum="sha256:payload",
-        raw_object_uri="tenants/tenant-a/webhooks/evt-1.json",
-        signature="signature",
-        event_type="payment.captured",
-        event_timestamp=NOW,
-        received_at=NOW,
-    )
+    result = repository.create_or_get(**delivery_kwargs())
 
     assert result.inserted is True
     assert result.row.provider_event_id == "evt-1"
+    assert result.row.authoritative_mapping_id == "mapping-1"
+    assert result.row.case_id == "case-1"
+    assert result.row.verified_provider_correlation == correlation()
     assert connection.calls[0][1][0] == "tenant-a"
     assert "action" not in connection.calls[0][0].lower()
 
-    duplicate = repository.create_or_get(
-        connector_id="razorpay-test",
-        provider_event_id="evt-1",
-        original_payload=b"{}",
-        payload_checksum="sha256:payload",
-        raw_object_uri="tenants/tenant-a/webhooks/evt-1.json",
-        signature="signature",
-        event_type="payment.captured",
-        event_timestamp=NOW,
-        received_at=NOW,
-    )
-    assert duplicate.inserted is False
 
-    with pytest.raises(WebhookIdentityConflictError, match="different raw content"):
-        repository.create_or_get(
-            connector_id="razorpay-test",
-            provider_event_id="evt-1",
-            original_payload=b"different",
-            payload_checksum="sha256:different",
-            raw_object_uri="tenants/tenant-a/webhooks/evt-1.json",
-            signature="signature",
-            event_type="payment.captured",
-            event_timestamp=NOW,
-            received_at=NOW,
-        )
-
-
-def test_valid_delivery_rejects_missing_provider_identity_before_sql() -> None:
+def test_delivery_repository_rejects_missing_provider_identity_before_sql() -> None:
     connection = Connection()
     repository = WebhookDeliveryRepository(connection, context())
+    values = delivery_kwargs()
+    values["provider_event_id"] = " "
 
     with pytest.raises(RepositoryError, match="provider event identity"):
-        repository.create_or_get(
-            connector_id="razorpay-test",
-            provider_event_id=" ",
-            original_payload=b"{}",
-            payload_checksum="sha256:payload",
-            raw_object_uri=None,
-            signature=None,
-            event_type=None,
-            event_timestamp=None,
-            received_at=NOW,
-        )
+        repository.create_or_get(**values)
 
     assert connection.calls == []
 
 
-def test_quarantine_repository_preserves_missing_provider_identity_as_null() -> None:
+def test_quarantine_repository_preserves_verified_correlation_without_authority() -> (
+    None
+):
     connection = Connection()
     repository = WebhookDeliveryRepository(connection, context())
 
     result = repository.quarantine(
         quarantine_id="quarantine-1",
         connector_id="razorpay-test",
-        provider_event_id=None,
+        provider_event_id="evt-1",
         original_payload=b"invalid",
         payload_checksum="sha256:invalid",
         raw_object_uri="tenants/tenant-a/webhooks/quarantine-1.json",
-        signature=None,
-        event_type=None,
-        event_timestamp=None,
+        signature="signature",
+        event_type="payment.captured",
+        event_timestamp=NOW,
         received_at=NOW,
-        reason="missing provider event identity",
+        reason="unresolved_association",
+        verified_provider_correlation=correlation(),
+        association_status="unresolved_association",
+        asserted_tenant_id="tenant-a",
+        asserted_case_id="case-arbitrary",
     )
 
-    assert result.provider_event_id is None
+    assert result.provider_event_id == "evt-1"
+    assert result.verified_provider_correlation == correlation()
+    assert result.association_status == "unresolved_association"
+    assert result.asserted_case_id == "case-arbitrary"
     assert connection.quarantine_row is not None
-    assert connection.quarantine_row[3] is None

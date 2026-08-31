@@ -338,15 +338,64 @@ async def test_us1_live_vertical_slice_gate() -> None:
         id_factory=lambda prefix: f"{prefix}-{uuid4().hex}",
     )
     webhook_payload = json.dumps(
-        {"id": f"evt-{uuid4().hex}", "type": "payment.captured"},
+        {
+            "id": f"evt-{uuid4().hex}",
+            "type": "payment.captured",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "id": f"pay-{uuid4().hex}",
+                        "order_id": f"order-{uuid4().hex}",
+                    }
+                }
+            },
+        },
         separators=(",", ":"),
     ).encode()
+    webhook_payload_data = json.loads(webhook_payload)
+    provider_event_id = webhook_payload_data["id"]
+    provider_payment_id = webhook_payload_data["payload"]["payment"]["entity"]["id"]
+    provider_order_id = webhook_payload_data["payload"]["payment"]["entity"]["order_id"]
+    with PostgresUnitOfWork(
+        lambda: psycopg.connect(settings["RECLAIM_DATABASE_URL"]),
+        authorization_context=user_context,
+    ) as unit_of_work:
+        unit_of_work.connectors.create(
+            connector_id="razorpay-test",
+            contract_version="2.0.0",
+            connector_type="evidence",
+            allowed_resources=("payments",),
+            allowed_operations=("read",),
+            auth_scope=("merchant:payments:read",),
+            credential_scope_ref=(
+                f"secret/data/tenants/{tenant_id}/connectors/razorpay-test/webhook"
+            ),
+            schema_version="1.0.0",
+            failure_state_version="1.0.0",
+            mode="simulator",
+        )
+        unit_of_work.provider_correlations.register(
+            mapping_id=f"mapping-{uuid4().hex}",
+            provider="razorpay",
+            connector_id="razorpay-test",
+            provider_event_id=provider_event_id,
+            provider_payment_id=provider_payment_id,
+            provider_order_id=provider_order_id,
+            incident_id=accepted.json()["incident_id"],
+            case_id=case_id,
+            related_order_reference=f"merchant://orders/{provider_order_id}",
+            related_payment_reference=f"merchant://payments/{provider_payment_id}",
+            mapping_source="merchant_order_payment_context",
+            mapping_source_reference=f"merchant://orders/{provider_order_id}",
+            mapping_source_checksum="sha256:t058-trusted-order-payment-context",
+            verified_at=datetime(2026, 8, 30, 9, 45, tzinfo=UTC),
+        )
     webhook_signature = hmac.new(
         WEBHOOK_SECRET.encode(), webhook_payload, hashlib.sha256
     ).hexdigest()
     webhook = _webhook_request(
         tenant_id=tenant_id,
-        provider_event_id=json.loads(webhook_payload)["id"],
+        provider_event_id=provider_event_id,
         signature=webhook_signature,
         payload=webhook_payload,
         correlation_id=intake.correlation_id,

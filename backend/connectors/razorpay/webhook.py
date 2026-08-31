@@ -18,7 +18,12 @@ from typing import Any, Protocol
 from app.auth.oidc import TenantAuthorizationContext
 from app.config import get_settings
 from app.secrets.vault import VaultSecretStore, vault_webhook_secret_path
-from packages.contracts.intake import IntakeStatus, RazorpayWebhookRequest
+from packages.contracts.intake import (
+    IntakeStatus,
+    RazorpayWebhookRequest,
+    VerifiedProviderCorrelation,
+    VerifiedProviderVerification,
+)
 
 
 class WebhookVerificationError(ValueError):
@@ -44,6 +49,7 @@ class WebhookVerification:
     provider_event_id: str | None = None
     event_type: str | None = None
     event_timestamp: datetime | None = None
+    verified_provider_correlation: VerifiedProviderCorrelation | None = None
     reason: str | None = None
     payload_size_exceeded: bool = False
 
@@ -52,6 +58,10 @@ class WebhookVerification:
             if not self.provider_event_id:
                 raise WebhookVerificationError(
                     "accepted webhook verification requires provider event identity"
+                )
+            if self.verified_provider_correlation is None:
+                raise WebhookVerificationError(
+                    "accepted webhook verification requires verified provider correlation"
                 )
         elif not self.reason:
             raise WebhookVerificationError("quarantined webhook verification requires a reason")
@@ -84,6 +94,7 @@ SecretResolver = WebhookSecretResolver | VaultSecretStore | Callable[..., str | 
 
 DEFAULT_SIGNATURE_HEADER = "X-Razorpay-Signature"
 DEFAULT_PROVIDER_EVENT_ID_HEADER = "X-Razorpay-Event-Id"
+VERIFIER_VERSION = "razorpay-webhook-verifier@2.0.0"
 
 
 class RazorpayWebhookVerifier:
@@ -167,6 +178,11 @@ class RazorpayWebhookVerifier:
         body_event_type = body.get("event") or body.get("type")
         if body_event_type is not None and body_event_type != request.event_type:
             return self._quarantine(request, "provider event type does not match payload")
+        body_timestamp = _parse_event_timestamp(body.get("created_at"))
+        if body.get("created_at") is not None and (
+            body_timestamp is None or body_timestamp != request.event_timestamp
+        ):
+            return self._quarantine(request, "provider event timestamp does not match payload")
 
         try:
             secrets = self._resolve_secrets()
@@ -178,6 +194,20 @@ class RazorpayWebhookVerifier:
         ):
             return self._quarantine(request, "invalid provider signature")
 
+        try:
+            correlation = _derive_verified_provider_correlation(
+                body=body,
+                connector_id=self.connector_id,
+                provider_event_id=request.provider_event_id,
+                event_type=request.event_type,
+                payload_checksum=actual_checksum,
+                verified_at=request.received_at,
+                verifier_version=VERIFIER_VERSION,
+                verification_provenance=self.secret_reference,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            return self._quarantine(request, f"malformed provider correlation: {exc}")
+
         return WebhookVerification(
             tenant_id=request.tenant_id,
             correlation_id=request.correlation_id,
@@ -188,6 +218,7 @@ class RazorpayWebhookVerifier:
             provider_event_id=request.provider_event_id,
             event_type=request.event_type,
             event_timestamp=request.event_timestamp,
+            verified_provider_correlation=correlation,
         )
 
     def verify_http(
@@ -275,6 +306,103 @@ class RazorpayWebhookVerifier:
 
 def _payload_checksum(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+_MISSING = object()
+
+
+def _derive_verified_provider_correlation(
+    *,
+    body: Mapping[str, Any],
+    connector_id: str,
+    provider_event_id: str | None,
+    event_type: str | None,
+    payload_checksum: str,
+    verified_at: datetime,
+    verifier_version: str,
+    verification_provenance: str,
+) -> VerifiedProviderCorrelation:
+    """Extract provider identifiers from the authenticated payload only."""
+
+    if not provider_event_id or not event_type:
+        raise ValueError("provider event identity and type are required")
+    payment_id = _consistent_provider_text(
+        body,
+        (
+            ("payload", "payment", "entity", "id"),
+            ("payload", "payment", "id"),
+            ("payment", "entity", "id"),
+            ("payment", "id"),
+        ),
+        "provider payment identity",
+    )
+    order_id = _consistent_provider_text(
+        body,
+        (
+            ("payload", "payment", "entity", "order_id"),
+            ("payload", "order", "entity", "id"),
+            ("payload", "order", "id"),
+            ("payment", "entity", "order_id"),
+            ("order", "entity", "id"),
+            ("order", "id"),
+        ),
+        "provider order identity",
+    )
+    merchant_reference = _consistent_provider_text(
+        body,
+        (
+            ("payload", "payment", "entity", "notes", "merchant_reference"),
+            ("payload", "payment", "entity", "merchant_reference"),
+            ("payload", "merchant_reference"),
+            ("payment", "entity", "merchant_reference"),
+        ),
+        "merchant reference",
+    )
+    if event_type.startswith("payment.") and payment_id is None:
+        raise ValueError("provider payment identity is required for payment events")
+
+    verification = VerifiedProviderVerification(
+        state="verified",
+        method="hmac-sha256-original-payload",
+        provenance=verification_provenance,
+        payload_checksum=payload_checksum,
+        verifier_version=verifier_version,
+        verified_at=verified_at,
+    )
+    return VerifiedProviderCorrelation(
+        provider="razorpay",
+        connector_id=connector_id,
+        provider_event_id=provider_event_id,
+        provider_payment_id=payment_id,
+        provider_order_id=order_id,
+        merchant_reference=merchant_reference,
+        verification=verification,
+    )
+
+
+def _consistent_provider_text(
+    body: Mapping[str, Any], paths: tuple[tuple[str, ...], ...], label: str
+) -> str | None:
+    values: list[str] = []
+    for path in paths:
+        value: object = body
+        for part in path:
+            if not isinstance(value, Mapping):
+                value = _MISSING
+                break
+            value = value.get(part, _MISSING)
+            if value is _MISSING:
+                break
+        if value is _MISSING:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{label} is malformed")
+        values.append(value.strip())
+    if not values:
+        return None
+    if len(set(values)) != 1:
+        raise ValueError(f"provider {label} is contradictory")
+    return values[0]
 
 
 def _normalize_checksum(value: str) -> str:

@@ -7,16 +7,22 @@ keeping live/replay labeling explicit.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from app.secrets.vault import vault_webhook_secret_path
+from packages.contracts.intake import RazorpayWebhookRequest
 
 RAZORPAY_TEST_CONNECTOR_ID = "razorpay-test"
 RAZORPAY_TEST_PROVIDER = "razorpay"
-RAZORPAY_TEST_CONTRACT_VERSION = "1.0.0"
+RAZORPAY_TEST_CONTRACT_VERSION = "2.0.0"
+RAZORPAY_CORRELATION_SCHEMA_VERSION = "1.0.0"
 
 
 class RazorpayRunMode(StrEnum):
@@ -56,6 +62,7 @@ class RazorpayTestModeManifest:
         "provider_event_id",
         "event_type",
         "event_timestamp",
+        "verified_provider_correlation",
     )
     secret_rotation: str = "current-and-previous-versioned-secret"
 
@@ -132,6 +139,51 @@ class RazorpayFixtureLoader:
         if "secret" in value or "signature_secret" in value:
             raise ValueError("Razorpay fixtures must not contain secret material")
         return value
+
+    def load_webhook_request(
+        self, fixture_name: str, *, verification_secret: str
+    ) -> RazorpayWebhookRequest:
+        """Render one replay fixture into the same request contract as live input."""
+
+        fixture = self.load(fixture_name)
+        if fixture.get("contract_version", "2.0.0") != "2.0.0":
+            raise ValueError("Razorpay webhook fixture must use contract version 2.0.0")
+        payload_value = fixture.get("original_payload")
+        if not isinstance(payload_value, dict):
+            raise ValueError("Razorpay webhook fixture payload must be an object")
+        payload = json.dumps(payload_value, separators=(",", ":")).encode("utf-8")
+        supplied_signature = fixture.get("signature")
+        if not isinstance(supplied_signature, str):
+            raise ValueError("Razorpay webhook fixture signature is required")
+        signature = supplied_signature
+        if supplied_signature == "fixture-signature-supplied-by-test":
+            signature = hmac.new(
+                verification_secret.encode("utf-8"), payload, hashlib.sha256
+            ).hexdigest()
+        return RazorpayWebhookRequest(
+            tenant_id=str(fixture["tenant_id"]),
+            correlation_id=str(fixture["correlation_id"]),
+            connector_id=str(fixture["connector_id"]),
+            original_payload=payload,
+            payload_checksum=f"sha256:{hashlib.sha256(payload).hexdigest()}",
+            signature=signature,
+            provider_event_id=str(fixture["provider_event_id"]),
+            event_type=str(fixture["event_type"]),
+            event_timestamp=_fixture_datetime(fixture["event_timestamp"]),
+            received_at=_fixture_datetime(fixture["received_at"]),
+        )
+
+
+def _fixture_datetime(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("Razorpay webhook fixture timestamp is required")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Razorpay webhook fixture timestamp is malformed") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Razorpay webhook fixture timestamp requires timezone")
+    return parsed
 
 
 def validate_secret_rotation_references(

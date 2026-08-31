@@ -30,6 +30,7 @@ AUTHORIZED_EVENT_PRODUCERS: frozenset[str] = frozenset(
     {
         "intake-api@1.0.0",
         "razorpay-webhook@1.0.0",
+        "razorpay-webhook@2.0.0",
         "evidence-orchestrator@1.0.0",
         "timeline-reconstructor@1.0.0",
     }

@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from packages.contracts.intake import (
     IntakeStatus,
     RazorpayWebhookRequest,
+    VerifiedProviderCorrelation,
+    VerifiedProviderVerification,
     WebhookProcessingResponse,
 )
 
@@ -36,7 +38,26 @@ def make_webhook(**overrides: object) -> RazorpayWebhookRequest:
     return RazorpayWebhookRequest(**values)
 
 
-def test_webhook_preserves_original_bytes_and_declared_checksum_for_verification() -> None:
+def verified_correlation() -> VerifiedProviderCorrelation:
+    return VerifiedProviderCorrelation(
+        provider="razorpay",
+        connector_id="razorpay-test",
+        provider_event_id="evt_1",
+        provider_payment_id="pay_1",
+        verification=VerifiedProviderVerification(
+            state="verified",
+            method="hmac-sha256-original-payload",
+            provenance="secret/data/tenants/tenant-a/connectors/razorpay-test/webhook",
+            payload_checksum=payload_checksum(),
+            verifier_version="razorpay-webhook-verifier@2.0.0",
+            verified_at=datetime(2026, 8, 30, 9, 1, tzinfo=UTC),
+        ),
+    )
+
+
+def test_webhook_preserves_original_bytes_and_declared_checksum_for_verification() -> (
+    None
+):
     request = make_webhook()
 
     assert request.original_payload == PAYLOAD
@@ -90,12 +111,18 @@ def test_valid_duplicate_delivery_acknowledges_without_new_case_identity() -> No
         status=IntakeStatus.DUPLICATE,
         connector_id="razorpay-test",
         provider_event_id="evt_1",
+        authoritative_mapping_id="mapping-1",
+        incident_id="incident-1",
+        case_id="case-1",
+        association_status="resolved",
+        verified_provider_correlation=verified_correlation(),
     )
 
     assert response.status is IntakeStatus.DUPLICATE
     assert response.provider_event_id == "evt_1"
-    assert response.incident_id is None
-    assert response.case_id is None
+    assert response.authoritative_mapping_id == "mapping-1"
+    assert response.incident_id == "incident-1"
+    assert response.case_id == "case-1"
 
 
 def test_accepted_webhook_requires_provider_event_identity() -> None:
@@ -105,6 +132,46 @@ def test_accepted_webhook_requires_provider_event_identity() -> None:
             correlation_id="corr-webhook-1",
             status=IntakeStatus.ACCEPTED,
             connector_id="razorpay-test",
+        )
+
+
+def test_accepted_webhook_requires_authoritative_mapping_and_mapped_case() -> None:
+    with pytest.raises(ValidationError, match="authoritative_mapping_id"):
+        WebhookProcessingResponse(
+            tenant_id="tenant-a",
+            correlation_id="corr-webhook-1",
+            status=IntakeStatus.ACCEPTED,
+            connector_id="razorpay-test",
+            provider_event_id="evt_1",
+            verified_provider_correlation=verified_correlation(),
+        )
+
+
+def test_verified_provider_correlation_is_strict_and_retains_verification_provenance() -> (
+    None
+):
+    correlation = VerifiedProviderCorrelation(
+        provider="razorpay",
+        connector_id="razorpay-test",
+        provider_event_id="evt_1",
+        provider_payment_id="pay_1",
+        provider_order_id="order_1",
+        merchant_reference="merchant-ref-1",
+        verification=VerifiedProviderVerification(
+            state="verified",
+            method="hmac-sha256-original-payload",
+            provenance="secret/data/tenants/tenant-a/connectors/razorpay-test/webhook",
+            payload_checksum="sha256:payload",
+            verifier_version="razorpay-webhook-verifier@2.0.0",
+            verified_at=datetime(2026, 8, 30, tzinfo=UTC),
+        ),
+    )
+    assert correlation.correlation_schema_version == "1.0.0"
+    assert correlation.verification.payload_checksum == "sha256:payload"
+    with pytest.raises(ValidationError, match="extra"):
+        VerifiedProviderCorrelation(
+            **correlation.model_dump(),
+            caller_case_id="case-1",
         )
 
 

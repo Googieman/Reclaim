@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from packages.contracts.events import EventEnvelope, EventType
+from packages.contracts.intake import VerifiedProviderCorrelation
 
 from app.auth.oidc import TenantAuthorizationContext
 from app.db.unit_of_work import PostgresUnitOfWork
@@ -72,6 +73,8 @@ def build_webhook_quarantined_event(
     recorded_at: datetime,
     causation_id: str,
     producer: str,
+    verified_provider_correlation: VerifiedProviderCorrelation | None = None,
+    association_status: str = "verification_failed",
 ) -> EventEnvelope:
     """Build a quarantine event without placing raw webhook bytes on Redpanda."""
 
@@ -81,7 +84,12 @@ def build_webhook_quarantined_event(
         "provider_event_id": provider_event_id,
         "payload_checksum": raw_payload_checksum,
         "reason": reason,
+        "association_status": association_status,
     }
+    if verified_provider_correlation is not None:
+        payload["verified_provider_correlation"] = verified_provider_correlation.model_dump(
+            mode="json"
+        )
     return EventEnvelope(
         tenant_id=tenant_id,
         correlation_id=correlation_id,

@@ -25,11 +25,12 @@ provider-correlation mapping. `case_id`, `incident_id`, `tenant_id`, and merchan
 from callers remain assertions/context only.
 
 Existing case-only callers and the current `razorpay-test-v1` valid fixture are not
-compatible with an accepted v2.0.0 delivery by themselves. Migration must provision
-the trusted mapping and add provider payment/order correlation data to valid fixtures;
-the fixture's signature must be recomputed over the changed original payload. Invalid
-or incomplete fixtures may remain useful for quarantine coverage. No fixture,
-simulator, database, or runtime migration is performed by this specification change.
+compatible with an accepted v2.0.0 delivery by themselves. Migration `005` provisions
+the authoritative mapping table, quarantines legacy accepted rows without proof, and
+adds the verified correlation fields to delivery/quarantine records. Valid replay
+fixtures provision a trusted mapping before processing; their test signature is
+recomputed over the changed original payload by the fixture loader. Invalid or
+incomplete fixtures remain useful for quarantine coverage.
 
 The files under `tests/fixtures/razorpay/` are labeled `replay` and contain no
 secret. They validate deterministic adapter behavior only. No live Razorpay

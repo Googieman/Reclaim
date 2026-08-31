@@ -1,7 +1,8 @@
 {
   "mode": "replay",
   "label": "replay",
-  "fixture_version": "razorpay-test-v1",
+  "contract_version": "2.0.0",
+  "fixture_version": "razorpay-test-v2",
   "tenant_id": "tenant-a",
   "connector_id": "razorpay-test",
   "correlation_id": "corr-razorpay-replay-1",
@@ -13,7 +14,33 @@
     "entity": "event",
     "id": "evt_test_payment_captured_1",
     "type": "payment.captured",
-    "created_at": 1788080400
+    "created_at": 1788080400,
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_test_payment_captured_1",
+          "order_id": "order_test_payment_captured_1",
+          "notes": {"merchant_reference": "merchant-ref-replay-1"}
+        }
+      }
+    }
+  },
+  "trusted_mapping": {
+    "mapping_id": "mapping-razorpay-replay-1",
+    "correlation_schema_version": "1.0.0",
+    "provider": "razorpay",
+    "connector_id": "razorpay-test",
+    "provider_payment_id": "pay_test_payment_captured_1",
+    "provider_order_id": "order_test_payment_captured_1",
+    "merchant_reference": "merchant-ref-replay-1",
+    "tenant_id": "tenant-a",
+    "incident_id": "incident-razorpay-replay-1",
+    "case_id": "case-razorpay-replay-1",
+    "related_order_reference": "merchant://orders/order_test_payment_captured_1",
+    "related_payment_reference": "merchant://payments/pay_test_payment_captured_1",
+    "mapping_source": "merchant_order_payment_context",
+    "mapping_source_reference": "merchant://orders/order_test_payment_captured_1",
+    "mapping_source_checksum": "sha256:trusted-replay-mapping-1"
   },
   "signature": "fixture-signature-supplied-by-test"
 }

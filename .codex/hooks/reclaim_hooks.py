@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 
 TASKS_PATH = Path("specs/001-incident-intake-containment/tasks.md")
@@ -26,7 +27,7 @@ MAX_DISPLAY_PATHS = 8
 def _read_payload() -> tuple[dict[str, Any], str | None]:
     raw = sys.stdin.read()
     if not raw.strip():
-        return {}, None
+        return {}, "hook stdin was empty"
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -36,8 +37,26 @@ def _read_payload() -> tuple[dict[str, Any], str | None]:
     return payload, None
 
 
-def _git_root(cwd: str | None) -> Path | None:
-    base = Path(cwd or os.getcwd())
+def _cwd_path(cwd: Any) -> Path:
+    if not isinstance(cwd, str) or not cwd.strip():
+        return Path.cwd()
+    value = cwd.strip()
+    if value.casefold().startswith("file:"):
+        parsed = urlsplit(value)
+        path = unquote(parsed.path)
+        if re.match(r"^/[A-Za-z]:/", path):
+            path = path[1:]
+        elif parsed.netloc:
+            path = f"\\\\{parsed.netloc}{path}"
+        value = path
+    return Path(value)
+
+
+def _git_root(cwd: Any) -> Path | None:
+    try:
+        base = _cwd_path(cwd)
+    except (OSError, TypeError, ValueError):
+        return None
     try:
         result = subprocess.run(
             ["git", "-C", str(base), "rev-parse", "--show-toplevel"],
@@ -70,6 +89,11 @@ def _run_git(root: Path, args: list[str]) -> tuple[bool, str]:
 
 def _relative_path(value: str, root: Path) -> str:
     raw = str(value).strip().strip('"')
+    if raw.casefold().startswith("file:"):
+        try:
+            raw = str(_cwd_path(raw))
+        except (OSError, TypeError, ValueError):
+            pass
     text = raw.replace("\\", "/")
     if text.startswith("./"):
         text = text[2:]
@@ -416,7 +440,9 @@ def _patch_reason(command: str, root: Path) -> str | None:
 
 
 def _pretool_output(payload: dict[str, Any], root: Path) -> dict[str, Any] | None:
-    tool_name = str(payload.get("tool_name", ""))
+    tool_name = payload.get("tool_name")
+    if not isinstance(tool_name, str):
+        tool_name = ""
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
         tool_input = {}
@@ -424,15 +450,20 @@ def _pretool_output(payload: dict[str, Any], root: Path) -> dict[str, Any] | Non
     if not isinstance(command, str):
         command = ""
     reason = None
-    if tool_name == "Bash":
+    if tool_name.casefold() in {"bash", "exec_command", "shell", "powershell"}:
         reason = _shell_reason(command, root)
-    elif tool_name in {"apply_patch", "Edit", "Write"}:
+    elif tool_name.casefold() in {"apply_patch", "edit", "write"}:
         reason = _patch_reason(command, root) if command else None
         target = tool_input.get("file_path") or tool_input.get("path")
         if isinstance(target, str):
             target_path = _relative_path(target, root).casefold()
             if target_path == ".git" or target_path.startswith(".git/"):
                 reason = "blocked file operation targeting .git"
+    elif command:
+        # Matchers normally limit this hook to known command/edit tools. If a
+        # future Codex tool is routed here, still do not let a recognizable
+        # destructive command bypass the guard merely because its name changed.
+        reason = _shell_reason(command, root)
     if not reason:
         return None
     return {
@@ -499,7 +530,12 @@ def _posttool_output(
     categories = _sensitive_categories(changed)
     audit_paths = categories.get("security-audits", [])
     touched = _tool_touched_paths(payload, root)
-    tool_text = json.dumps(payload.get("tool_input", {}), ensure_ascii=False).casefold()
+    try:
+        tool_text = json.dumps(
+            payload.get("tool_input", {}), ensure_ascii=False
+        ).casefold()
+    except (TypeError, ValueError):
+        tool_text = ""
     audit_touched = (
         any("security-audits" in path.casefold() for path in touched)
         or "security-audits" in tool_text
@@ -609,7 +645,7 @@ def _stop_output(payload: dict[str, Any], root: Path) -> dict[str, Any]:
             "security-audits/ remains intentionally untracked; no cleanup was attempted"
         )
 
-    stop_hook_active = bool(payload.get("stop_hook_active"))
+    stop_hook_active = payload.get("stop_hook_active") is True
     if issues and not stop_hook_active:
         return {
             "decision": "block",
@@ -623,7 +659,55 @@ def _stop_output(payload: dict[str, Any], root: Path) -> dict[str, Any]:
 
 def _error_output(event: str, detail: str) -> dict[str, Any]:
     message = f"RECLAIM {event} hook could not inspect its input safely: {detail}. The hook did not modify the repository."
+    if event == "SessionStart":
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": message,
+            }
+        }
+    if event == "PostToolUse":
+        return {
+            "systemMessage": message,
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": message,
+            },
+        }
     return {"systemMessage": message}
+
+
+def _pretool_error(detail: str) -> dict[str, Any]:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": (
+                "RECLAIM development guard could not safely inspect this tool call: "
+                f"{detail}. The tool call was not authorized."
+            ),
+        }
+    }
+
+
+def _event_mismatch(payload: dict[str, Any], expected: str) -> str | None:
+    if "hook_event_name" not in payload:
+        # Tolerate older or hand-authored payloads that omit this redundant
+        # discriminator. Codex 0.151 supplies it and it is checked when present.
+        return None
+    supplied = payload["hook_event_name"]
+    if not isinstance(supplied, str) or supplied != expected:
+        return f"hook_event_name does not match {expected}"
+    return None
+
+
+def _emit(output: dict[str, Any]) -> None:
+    try:
+        sys.stdout.write(json.dumps(output, ensure_ascii=True) + "\n")
+    except (OSError, UnicodeError):
+        # There is no safe protocol response once stdout is unavailable, but
+        # do not turn an advisory hook warning into a process failure.
+        return
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -635,29 +719,66 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     payload, parse_error = _read_payload()
-    root = _git_root(payload.get("cwd"))
-    if root is None:
-        print(json.dumps(_error_output(args.event, "git root could not be resolved")))
-        return 0
     if parse_error:
-        print(json.dumps(_error_output(args.event, parse_error)))
+        _emit(
+            _pretool_error(parse_error)
+            if args.event == "PreToolUse"
+            else _error_output(args.event, parse_error)
+        )
+        return 0
+    mismatch = _event_mismatch(payload, args.event)
+    if mismatch:
+        _emit(
+            _pretool_error(mismatch)
+            if args.event == "PreToolUse"
+            else _error_output(args.event, mismatch)
+        )
         return 0
 
-    if args.event == "SessionStart":
-        output: dict[str, Any] = {
-            "hookSpecificOutput": {
-                "hookEventName": "SessionStart",
-                "additionalContext": _session_context(root),
+    try:
+        root = _git_root(payload.get("cwd"))
+        if root is None:
+            _emit(
+                _pretool_error("git root could not be resolved")
+                if args.event == "PreToolUse"
+                else _error_output(args.event, "git root could not be resolved")
+            )
+            return 0
+
+        if args.event == "SessionStart":
+            output: dict[str, Any] = {
+                "hookSpecificOutput": {
+                    "hookEventName": "SessionStart",
+                    "additionalContext": _session_context(root),
+                }
             }
-        }
-    elif args.event == "PreToolUse":
-        output = _pretool_output(payload, root) or {}
-    elif args.event == "PostToolUse":
-        output = _posttool_output(payload, root)
-    else:
-        output = _stop_output(payload, root)
-    if output:
-        print(json.dumps(output, ensure_ascii=False))
+        elif args.event == "PreToolUse":
+            tool_name = payload.get("tool_name")
+            shell_tool = isinstance(tool_name, str) and tool_name.casefold() in {
+                "bash",
+                "exec_command",
+                "shell",
+                "powershell",
+            }
+            if shell_tool and not isinstance(payload.get("tool_input"), dict):
+                output = _pretool_error("tool_input was not an object")
+            else:
+                output = _pretool_output(payload, root) or {}
+        elif args.event == "PostToolUse":
+            output = _posttool_output(payload, root)
+        else:
+            output = _stop_output(payload, root)
+        if output:
+            _emit(output)
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - exercised through launcher fault tests
+        detail = f"internal {type(exc).__name__} while inspecting context"
+        _emit(
+            _pretool_error(detail)
+            if args.event == "PreToolUse"
+            else _error_output(args.event, detail)
+        )
     return 0
 
 

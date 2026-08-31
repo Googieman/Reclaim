@@ -32,11 +32,32 @@ review them, trust them, or disable an individual hook. New or changed
 non-managed hooks do not run until trusted. Do not bypass that review casually.
 
 The JSON uses the current event → matcher → handler format. Unix-like runs resolve
-the script from `git rev-parse --show-toplevel`; Windows uses `commandWindows`,
-`for /f`, and the small `reclaim_hooks.cmd` launcher. The launcher resolves the
-same git root and prefers a repository `.venv`, then `python`, then `py -3`.
+the script from `git rev-parse --show-toplevel`; Windows uses a quote-free
+`commandWindows` delegation to the small `reclaim_hooks.cmd` launcher. The
+launcher resolves the same git root and prefers a repository `.venv`, then a
+validated `python`, then a validated `py -3`.
 The hook logic uses Python standard-library code only and receives Codex's JSON
-event on stdin.
+event on stdin. Codex's Windows runner wraps the configured value for `cmd.exe
+/C`, so embedded quotes can prevent the command from starting. The configured
+value therefore contains no quotes and delegates to `.codex\hooks\reclaim_hooks.cmd`.
+
+Codex 0.151 event payloads include `session_id`, `transcript_path`, `cwd`,
+`hook_event_name`, `model`, and `permission_mode`. Tool events also carry
+`turn_id`, `tool_name`, `tool_input`, and `tool_use_id`; `PostToolUse` carries
+`tool_response`; `SessionStart` adds `source`; and `Stop` adds
+`stop_hook_active` and `last_assistant_message`. Nullable fields are accepted
+as null, and unknown fields are ignored.
+
+Responses are JSON on stdout only. `PreToolUse` emits the current
+`hookSpecificOutput.permissionDecision` deny shape for a deliberate block and
+otherwise emits no output. `SessionStart` and `PostToolUse` use their matching
+`hookSpecificOutput` context shape; `Stop` emits a JSON `systemMessage` or its
+documented continuation decision. Parsing, cwd, and context failures exit zero:
+advisory events return concise diagnostic context, while a malformed or
+uninspectable `PreToolUse` payload returns a deny response. Hook diagnostics
+never write command output or tool responses to stdout.
+If no Python interpreter is available, the launcher returns exit 2 for
+`PreToolUse` and exit 0 for advisory events.
 
 ## Validation and temporary disablement
 
@@ -46,6 +67,12 @@ From the repository root, run:
 .\.venv\Scripts\python.exe -X utf8 .codex/hooks/test_reclaim_hooks.py
 .\.venv\Scripts\python.exe -m json.tool .codex/hooks.json
 ```
+
+The self-tests invoke each configured `commandWindows` handler through
+`cmd.exe` from the repository root and a nested repository directory, using
+synthetic payloads captured from the Codex 0.151 event schemas. They also cover
+malformed JSON, nullable/missing fields, Windows paths, safe and dangerous
+commands, and launcher interpreter order.
 
 If no repository virtualenv is present, use an available `python` or `py -3`
 command instead.

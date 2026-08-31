@@ -1,0 +1,11 @@
+{
+  "cwd": "C:\\Users\\varug\\Reclaim",
+  "hook_event_name": "Stop",
+  "last_assistant_message": "Harmless validation completed.",
+  "model": "gpt-5.6-luna",
+  "permission_mode": "default",
+  "session_id": "fixture-session-001",
+  "stop_hook_active": false,
+  "transcript_path": "C:\\Users\\varug\\.codex\\sessions\\fixture-session-001.jsonl",
+  "turn_id": "fixture-turn-001"
+}

@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/reclaim_hooks.py\" --event SessionStart",
-            "commandWindows": "for /f \"delims=\" %G in ('git rev-parse --show-toplevel') do @call \"%G\\.codex\\hooks\\reclaim_hooks.cmd\" --event SessionStart",
+            "commandWindows": "cmd.exe /D /C .codex\\hooks\\reclaim_hooks.cmd --event SessionStart",
             "statusMessage": "Loading RECLAIM development context",
             "timeout": 10,
             "additionalContextLimit": 1200
@@ -23,7 +23,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/reclaim_hooks.py\" --event PreToolUse",
-            "commandWindows": "for /f \"delims=\" %G in ('git rev-parse --show-toplevel') do @call \"%G\\.codex\\hooks\\reclaim_hooks.cmd\" --event PreToolUse",
+            "commandWindows": "cmd.exe /D /C .codex\\hooks\\reclaim_hooks.cmd --event PreToolUse",
             "statusMessage": "Checking RECLAIM destructive-command guard",
             "timeout": 10
           }
@@ -37,7 +37,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/reclaim_hooks.py\" --event PostToolUse",
-            "commandWindows": "for /f \"delims=\" %G in ('git rev-parse --show-toplevel') do @call \"%G\\.codex\\hooks\\reclaim_hooks.cmd\" --event PostToolUse",
+            "commandWindows": "cmd.exe /D /C .codex\\hooks\\reclaim_hooks.cmd --event PostToolUse",
             "statusMessage": "Reviewing RECLAIM changed paths",
             "timeout": 10,
             "additionalContextLimit": 1200
@@ -51,7 +51,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/reclaim_hooks.py\" --event Stop",
-            "commandWindows": "for /f \"delims=\" %G in ('git rev-parse --show-toplevel') do @call \"%G\\.codex\\hooks\\reclaim_hooks.cmd\" --event Stop",
+            "commandWindows": "cmd.exe /D /C .codex\\hooks\\reclaim_hooks.cmd --event Stop",
             "statusMessage": "Preparing RECLAIM handoff check",
             "timeout": 10
           }

@@ -1,0 +1,9 @@
+{
+  "cwd": "C:\\Users\\varug\\Reclaim",
+  "hook_event_name": "SessionStart",
+  "model": "gpt-5.6-luna",
+  "permission_mode": "default",
+  "session_id": "fixture-session-001",
+  "source": "startup",
+  "transcript_path": "C:\\Users\\varug\\.codex\\sessions\\fixture-session-001.jsonl"
+}

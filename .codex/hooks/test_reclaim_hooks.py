@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +14,52 @@ import reclaim_hooks
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / ".codex" / "hooks.json"
+FIXTURES = Path(__file__).with_name("fixtures")
+CMD = os.environ.get("COMSPEC", "cmd.exe")
+
+
+def _fixture(name: str) -> dict[str, object]:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _windows_hook_command(event: str) -> str:
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    handler = config["hooks"][event][0]["hooks"][0]
+    return handler["commandWindows"]
+
+
+def _run_windows_hook(
+    event: str,
+    payload: dict[str, object] | None = None,
+    cwd: Path = ROOT,
+    raw_input: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    event_payload = dict(payload or {})
+    event_payload["cwd"] = str(cwd)
+    stdin = raw_input if raw_input is not None else json.dumps(event_payload)
+    # Codex invokes the Windows command as cmd.exe /C "<command>". Keep the
+    # outer wrapper here so embedded quotes would fail this test as they did in
+    # the real runtime.
+    command = _windows_hook_command(event)
+    wrapped_command = f'cmd.exe /D /C "{command}"'
+    return subprocess.run(
+        f"{CMD} /D /C {wrapped_command}",
+        cwd=cwd,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _stdout_json(process: subprocess.CompletedProcess[str]) -> dict[str, object]:
+    if process.stderr.strip():
+        raise AssertionError(f"unexpected hook stderr: {process.stderr!r}")
+    if not process.stdout.strip():
+        raise AssertionError("hook did not emit the required JSON response")
+    return json.loads(process.stdout)
 
 
 class HookSelfTests(unittest.TestCase):
@@ -28,6 +75,11 @@ class HookSelfTests(unittest.TestCase):
             self.assertEqual(handler["type"], "command")
             self.assertIn("command", handler)
             self.assertIn("commandWindows", handler)
+            self.assertEqual(
+                handler["commandWindows"],
+                f"cmd.exe /D /C .codex\\hooks\\reclaim_hooks.cmd --event {event}",
+            )
+            self.assertNotIn('"', handler["commandWindows"])
 
     def test_session_context_is_concise_and_contains_gate_reminders(self) -> None:
         context = reclaim_hooks._session_context(ROOT)
@@ -153,6 +205,153 @@ class HookSelfTests(unittest.TestCase):
             check=True,
         )
         output = json.loads(process.stdout)
+        self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
+
+    def test_windows_paths_and_file_uri_cwd_resolve(self) -> None:
+        self.assertEqual(
+            reclaim_hooks._git_root("file:///C:/Users/varug/Reclaim"), ROOT
+        )
+        self.assertEqual(reclaim_hooks._git_root(str(ROOT)), ROOT)
+
+    def test_real_shape_session_start_uses_launcher(self) -> None:
+        process = _run_windows_hook("SessionStart", _fixture("session-start.json"))
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
+        self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
+
+    def test_real_shape_safe_powershell_pretool_uses_launcher(self) -> None:
+        process = _run_windows_hook(
+            "PreToolUse", _fixture("pre-tool-use-safe-powershell.json")
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_real_shape_dangerous_git_reset_pretool_denies(self) -> None:
+        process = _run_windows_hook(
+            "PreToolUse", _fixture("pre-tool-use-dangerous-git-reset.json")
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
+        specific = output["hookSpecificOutput"]
+        self.assertEqual(specific["permissionDecision"], "deny")
+        self.assertIn("git reset --hard", specific["permissionDecisionReason"])
+
+    def test_real_shape_safe_compose_pretool_allows(self) -> None:
+        process = _run_windows_hook(
+            "PreToolUse", _fixture("pre-tool-use-safe-compose.json")
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_real_shape_dangerous_docker_prune_pretool_denies(self) -> None:
+        process = _run_windows_hook(
+            "PreToolUse", _fixture("pre-tool-use-dangerous-docker-prune.json")
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn(
+            "Docker prune", output["hookSpecificOutput"]["permissionDecisionReason"]
+        )
+
+    def test_real_shape_normal_posttool_uses_launcher(self) -> None:
+        process = _run_windows_hook(
+            "PostToolUse", _fixture("post-tool-use-normal.json")
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_changed_contract_posttool_warns(self) -> None:
+        output = reclaim_hooks._posttool_output(
+            _fixture("post-tool-use-normal.json"),
+            ROOT,
+            ["specs/001-incident-intake-containment/contracts/intake.md"],
+        )
+        self.assertIn("explicit approval", output["systemMessage"])
+        self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "PostToolUse")
+
+    def test_real_shape_stop_uses_launcher(self) -> None:
+        process = _run_windows_hook("Stop", _fixture("stop.json"))
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
+        self.assertIn("systemMessage", output)
+
+    def test_unknown_optional_fields_are_ignored(self) -> None:
+        payload = _fixture("pre-tool-use-safe-powershell.json")
+        payload["future_optional_field"] = {"nested": None}
+        payload["tool_input"]["future_tool_field"] = None
+        process = _run_windows_hook("PreToolUse", payload)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_unknown_safe_command_tool_is_allowed(self) -> None:
+        payload = _fixture("pre-tool-use-safe-powershell.json")
+        payload["tool_name"] = "FutureSafeCommandTool"
+        payload["tool_input"] = {"command": "echo safe"}
+        process = _run_windows_hook("PreToolUse", payload)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_missing_optional_or_nullable_fields_do_not_crash(self) -> None:
+        payload = _fixture("post-tool-use-normal.json")
+        payload.pop("transcript_path")
+        payload["tool_response"] = None
+        process = _run_windows_hook("PostToolUse", payload)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "")
+
+    def test_malformed_json_is_advisory_for_non_pretool_events(self) -> None:
+        for event in ("SessionStart", "PostToolUse", "Stop"):
+            with self.subTest(event=event):
+                process = _run_windows_hook(event, raw_input="{not-json")
+                self.assertEqual(process.returncode, 0, process.stderr)
+                output = _stdout_json(process)
+                if event == "SessionStart":
+                    self.assertEqual(
+                        output["hookSpecificOutput"]["hookEventName"], "SessionStart"
+                    )
+                else:
+                    self.assertIn("systemMessage", output)
+
+    def test_malformed_pretool_payload_denies_closed(self) -> None:
+        process = _run_windows_hook("PreToolUse", raw_input='{"tool_input":')
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
+        specific = output["hookSpecificOutput"]
+        self.assertEqual(specific["permissionDecision"], "deny")
+        self.assertIn("not authorized", specific["permissionDecisionReason"])
+
+    def test_launcher_prefers_venv_and_has_fallbacks(self) -> None:
+        launcher = (ROOT / ".codex" / "hooks" / "reclaim_hooks.cmd").read_text(
+            encoding="utf-8"
+        )
+        self.assertLess(
+            launcher.index("goto run_venv"), launcher.index("goto run_python")
+        )
+        self.assertLess(
+            launcher.index("python -X utf8"), launcher.index("py -3 -X utf8")
+        )
+        self.assertIn("where python", launcher)
+        self.assertIn("where py", launcher)
+        self.assertIn('if /I "%~2"=="PreToolUse" exit /b 2', launcher)
+        self.assertTrue((ROOT / ".venv" / "Scripts" / "python.exe").is_file())
+
+    def test_launcher_works_from_nested_repository_directory(self) -> None:
+        nested = ROOT / "specs" / "001-incident-intake-containment"
+        payload = _fixture("session-start.json")
+        payload["cwd"] = str(nested)
+        process = subprocess.run(
+            f'{CMD} /D /C call "{ROOT / ".codex" / "hooks" / "reclaim_hooks.cmd"}" --event SessionStart',
+            cwd=nested,
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        output = _stdout_json(process)
         self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
 
 

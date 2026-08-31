@@ -119,7 +119,7 @@ class FakeDriver:
         self.closed = True
 
 
-def events(tenant_id: str = "tenant-a") -> tuple[Any, ...]:
+def events(tenant_id: str = "tenant-a", *, uncertain: bool = False) -> tuple[Any, ...]:
     incident = build_incident_accepted_event(
         tenant_id=tenant_id,
         correlation_id="corr-1",
@@ -166,13 +166,15 @@ def events(tenant_id: str = "tenant-a") -> tuple[Any, ...]:
         dedupe_key="session:session-1",
         event_payload={"state": "observed"},
         evidence_references=("evidence-1",),
+        conflicting_source_event_ids=("fallback-1",) if uncertain else (),
+        uncertainty_reasons=("conflicting_sources",) if uncertain else (),
     )
     timeline_event = build_timeline_rebuilt_event(
         TimelineRebuildResult(
             tenant_id=tenant_id,
             case_id="case-1",
             events=(timeline,),
-            uncertainty=(),
+            uncertainty=("session:s-1:conflicting_sources",) if uncertain else (),
         ),
         correlation_id="corr-1",
     )
@@ -213,6 +215,22 @@ def test_projection_rejects_cross_tenant_and_poisoned_payloads() -> None:
     )
     with pytest.raises(ProjectionEventError, match="checksum"):
         projection.apply(poisoned)
+
+
+def test_projection_preserves_case_and_event_uncertainty() -> None:
+    driver = FakeDriver()
+    projection = Neo4jCaseProjection(driver)
+    timeline = events(uncertain=True)[2]
+
+    assert projection.apply(timeline) == "case-1"
+    timeline_query = next(
+        parameters
+        for query, parameters in driver.session_instance.queries
+        if "HAS_TIMELINE_EVENT" in query
+    )
+    assert timeline_query["uncertainty"] == ["session:s-1:conflicting_sources"]
+    assert timeline_query["events"][0]["conflicting_source_event_ids"] == ["fallback-1"]
+    assert timeline_query["events"][0]["uncertainty_reasons"] == ["conflicting_sources"]
 
 
 @pytest.mark.asyncio

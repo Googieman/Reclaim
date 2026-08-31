@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from datetime import datetime
 
 from .base import TenantScopedRepository
@@ -124,3 +126,47 @@ class CaseRepository(TenantScopedRepository):
         if row is None:
             raise RuntimeError("case state transition returned no row")
         return row
+
+    def set_timeline_uncertainty(self, *, case_id: str, uncertainty: Sequence[str]) -> object:
+        """Persist the canonical case-level uncertainty for the current timeline."""
+
+        values = tuple(sorted(set(uncertainty)))
+        if any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError("timeline uncertainty values must be non-blank strings")
+        row = self.fetch_one(
+            """
+            UPDATE cases
+            SET timeline_uncertainty = %s::jsonb, updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+            RETURNING tenant_id, case_id, incident_id, current_state, workflow_id,
+                      created_at, updated_at, terminal_at
+            """,
+            (
+                json.dumps(values, separators=(",", ":")),
+                self.tenant_context.tenant_id,
+                case_id,
+            ),
+        )
+        if row is None:
+            raise ValueError("case does not exist")
+        return row
+
+    def timeline_uncertainty(self, *, case_id: str) -> tuple[str, ...] | None:
+        """Read the authoritative case-level uncertainty for a timeline."""
+
+        row = self.fetch_one(
+            """
+            SELECT timeline_uncertainty
+            FROM cases
+            WHERE tenant_id = %s AND case_id = %s
+            """,
+            (self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            return None
+        value = row[0]
+        if isinstance(value, str):
+            value = json.loads(value)
+        if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+            raise ValueError("persisted timeline uncertainty is not a string array")
+        return tuple(sorted(set(value)))

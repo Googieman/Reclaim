@@ -6,10 +6,19 @@ from collections.abc import Sequence
 
 from packages.contracts.audit_replay import AuditRecord
 
-from .base import TenantScopedRepository
+from .base import RepositoryError, TenantScopedRepository
 
 
 class AuditRecordRepository(TenantScopedRepository):
+    def lock_chain(self, *, tenant_id: str) -> None:
+        """Serialize audit reads and writes for one tenant until commit/rollback."""
+
+        self.assert_tenant(tenant_id)
+        self.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (f"reclaim.audit-chain:{tenant_id}",),
+        )
+
     def latest_checksum(self, *, tenant_id: str) -> str | None:
         self.assert_tenant(tenant_id)
         row = self.fetch_one(
@@ -25,6 +34,18 @@ class AuditRecordRepository(TenantScopedRepository):
         if row is None:
             return None
         return str(row[0])
+
+    def checksum_for_audit_id(self, *, tenant_id: str, audit_id: str) -> str | None:
+        self.assert_tenant(tenant_id)
+        row = self.fetch_one(
+            """
+            SELECT record_checksum
+            FROM audit_records
+            WHERE tenant_id = %s AND audit_id = %s
+            """,
+            (tenant_id, audit_id),
+        )
+        return None if row is None else str(row[0])
 
     def append(self, record: AuditRecord) -> object:
         """Insert exactly the contract fields; no raw payload or secret is accepted."""
@@ -42,6 +63,7 @@ class AuditRecordRepository(TenantScopedRepository):
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s
             )
+            ON CONFLICT (tenant_id, audit_id) DO NOTHING
             RETURNING tenant_id, audit_id, record_checksum
             """,
             (
@@ -66,7 +88,19 @@ class AuditRecordRepository(TenantScopedRepository):
             ),
         )
         if row is None:
-            raise RuntimeError("audit insert returned no row")
+            existing = self.fetch_one(
+                """
+                SELECT record_checksum
+                FROM audit_records
+                WHERE tenant_id = %s AND audit_id = %s
+                """,
+                (record.tenant_id, record.audit_id),
+            )
+            if existing is None:
+                raise RuntimeError("audit record disappeared after identity conflict")
+            if str(existing[0]) != record.record_checksum:
+                raise RepositoryError("audit identity conflicts with existing record")
+            return existing
         return row
 
 

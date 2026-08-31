@@ -22,6 +22,8 @@ class TimelineEventRepository(TenantScopedRepository):
         dedupe_key: str,
         event_payload: Mapping[str, object],
         evidence_references: Sequence[str],
+        conflicting_source_event_ids: Sequence[str] = (),
+        uncertainty_reasons: Sequence[str] = (),
     ) -> object:
         """Insert or converge a derived event identified by its case/dedupe key."""
 
@@ -30,9 +32,13 @@ class TimelineEventRepository(TenantScopedRepository):
             INSERT INTO timeline_events (
                 tenant_id, timeline_event_id, case_id, canonical_event_type,
                 source_event_ids, effective_at, ordering_key, dedupe_key,
-                event_payload, evidence_references
+                event_payload, evidence_references, conflicting_source_event_ids,
+                uncertainty_reasons
             )
-            VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s::jsonb, %s::jsonb)
+            VALUES (
+                %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s::jsonb, %s::jsonb,
+                %s::jsonb, %s::jsonb
+            )
             ON CONFLICT (tenant_id, case_id, dedupe_key) DO UPDATE SET
                 timeline_event_id = EXCLUDED.timeline_event_id,
                 canonical_event_type = EXCLUDED.canonical_event_type,
@@ -40,7 +46,9 @@ class TimelineEventRepository(TenantScopedRepository):
                 effective_at = EXCLUDED.effective_at,
                 ordering_key = EXCLUDED.ordering_key,
                 event_payload = EXCLUDED.event_payload,
-                evidence_references = EXCLUDED.evidence_references
+                evidence_references = EXCLUDED.evidence_references,
+                conflicting_source_event_ids = EXCLUDED.conflicting_source_event_ids,
+                uncertainty_reasons = EXCLUDED.uncertainty_reasons
             RETURNING tenant_id, timeline_event_id, case_id, effective_at, ordering_key,
                       dedupe_key
             """,
@@ -55,6 +63,8 @@ class TimelineEventRepository(TenantScopedRepository):
                 dedupe_key,
                 json.dumps(event_payload, sort_keys=True, separators=(",", ":")),
                 json.dumps(sorted(set(evidence_references)), separators=(",", ":")),
+                json.dumps(sorted(set(conflicting_source_event_ids)), separators=(",", ":")),
+                json.dumps(sorted(set(uncertainty_reasons)), separators=(",", ":")),
             ),
         )
         if row is None:
@@ -73,6 +83,8 @@ class TimelineEventRepository(TenantScopedRepository):
         dedupe_key: str,
         event_payload: Mapping[str, object],
         evidence_references: Sequence[str],
+        conflicting_source_event_ids: Sequence[str] = (),
+        uncertainty_reasons: Sequence[str] = (),
     ) -> object:
         return self.upsert(
             timeline_event_id=timeline_event_id,
@@ -84,6 +96,8 @@ class TimelineEventRepository(TenantScopedRepository):
             dedupe_key=dedupe_key,
             event_payload=event_payload,
             evidence_references=evidence_references,
+            conflicting_source_event_ids=conflicting_source_event_ids,
+            uncertainty_reasons=uncertainty_reasons,
         )
 
     def for_case(self, *, case_id: str) -> list[object]:
@@ -95,7 +109,8 @@ class TimelineEventRepository(TenantScopedRepository):
             """
             SELECT tenant_id, timeline_event_id, case_id, canonical_event_type,
                    source_event_ids, effective_at, ordering_key, dedupe_key,
-                   event_payload, evidence_references
+                   event_payload, evidence_references, conflicting_source_event_ids,
+                   uncertainty_reasons
             FROM timeline_events
             WHERE tenant_id = %s AND case_id = %s
             ORDER BY effective_at, ordering_key

@@ -204,6 +204,7 @@ def _validate_timeline_event(event: EventEnvelope) -> None:
     events = payload.get("events")
     if not isinstance(events, list):
         raise EventContractError("timeline.rebuilt events must be a list")
+    _string_list(payload.get("uncertainty", []), "uncertainty")
     for index, item in enumerate(events):
         if not isinstance(item, Mapping):
             raise EventContractError(f"timeline event {index} is not an object")
@@ -219,12 +220,20 @@ def _validate_timeline_event(event: EventEnvelope) -> None:
             "dedupe_key",
         ):
             _require_text(item, name)
+        _string_list(item.get("conflicting_source_event_ids", []), "conflicting_source_event_ids")
+        _string_list(item.get("uncertainty_reasons", []), "uncertainty_reasons")
 
 
 def _require_text(payload: Mapping[str, Any], name: str) -> str:
     value = payload.get(name)
     if not isinstance(value, str) or not value.strip():
         raise EventContractError(f"event payload {name} is required")
+    return value
+
+
+def _string_list(value: object, name: str) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise EventContractError(f"event payload {name} must be a string list")
     return value
 
 

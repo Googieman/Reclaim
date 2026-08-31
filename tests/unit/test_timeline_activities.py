@@ -50,6 +50,13 @@ class TimelineRepository:
 class Cases:
     def __init__(self) -> None:
         self.states: list[str] = []
+        self.uncertainty: tuple[str, ...] | None = None
+
+    def set_timeline_uncertainty(
+        self, *, case_id: str, uncertainty: tuple[str, ...]
+    ) -> object:
+        self.uncertainty = uncertainty
+        return ("tenant-a", case_id, "incident-1", "uncertainty-updated")
 
     def transition_state(self, *, case_id: str, new_state: str) -> object:
         self.states.append(new_state)
@@ -136,8 +143,10 @@ def activity_and_state() -> tuple[Any, UnitOfWork, ImmutableEvidenceStore]:
         None,
     )
     unit_of_work = UnitOfWork(row)
+
     def factory(_context: Any) -> UnitOfWork:
         return unit_of_work
+
     activity = make_timeline_activities(
         TimelineActivityDependencies(
             reconstructor=TimelineReconstructor(unit_of_work_factory=factory),
@@ -170,7 +179,8 @@ async def test_timeline_activity_rejects_raw_evidence_from_another_tenant() -> N
         object_name="case-1/raw/sessions/evidence-foreign.json",
         content=b"{}",
     )
-    unit_of_work.evidence.row = (*unit_of_work.evidence.row[:8],
+    unit_of_work.evidence.row = (
+        *unit_of_work.evidence.row[:8],
         f"minio://{stored.bucket}/{stored.object_name}",
         stored.checksum,
         *unit_of_work.evidence.row[10:],

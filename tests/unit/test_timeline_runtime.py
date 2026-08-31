@@ -6,7 +6,7 @@ from itertools import permutations
 
 import pytest
 from app.auth.oidc import AuthenticatedPrincipal, IdentityType, TenantAuthorizationError
-from evidence.models import NormalizedFact
+from evidence.models import CollectedEvidence, NormalizedFact
 from timeline.reconstruct import TimelineReconstructor
 
 
@@ -47,6 +47,92 @@ def fact(
         source_priority=source_priority,
         payload=payload or {"source_event_id": source_event_id},
         evidence_references=(f"evidence-{source_event_id}",),
+    )
+
+
+class PersistedTimeline:
+    def __init__(self) -> None:
+        self.rows: list[dict[str, object]] = []
+
+    def upsert(self, **values: object) -> object:
+        self.rows.append(values)
+        return values
+
+
+class PersistedCase:
+    def __init__(self) -> None:
+        self.uncertainty: tuple[str, ...] | None = None
+        self.states: list[str] = []
+
+    def set_timeline_uncertainty(
+        self, *, case_id: str, uncertainty: tuple[str, ...]
+    ) -> object:
+        self.uncertainty = uncertainty
+        return ("tenant-a", case_id, "incident-1", "uncertainty-updated")
+
+    def transition_state(self, *, case_id: str, new_state: str) -> object:
+        self.states.append(new_state)
+        return ("tenant-a", case_id, "incident-1", new_state)
+
+
+class PersistedOutbox:
+    def __init__(self) -> None:
+        self.events: list[object] = []
+
+    def enqueue(self, *, outbox_id: str, event: object) -> object:
+        self.events.append(event)
+        return event
+
+
+class PersistedTimelineUnitOfWork:
+    def __init__(self) -> None:
+        self.timeline = PersistedTimeline()
+        self.cases = PersistedCase()
+        self.outbox = PersistedOutbox()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        return None
+
+
+def collected_evidence(
+    *,
+    completeness: str = "complete",
+    normalization_status: str = "normalized",
+    integrity_status: str = "verified",
+    collection_error: str | None = None,
+) -> CollectedEvidence:
+    timestamp = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    return CollectedEvidence(
+        tenant_id="tenant-a",
+        case_id="case-1",
+        correlation_id="corr-1",
+        evidence_id="evidence-1",
+        connector_id="payments",
+        resource_type="payments",
+        source_identifier="payments-1",
+        source_identity="merchant-ledger",
+        observed_at=timestamp,
+        received_at=timestamp,
+        raw_object_uri="minio://evidence-1",
+        raw_checksum="sha256:evidence-1",
+        expected_checksum="sha256:evidence-1",
+        completeness=completeness,
+        normalization_status=normalization_status,
+        integrity_status=integrity_status,
+        collection_error=collection_error,
+    )
+
+
+def persisted_reconstructor() -> (
+    tuple[TimelineReconstructor, PersistedTimelineUnitOfWork]
+):
+    unit_of_work = PersistedTimelineUnitOfWork()
+    return (
+        TimelineReconstructor(unit_of_work_factory=lambda _context: unit_of_work),
+        unit_of_work,
     )
 
 
@@ -162,6 +248,101 @@ def test_conflicting_sources_choose_stably_and_surface_uncertainty() -> None:
     assert first.events[0].source_event_id == "provider-1"
     assert first.events[0].conflicting_source_event_ids == ("fallback-1",)
     assert first.uncertainty == ("payment:p-1:conflicting_sources",)
+
+
+def test_persistence_and_outbox_retain_conflict_uncertainty_and_replay_is_equal() -> (
+    None
+):
+    timestamp = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+    provider = fact(
+        dedupe_key="payment:p-1",
+        source_event_id="provider-1",
+        event_type="payment.captured",
+        effective_at=timestamp,
+        source_identity="razorpay-test",
+        source_priority=10,
+        payload={"status": "captured"},
+    )
+    fallback = fact(
+        dedupe_key="payment:p-1",
+        source_event_id="fallback-1",
+        event_type="payment.captured",
+        effective_at=timestamp,
+        source_identity="merchant-ledger",
+        source_priority=20,
+        payload={"status": "authorized"},
+    )
+
+    first_reconstructor, first_uow = persisted_reconstructor()
+    first = first_reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(),
+        normalized_facts=(fallback, provider),
+        authorization_context=context(),
+    )
+    first_event = first_uow.outbox.events[0]
+
+    second_reconstructor, second_uow = persisted_reconstructor()
+    second = second_reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(),
+        normalized_facts=(provider, fallback),
+        authorization_context=context(),
+    )
+    second_event = second_uow.outbox.events[0]
+
+    assert first.uncertainty == ("payment:p-1:conflicting_sources",)
+    assert first_uow.cases.uncertainty == first.uncertainty
+    assert first_uow.timeline.rows[0]["conflicting_source_event_ids"] == ("fallback-1",)
+    assert first_uow.timeline.rows[0]["uncertainty_reasons"] == ("conflicting_sources",)
+    assert first_event.payload["uncertainty"] == list(first.uncertainty)
+    assert first_event.payload == second_event.payload
+    assert first_event.payload_checksum == second_event.payload_checksum
+    assert second.uncertainty == first.uncertainty
+
+
+def test_partial_or_unavailable_evidence_remains_uncertain_without_facts() -> None:
+    reconstructor, unit_of_work = persisted_reconstructor()
+
+    result = reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(
+            collected_evidence(
+                completeness="partial",
+                normalization_status="not_attempted",
+                integrity_status="not_verified",
+                collection_error="connector unavailable",
+            ),
+        ),
+        normalized_facts=(),
+        authorization_context=context(),
+    )
+    event = unit_of_work.outbox.events[0]
+
+    assert result.events == ()
+    assert result.uncertainty == (
+        "payments:completeness=partial",
+        "payments:connector unavailable",
+        "payments:integrity=not_verified",
+        "payments:normalization=not_attempted",
+    )
+    assert unit_of_work.cases.uncertainty == result.uncertainty
+    assert event.payload["uncertainty"] == list(result.uncertainty)
+
+
+def test_complete_evidence_without_conflict_has_no_uncertainty() -> None:
+    reconstructor, unit_of_work = persisted_reconstructor()
+
+    result = reconstructor.rebuild(
+        case_id="case-1",
+        evidence=(collected_evidence(),),
+        normalized_facts=(),
+        authorization_context=context(),
+    )
+
+    assert result.uncertainty == ()
+    assert unit_of_work.cases.uncertainty == ()
+    assert unit_of_work.outbox.events[0].payload["uncertainty"] == []
 
 
 def test_exact_tie_conflicts_converge_for_every_adversarial_arrival_order() -> None:

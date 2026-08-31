@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
 import hashlib
 import json
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Protocol
 
 from packages.contracts.audit_replay import AuditRecord
 
 
 class AuditRepository(Protocol):
+    def lock_chain(self, *, tenant_id: str) -> None: ...
+
     def latest_checksum(self, *, tenant_id: str) -> str | None: ...
+
+    def checksum_for_audit_id(self, *, tenant_id: str, audit_id: str) -> str | None: ...
 
     def append(self, record: AuditRecord) -> object: ...
 
@@ -61,6 +65,7 @@ class AuditChain:
         outcome: str,
         recorded_at: datetime,
     ) -> AuditRecord:
+        self._lock_chain(tenant_id)
         previous = self.repository.latest_checksum(tenant_id=tenant_id)
         candidate = AuditRecord(
             schema_version="1.0.0",
@@ -87,11 +92,36 @@ class AuditChain:
         return candidate.model_copy(update={"record_checksum": checksum_for_record(candidate)})
 
     def append(self, record: AuditRecord) -> AuditRecord:
-        latest = self.repository.latest_checksum(tenant_id=record.tenant_id)
-        if record.previous_record_checksum != latest:
-            raise AuditChainError("audit record does not link to the latest tenant record")
         expected = checksum_for_record(record)
         if record.record_checksum != expected:
             raise AuditChainError("audit record checksum mismatch")
+
+        self._lock_chain(record.tenant_id)
+        latest = self.repository.latest_checksum(tenant_id=record.tenant_id)
+        if record.previous_record_checksum != latest:
+            existing_checksum = getattr(self.repository, "checksum_for_audit_id", None)
+            if existing_checksum is not None and (
+                existing_checksum(
+                    tenant_id=record.tenant_id,
+                    audit_id=record.audit_id,
+                )
+                == record.record_checksum
+            ):
+                return record
+            # A valid record can have been built before another transaction won
+            # the chain lock. Recompute only the authoritative predecessor and
+            # checksum; all caller-provided audit content remains unchanged.
+            record = record.model_copy(
+                update={
+                    "previous_record_checksum": latest,
+                    "record_checksum": "pending",
+                }
+            )
+            record = record.model_copy(update={"record_checksum": checksum_for_record(record)})
         self.repository.append(record)
         return record
+
+    def _lock_chain(self, tenant_id: str) -> None:
+        lock = getattr(self.repository, "lock_chain", None)
+        if lock is not None:
+            lock(tenant_id=tenant_id)

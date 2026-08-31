@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -54,6 +54,8 @@ class TimelineReconstructor:
 
         groups: dict[str, list[NormalizedFact]] = defaultdict(list)
         uncertainties: set[str] = set()
+        for item in evidence_items:
+            uncertainties.update(_evidence_uncertainty(item))
         for fact in facts:
             groups[fact.dedupe_key].append(fact)
 
@@ -101,41 +103,38 @@ class TimelineReconstructor:
             )
 
         ordered_events = tuple(sorted(events, key=_event_sort_key))
-        if self.unit_of_work_factory is not None:
-            self._persist(
-                case_id=case_id,
-                events=ordered_events,
-                authorization_context=authorization_context,
-            )
-        return TimelineRebuildResult(
+        result = TimelineRebuildResult(
             tenant_id=authorization_context.tenant_id,
             case_id=case_id,
             events=ordered_events,
-            normalized_facts=tuple(
-                sorted(facts, key=_selection_key)
-            ),
+            normalized_facts=tuple(sorted(facts, key=_selection_key)),
             uncertainty=uncertainties,
             state="timeline_ready",
             authoritative_store=self.authoritative_store,
             event_handoff=self.event_handoff,
             consumer_count=self.consumer_count,
         )
+        if self.unit_of_work_factory is not None:
+            self._persist(
+                result=result,
+                authorization_context=authorization_context,
+            )
+        return result
 
     def _persist(
         self,
         *,
-        case_id: str,
-        events: Sequence[TimelineEvent],
+        result: TimelineRebuildResult,
         authorization_context: TenantAuthorizationContext,
     ) -> None:
         assert self.unit_of_work_factory is not None
         with self.unit_of_work_factory(authorization_context) as unit_of_work:
-            for event in events:
+            for event in result.events:
                 upsert = getattr(unit_of_work.timeline, "upsert", None)
                 if upsert is not None:
                     upsert(
                         timeline_event_id=event.timeline_event_id,
-                        case_id=case_id,
+                        case_id=result.case_id,
                         canonical_event_type=event.canonical_event_type,
                         source_event_ids=event.source_event_ids,
                         effective_at=event.effective_at,
@@ -143,11 +142,13 @@ class TimelineReconstructor:
                         dedupe_key=event.dedupe_key,
                         event_payload=event.event_payload,
                         evidence_references=event.evidence_references,
+                        conflicting_source_event_ids=event.conflicting_source_event_ids,
+                        uncertainty_reasons=event.uncertainty_reasons,
                     )
                 else:
                     unit_of_work.timeline.create(
                         timeline_event_id=event.timeline_event_id,
-                        case_id=case_id,
+                        case_id=result.case_id,
                         canonical_event_type=event.canonical_event_type,
                         source_event_ids=event.source_event_ids,
                         effective_at=event.effective_at,
@@ -155,22 +156,19 @@ class TimelineReconstructor:
                         dedupe_key=event.dedupe_key,
                         event_payload=event.event_payload,
                         evidence_references=event.evidence_references,
+                        conflicting_source_event_ids=event.conflicting_source_event_ids,
+                        uncertainty_reasons=event.uncertainty_reasons,
                     )
+            set_uncertainty = getattr(unit_of_work.cases, "set_timeline_uncertainty", None)
+            if set_uncertainty is not None:
+                set_uncertainty(
+                    case_id=result.case_id,
+                    uncertainty=result.uncertainty,
+                )
             transition = getattr(unit_of_work.cases, "transition_state", None)
             if transition is not None:
-                transition(case_id=case_id, new_state="timeline_ready")
-            event = build_timeline_rebuilt_event(
-                TimelineRebuildResult(
-                    tenant_id=authorization_context.tenant_id,
-                    case_id=case_id,
-                    events=tuple(events),
-                    normalized_facts=(),
-                    state="timeline_ready",
-                    authoritative_store=self.authoritative_store,
-                    event_handoff=self.event_handoff,
-                    consumer_count=self.consumer_count,
-                )
-            )
+                transition(case_id=result.case_id, new_state="timeline_ready")
+            event = build_timeline_rebuilt_event(result)
             unit_of_work.outbox.enqueue(
                 outbox_id=f"outbox-{event.event_id}",
                 event=event,
@@ -207,6 +205,21 @@ class TimelineReconstructor:
             raise TenantAuthorizationError(
                 "timeline reconstruction requires authenticated authorization"
             )
+
+
+def _evidence_uncertainty(item: CollectedEvidence) -> set[str]:
+    """Convert explicit connector limitations into deterministic case uncertainty."""
+
+    values: set[str] = set()
+    if item.collection_error:
+        values.add(f"{item.connector_id}:{item.collection_error}")
+    if item.completeness != "complete":
+        values.add(f"{item.connector_id}:completeness={item.completeness}")
+    if item.integrity_status != "verified":
+        values.add(f"{item.connector_id}:integrity={item.integrity_status}")
+    if item.normalization_status != "normalized":
+        values.add(f"{item.connector_id}:normalization={item.normalization_status}")
+    return values
 
 
 def effective_at(fact: NormalizedFact) -> datetime:

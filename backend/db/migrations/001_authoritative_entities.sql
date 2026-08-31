@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS cases (
     ),
     escalation_owner TEXT,
     workflow_id TEXT,
+    timeline_uncertainty JSONB NOT NULL DEFAULT '[]'::jsonb
+        CHECK (jsonb_typeof(timeline_uncertainty) = 'array'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     terminal_at TIMESTAMPTZ,
@@ -100,6 +102,10 @@ CREATE TABLE IF NOT EXISTS timeline_events (
     dedupe_key TEXT NOT NULL,
     event_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     evidence_references JSONB NOT NULL DEFAULT '[]'::jsonb,
+    conflicting_source_event_ids JSONB NOT NULL DEFAULT '[]'::jsonb
+        CHECK (jsonb_typeof(conflicting_source_event_ids) = 'array'),
+    uncertainty_reasons JSONB NOT NULL DEFAULT '[]'::jsonb
+        CHECK (jsonb_typeof(uncertainty_reasons) = 'array'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (tenant_id, timeline_event_id),
     FOREIGN KEY (tenant_id, case_id) REFERENCES cases (tenant_id, case_id),
@@ -403,6 +409,9 @@ CREATE INDEX IF NOT EXISTS audit_tenant_recorded_idx
 CREATE UNIQUE INDEX IF NOT EXISTS audit_tenant_predecessor_idx
     ON audit_records (tenant_id, previous_record_checksum)
     WHERE previous_record_checksum IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS audit_tenant_root_idx
+    ON audit_records (tenant_id)
+    WHERE previous_record_checksum IS NULL;
 CREATE INDEX IF NOT EXISTS outbox_unpublished_idx
     ON outbox_events (tenant_id, created_at)
     WHERE published_at IS NULL;

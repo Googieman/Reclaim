@@ -104,7 +104,7 @@ class ProviderCorrelationRepository(TenantScopedRepository):
         )
         row = self.fetch_one(
             f"""
-            INSERT INTO provider_correlation_mappings (
+            INSERT INTO public.provider_correlation_mappings (
                 tenant_id, mapping_id, correlation_schema_version, provider, connector_id,
                 provider_event_id, provider_payment_id, provider_order_id,
                 merchant_reference, incident_id, case_id, related_order_reference,
@@ -163,7 +163,7 @@ class ProviderCorrelationRepository(TenantScopedRepository):
         row = self.fetch_one(
             f"""
             SELECT {self._SELECT_COLUMNS}
-            FROM provider_correlation_mappings
+            FROM public.provider_correlation_mappings
             WHERE tenant_id = %s
               AND provider = %s
               AND connector_id = %s
@@ -193,7 +193,7 @@ class ProviderCorrelationRepository(TenantScopedRepository):
         row = self.fetch_one(
             f"""
             SELECT {self._SELECT_COLUMNS}
-            FROM provider_correlation_mappings
+            FROM public.provider_correlation_mappings
             WHERE tenant_id = %s AND mapping_id = %s
             """,
             (self.tenant_context.tenant_id, mapping_id),
@@ -206,7 +206,7 @@ class ProviderCorrelationRepository(TenantScopedRepository):
         rows = self.fetch_all(
             f"""
             SELECT {self._SELECT_COLUMNS}
-            FROM provider_correlation_mappings
+            FROM public.provider_correlation_mappings
             WHERE tenant_id = %s
               AND provider = %s
               AND connector_id = %s
@@ -248,7 +248,7 @@ class ProviderCorrelationRepository(TenantScopedRepository):
     def revoke(self, *, mapping_id: str, revoked_at: datetime) -> ProviderCorrelationMapping:
         row = self.fetch_one(
             f"""
-            UPDATE provider_correlation_mappings
+            UPDATE public.provider_correlation_mappings
             SET mapping_status = 'revoked', revoked_at = %s
             WHERE tenant_id = %s AND mapping_id = %s AND mapping_status = 'active'
             RETURNING {self._SELECT_COLUMNS}

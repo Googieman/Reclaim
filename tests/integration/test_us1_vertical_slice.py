@@ -358,7 +358,7 @@ async def test_us1_live_vertical_slice_gate() -> None:
     provider_order_id = webhook_payload_data["payload"]["payment"]["entity"]["order_id"]
     with PostgresUnitOfWork(
         lambda: psycopg.connect(settings["RECLAIM_DATABASE_URL"]),
-        authorization_context=user_context,
+        authorization_context=service_context,
     ) as unit_of_work:
         unit_of_work.connectors.create(
             connector_id="razorpay-test",

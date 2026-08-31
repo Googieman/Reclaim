@@ -24,15 +24,16 @@ closed D1 audit-chain concurrency and D2 timeline-uncertainty handoff. D3
 (MAJOR-5 authoritative provider-to-case association) was specification-approved on
 2026-08-31 and its verified-correlation runtime, authoritative mapping migration,
 hard-cutover resolution, quarantine, fixture, and test implementation was completed
-on 2026-09-01. Current local validation is recorded below; live PostgreSQL/RLS
-validation was unavailable in this environment. Original Remediation Batch B for
+on 2026-09-01. The D3 corrective migration and reviewer-context live-test repair
+were completed on 2026-09-01; fresh live PostgreSQL/RLS validation and the requested
+regression gates pass. Original Remediation Batch B for
 MAJOR-2 and MAJOR-6 is complete locally. Its follow-up review kept MAJOR-7 open;
 the focused approval-to-execution remediation and validation are recorded below.
-T059 remains blocked pending the release gate; no T059 or US2 implementation was
+T059 is unblocked for a future authorized session; no T059 or US2 implementation was
 started. Remediation Batch C is implemented for MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
-the focused Batch C checks and the clean-volume T043 remediation rerun pass. T059
-remains blocked by the explicit release-gate instruction.
+the focused Batch C checks and the clean-volume T043 remediation rerun pass. The
+D3 live release gate is now closed; T059 and US2 remain not started.
 
 ## Governance approvals
 
@@ -53,7 +54,7 @@ remains blocked by the explicit release-gate instruction.
   v1.0.0 and resolves only through an authoritative PostgreSQL mapping. At that
   approval point, implementation remained gated.
 - 2026-09-01: The user explicitly authorized and requested the D3/MAJOR-5 runtime
-  remediation only, with T059 and US2 remaining blocked and out of scope.
+  remediation only, with T059 and US2 out of scope for that request.
 
 ## Milestone state
 
@@ -67,26 +68,26 @@ remains blocked by the explicit release-gate instruction.
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, and D3 runtime remediation are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, and complete backend wheel/sdist runtime package contents are present |
-| D3 contract/data-model/runtime | Complete locally; live PostgreSQL/RLS validation unavailable in this run | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, migration `005_provider_correlation_authority.sql`, hard-cutover resolver, quarantine/idempotency behavior, replay fixtures, and focused D3 tests are present and pass locally |
+| D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T058 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 focused validation complete; evaluation not started | Current default suite is 254 passed and 32 skipped; D3 focused/unit/contract validation is 51 passed and 3 live PostgreSQL skips; T043 acceptance is 2 passed and 2 live PostgreSQL skips; current T058 live gate is skipped because its service environment is unavailable. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T058 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Current default suite is 256 passed and 33 skipped; fresh live D3 matrix is 3 passed and migration regression is 1 passed; D1/D2 is 4 passed; T043 is 4 passed; T058 is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current default suite is `254 passed, 32 skipped` in the project `.venv`.
+- Tests: the current default suite is `256 passed, 33 skipped` in the project `.venv`.
   Batch C focused payload, MinIO, package-build, and existing provenance/checksum
-  validation passed `20/20`, including the live MinIO conflict test. The prior
-  recorded T058 run passed `1/1` against running live services; the current T058
-  invocation is skipped because live services are not configured. The final clean-volume T043 remediation
+  validation passed `20/20`, including the live MinIO conflict test. The final
+  T058 live gate passed `1/1` against running PostgreSQL, MinIO, Temporal,
+  Redpanda, and Neo4j services. The final clean-volume T043 remediation
   run passed `4/4`; the reversed explicit node order also passed `4/4`, and each of
   the four T043 nodes passed `1/1` on its own fresh PostgreSQL/MinIO pair. The same
   populated environment is explicitly outside the T043 acceptance state model: a
   second full invocation returned `3 passed, 1 failed` when the canonical test
   attempted to re-collect evidence for an already `timeline_ready` case. The focused
   MAJOR-7/Batch-B repository and direct-SQL set passed `8/8`, and the
-  non-owner RLS test passed `1/1`. D3 mapping, webhook, and replay-focused tests
-  passed locally; its live PostgreSQL integrity/processing/RLS tests were skipped
-  because the required URLs are not configured. Skips require live PostgreSQL, Temporal,
+  non-owner RLS test passed `1/1`. D3's live PostgreSQL integrity/processing/RLS
+  matrix passed `3/3`, and its fresh migration search-path regression passed `1/1`.
+  Skips require live PostgreSQL, Temporal,
   Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. No benchmark
   or production fraud metric is claimed.
 - Payload limits: `RECLAIM_INCIDENT_REPORT_MAX_BYTES` and
@@ -107,13 +108,13 @@ remains blocked by the explicit release-gate instruction.
   contents, installed each artifact into an isolated target from a clean working
   directory, and imported API, workflow, worker, evidence, timeline, Razorpay,
   Redpanda, Neo4j, and shared-contract modules from the installed targets.
-- Post-remediation full Python suite: `254 passed, 32 skipped` in `14.62s` in the
-  project `.venv`; skipped tests require live services or optional configuration.
+- Post-remediation full Python suite: `256 passed, 33 skipped` in the project
+  `.venv`; skipped tests require live services or optional configuration.
 - Python: `.venv` Python 3.12.13; final-gate touched-file Ruff and format checks,
   compileall, and git diff check pass; pip check reports no broken requirements.
   Repository-wide Ruff
-  0.8.6 reports 22 existing
-  findings outside the completed batch; repository-wide format check reports 18
+  0.8.6 reports 12 existing
+  findings outside the completed batch; repository-wide format check reports 8
   pre-existing files needing formatting. Existing findings remain in their owning scope.
 - Backend mypy/pyright: no type-check executable is installed in this environment; no
   type-check pass is claimed.
@@ -134,11 +135,12 @@ remains blocked by the explicit release-gate instruction.
   a conflicting timeline survived PostgreSQL readback and outbox construction.
 - Runtime: temporary dependency-safe validation containers were used; the full future
   Compose topology and operational observability stack were not started.
-- Current local service check: no Docker executable and no persistent `RECLAIM_*` service
-  configuration are available in the default shell for this validation run. FastAPI 0.115.6
-  and httpx 0.27.2 are installed in
-  `.venv` through the backend dependency definition. The test extra uses httpx 0.27.2
-  because declared litellm 1.55.8 requires httpx below 0.28.
+- Current local service check: Docker Desktop is installed and was started for the
+  fresh 2026-09-01 release-gate attempt; no persistent `RECLAIM_*` service
+  configuration is retained in the default shell after cleanup. FastAPI 0.115.6 and
+  httpx 0.27.2 are installed in `.venv` through the backend dependency definition.
+  The test extra uses httpx 0.27.2 because declared litellm 1.55.8 requires httpx
+  below 0.28.
 - Git: repository is on `main`; the tenant-role remediation, T036-T042 batch, T044-T049
   intake batch, T050-T055 evidence/timeline batch, and T056-T058 event/projection/gate
   batch are committed separately.
@@ -232,9 +234,22 @@ remains blocked by the explicit release-gate instruction.
   derives the approved verified correlation only after HMAC/checksum/provider metadata
   verification, resolves it through migration `005`'s authoritative mapping, stores
   mapping/assertion provenance, and quarantines unresolved/conflicting/cross-tenant
-  association without downstream case processing. Focused local D3 validation passed;
-  live PostgreSQL/RLS validation could not run because no database URLs or Docker
-  executable are available in this environment.
+  association without downstream case processing. The architecture review confirmed
+  `public` is the authoritative application schema: migration 001's authoritative
+  tables and existing live probes use `public`, while migration 002 uses `reclaim`
+  only for tenant-context helper functions. Migration 005's unqualified `CREATE
+  TABLE` therefore followed the migration role's `reclaim, public` `search_path` and
+  placed the mapping in `reclaim`. Corrective migration 006 moves that legacy table
+  to `public`, uses explicit public qualification for D3 objects, reasserts forced
+  RLS and the tenant policy, and conditionally grants `reclaim_app` only `SELECT,
+  INSERT, UPDATE`. The fresh search-path regression applies 001-004 with the public
+  baseline, applies 005 with `reclaim, public`, applies 006 twice, and confirms
+  exactly one mapping table in `public`; it passed 1/1. The live D3 PostgreSQL/RLS
+  matrix passed 3/3 with a non-owner, non-BYPASSRLS role, including Tenant A/B
+  read/write isolation. The production webhook boundary intentionally requires an
+  authenticated reviewer; only the live-test setup changed to use a legitimate
+  reviewer for processing and a trusted service identity for mapping provisioning.
+  Production authorization and D3 contract semantics were unchanged.
 
 ## Architecture and safety
 
@@ -249,6 +264,8 @@ the shared optional UTC timestamp validation was fixed so incomplete webhook tim
 remain representable for quarantine. D3 changed the approved webhook/data-model contract
 but requires no ADR because the ownership model is unchanged. The shared contract shape
 outside D3 and approved ADRs remain unchanged.
+The corrective migration 006 is a schema-placement/RLS consistency repair only;
+no architecture or ADR changed, and no approved contract changed in this repair.
 PostgreSQL remains the
 business correctness boundary; Temporal owns durable orchestration; Redpanda is only
 transport; Neo4j is rebuildable; MinIO stores immutable evidence; Redis is bounded
@@ -281,8 +298,8 @@ No production performance, fraud, or containment metric is claimed.
   by the live PostgreSQL and focused persistence/event/projection tests. D3 is
   specification-approved and runtime-implemented locally; the
   clean-volume T043 rerun is `4/4` after the acceptance-fixture isolation repair,
-  so the Batch C technical gate is PASS. T059 remains blocked by the explicit
-  release-gate instruction; no US2 or T059 implementation was started.
+  so the Batch C technical gate is PASS. The D3 live release gate is now PASS; no
+  US2 or T059 implementation was started.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -290,8 +307,15 @@ No production performance, fraud, or containment metric is claimed.
   provider/model behavior remains unavailable until explicitly configured. The T056-T058
   gate used a test-only local Razorpay verifier and replay-labeled evidence simulators;
   it did not claim live Razorpay or production-provider behavior.
+- Final US1 release-gate decision on 2026-09-01: UNBLOCK T059. D1 and D2 passed
+  fresh live PostgreSQL validation (`4 passed`); D3 passed its live PostgreSQL/RLS
+  matrix (`3 passed`) and its search-path regression (`1 passed`); T043 passed
+  against fresh PostgreSQL + MinIO (`4 passed`); T058 passed against PostgreSQL +
+  MinIO + Temporal + Redpanda + Neo4j (`1 passed`); and the remaining focused
+  regressions and quality gates passed as recorded above. T059 and US2 were not
+  started.
 
-## Next milestone: Phase 4 User Story 2 attribution and exposure (T059-T078) - blocked
+## Next milestone: Phase 4 User Story 2 attribution and exposure (T059-T078) - ready; not started
 
 Readiness evidence:
 
@@ -323,5 +347,6 @@ ADRs remain unchanged; and
 requirements. T036-T042 are complete with local contract/property/integration/security
   evidence; T043 and T044-T058 are complete with local and environment-qualified live
   validation. The MAJOR-7 follow-up release gate and Batch C technical gate are
-  validated, D3 is specification-approved with local runtime validation complete, and T059 remains held pending explicit release-gate direction; no T059+
-  or US2 implementation was started.
+  validated, D3 is specification-approved with live runtime validation complete, and
+  T059 is unblocked for a future authorized session; no T059+ or US2 implementation
+  was started.

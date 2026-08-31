@@ -43,3 +43,22 @@ def test_d3_migration_quarantines_legacy_authority_without_backfill() -> None:
     assert "DELETE FROM webhook_deliveries" in migration
     assert "delivery.case_id" in migration
     assert "mapping.case_id = delivery.case_id" in migration
+
+
+def test_d3_corrective_migration_is_explicitly_public_and_search_path_safe() -> None:
+    migration = (
+        ROOT / "backend/db/migrations/006_provider_correlation_schema.sql"
+    ).read_text(encoding="utf-8")
+
+    for fragment in (
+        "to_regclass('reclaim.provider_correlation_mappings')",
+        "ALTER TABLE reclaim.provider_correlation_mappings SET SCHEMA public",
+        "CREATE TABLE IF NOT EXISTS public.provider_correlation_mappings",
+        "ON public.provider_correlation_mappings",
+        "REFERENCES public.provider_correlation_mappings",
+        "ALTER TABLE public.provider_correlation_mappings FORCE ROW LEVEL SECURITY",
+        "ON public.provider_correlation_mappings\n    USING",
+        "REVOKE ALL ON TABLE public.provider_correlation_mappings FROM PUBLIC",
+        "GRANT SELECT, INSERT, UPDATE ON TABLE public.provider_correlation_mappings TO reclaim_app",
+    ):
+        assert fragment in migration

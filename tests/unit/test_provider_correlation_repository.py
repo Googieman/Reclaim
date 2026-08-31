@@ -135,14 +135,14 @@ class Connection:
     def execute(self, query: str, params: tuple[object, ...] = ()) -> Cursor:
         self.calls.append((query, params))
         normalized = " ".join(query.split()).upper()
-        if "INSERT INTO PROVIDER_CORRELATION_MAPPINGS" in normalized:
+        if "INSERT INTO PUBLIC.PROVIDER_CORRELATION_MAPPINGS" in normalized:
             if self.existing_mapping is not None:
                 return Cursor([])
             if self.mapping_row is not None:
                 return Cursor([])
             self.mapping_row = row(mapping())
             return Cursor([self.mapping_row])
-        if "FROM PROVIDER_CORRELATION_MAPPINGS" in normalized:
+        if "FROM PUBLIC.PROVIDER_CORRELATION_MAPPINGS" in normalized:
             if "MAPPING_ID =" in normalized:
                 candidates = [
                     value
@@ -189,6 +189,18 @@ def test_identical_mapping_registration_is_idempotent() -> None:
     assert first.mapping_id == second.mapping_id == "mapping-1"
     assert first_inserted is True
     assert second_inserted is False
+
+
+def test_mapping_repository_uses_the_authoritative_public_schema() -> None:
+    connection = Connection()
+    repository = ProviderCorrelationRepository(connection, context())
+
+    repository.register(**register_kwargs())
+
+    assert any(
+        "public.provider_correlation_mappings" in query.lower()
+        for query, _ in connection.calls
+    )
 
 
 def test_mapping_identity_conflict_is_rejected() -> None:

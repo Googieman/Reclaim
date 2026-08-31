@@ -66,9 +66,20 @@ def _database_url() -> str:
     return value
 
 
-def _context(tenant_id: str):
+def _reviewer_context(tenant_id: str):
     principal = AuthenticatedPrincipal(
-        subject="d3-postgres-test",
+        subject="d3-postgres-reviewer",
+        tenant_ids=frozenset({tenant_id}),
+        tenant_roles={tenant_id: frozenset({"reviewer"})},
+        identity_type=IdentityType.USER,
+        issuer="d3-test-issuer",
+    )
+    return principal.for_tenant(tenant_id)
+
+
+def _service_context(tenant_id: str):
+    principal = AuthenticatedPrincipal(
+        subject="d3-postgres-provisioner",
         tenant_ids=frozenset({tenant_id}),
         tenant_roles={tenant_id: frozenset({"service"})},
         identity_type=IdentityType.SERVICE,
@@ -98,7 +109,7 @@ def _seed(database_url: str, *, prefix: str) -> Seed:
     provider_payment_id = f"{prefix}-payment-{suffix}"
     provider_order_id = f"{prefix}-order-{suffix}"
     merchant_reference = f"{prefix}-merchant-ref-{suffix}"
-    context = _context(tenant_id)
+    context = _service_context(tenant_id)
     factory = _factory(database_url)
 
     with factory(context) as unit_of_work:
@@ -206,7 +217,7 @@ def _cleanup(database_url: str, seeds: tuple[Seed, ...]) -> None:
             "ALTER TABLE audit_records ENABLE TRIGGER audit_records_append_only"
         )
         connection.execute(
-            f"DELETE FROM provider_correlation_mappings WHERE tenant_id IN ({placeholders})",
+            f"DELETE FROM public.provider_correlation_mappings WHERE tenant_id IN ({placeholders})",
             tenant_ids,
         )
         connection.execute(
@@ -224,7 +235,17 @@ def _cleanup(database_url: str, seeds: tuple[Seed, ...]) -> None:
         )
 
 
-def _payload(seed: Seed, *, event_id: str | None = None) -> bytes:
+def _payload(
+    seed: Seed,
+    *,
+    event_id: str | None = None,
+    payment_id: str | None = None,
+    order_id: str | None = None,
+    merchant_reference: str | None = None,
+) -> bytes:
+    actual_payment_id = payment_id or seed.provider_payment_id
+    actual_order_id = order_id or seed.provider_order_id
+    actual_merchant_reference = merchant_reference or seed.merchant_reference
     return json.dumps(
         {
             "entity": "event",
@@ -234,9 +255,9 @@ def _payload(seed: Seed, *, event_id: str | None = None) -> bytes:
             "payload": {
                 "payment": {
                     "entity": {
-                        "id": seed.provider_payment_id,
-                        "order_id": seed.provider_order_id,
-                        "notes": {"merchant_reference": seed.merchant_reference},
+                        "id": actual_payment_id,
+                        "order_id": actual_order_id,
+                        "notes": {"merchant_reference": actual_merchant_reference},
                     }
                 }
             },
@@ -246,9 +267,21 @@ def _payload(seed: Seed, *, event_id: str | None = None) -> bytes:
 
 
 def _request(
-    seed: Seed, *, tenant_id: str | None = None, event_id: str | None = None
+    seed: Seed,
+    *,
+    tenant_id: str | None = None,
+    event_id: str | None = None,
+    payment_id: str | None = None,
+    order_id: str | None = None,
+    merchant_reference: str | None = None,
 ) -> RazorpayWebhookRequest:
-    payload = _payload(seed, event_id=event_id)
+    payload = _payload(
+        seed,
+        event_id=event_id,
+        payment_id=payment_id,
+        order_id=order_id,
+        merchant_reference=merchant_reference,
+    )
     actual_event_id = event_id or seed.provider_event_id
     return RazorpayWebhookRequest(
         tenant_id=tenant_id or seed.tenant_id,
@@ -291,7 +324,7 @@ def test_d3_postgres_constraints_and_idempotent_mapping() -> None:
 
     seed = _seed(database_url, prefix="d3-integrity")
     try:
-        context = _context(seed.tenant_id)
+        context = _service_context(seed.tenant_id)
         factory = _factory(database_url)
         with factory(context) as unit_of_work:
             duplicate, inserted = unit_of_work.provider_correlations.register(
@@ -335,7 +368,7 @@ def test_d3_postgres_constraints_and_idempotent_mapping() -> None:
             with pytest.raises(psycopg.errors.UniqueViolation):
                 connection.execute(
                     """
-                    INSERT INTO provider_correlation_mappings (
+                        INSERT INTO public.provider_correlation_mappings (
                         tenant_id, mapping_id, provider, connector_id,
                         provider_event_id, provider_payment_id, provider_order_id,
                         incident_id, case_id, mapping_source, mapping_source_reference,
@@ -361,7 +394,7 @@ def test_d3_postgres_constraints_and_idempotent_mapping() -> None:
             with pytest.raises(psycopg.errors.ForeignKeyViolation):
                 connection.execute(
                     """
-                    INSERT INTO provider_correlation_mappings (
+                        INSERT INTO public.provider_correlation_mappings (
                         tenant_id, mapping_id, provider, connector_id,
                         provider_payment_id, incident_id, case_id, mapping_source,
                         mapping_source_reference, mapping_source_checksum, verified_at
@@ -384,7 +417,7 @@ def test_d3_postgres_constraints_and_idempotent_mapping() -> None:
             with pytest.raises(psycopg.errors.CheckViolation):
                 connection.execute(
                     """
-                    INSERT INTO provider_correlation_mappings (
+                        INSERT INTO public.provider_correlation_mappings (
                         tenant_id, mapping_id, provider, connector_id, incident_id,
                         case_id, mapping_source, mapping_source_reference,
                         mapping_source_checksum, verified_at
@@ -414,13 +447,30 @@ def test_d3_processing_resolves_only_mapped_identity_and_quarantines_substitutio
     other_seed = _seed(database_url, prefix="d3-other")
     try:
         processor, _ = _processor(database_url, seed)
-        context = _context(seed.tenant_id)
+        context = _reviewer_context(seed.tenant_id)
         accepted = processor.process(_request(seed), authorization_context=context)
         duplicate = processor.process(_request(seed), authorization_context=context)
         arbitrary_case = processor.process(
-            _request(seed, event_id=f"unknown-{uuid4().hex}"),
+            _request(
+                seed,
+                event_id=f"unknown-case-{uuid4().hex}",
+                payment_id=f"unknown-payment-{uuid4().hex}",
+                order_id=f"unknown-order-{uuid4().hex}",
+                merchant_reference=f"unknown-reference-{uuid4().hex}",
+            ),
             authorization_context=context,
             case_id=seed.other_case_id,
+        )
+        arbitrary_incident = processor.process(
+            _request(
+                seed,
+                event_id=f"unknown-incident-{uuid4().hex}",
+                payment_id=f"unknown-payment-{uuid4().hex}",
+                order_id=f"unknown-order-{uuid4().hex}",
+                merchant_reference=f"unknown-reference-{uuid4().hex}",
+            ),
+            authorization_context=context,
+            incident_id=seed.other_incident_id,
         )
         conflicting_assertion = processor.process(
             _request(seed), authorization_context=context, case_id=seed.other_case_id
@@ -430,6 +480,15 @@ def test_d3_processing_resolves_only_mapped_identity_and_quarantines_substitutio
             authorization_context=context,
             incident_id=other_seed.incident_id,
             case_id=other_seed.case_id,
+        )
+        conflicting_event_reuse = processor.process(
+            _request(
+                seed,
+                payment_id=f"different-payment-{uuid4().hex}",
+                order_id=f"different-order-{uuid4().hex}",
+                merchant_reference=f"different-reference-{uuid4().hex}",
+            ),
+            authorization_context=context,
         )
 
         assert accepted.status is IntakeStatus.ACCEPTED
@@ -443,10 +502,15 @@ def test_d3_processing_resolves_only_mapped_identity_and_quarantines_substitutio
         assert arbitrary_case.status is IntakeStatus.QUARANTINED
         assert arbitrary_case.reason == "unresolved_association"
         assert arbitrary_case.case_id is None
+        assert arbitrary_incident.status is IntakeStatus.QUARANTINED
+        assert arbitrary_incident.reason == "unresolved_association"
+        assert arbitrary_incident.incident_id is None
         assert conflicting_assertion.status is IntakeStatus.QUARANTINED
         assert conflicting_assertion.reason == "assertion_mismatch"
         assert cross_tenant.status is IntakeStatus.QUARANTINED
         assert cross_tenant.reason == "unresolved_association"
+        assert conflicting_event_reuse.status is IntakeStatus.QUARANTINED
+        assert conflicting_event_reuse.reason == "provider_identity_conflict"
 
         import psycopg
 
@@ -455,7 +519,7 @@ def test_d3_processing_resolves_only_mapped_identity_and_quarantines_substitutio
             assert connection.execute(
                 """
                 SELECT authoritative_mapping_id, incident_id, case_id
-                FROM webhook_deliveries
+                FROM public.webhook_deliveries
                 WHERE tenant_id = %s AND connector_id = %s AND provider_event_id = %s
                 """,
                 (seed.tenant_id, seed.connector_id, seed.provider_event_id),
@@ -463,28 +527,46 @@ def test_d3_processing_resolves_only_mapped_identity_and_quarantines_substitutio
             quarantine_rows = connection.execute(
                 """
                 SELECT association_status, verified_correlation->>'provider_payment_id'
-                FROM webhook_quarantines
+                FROM public.webhook_quarantines
                 WHERE tenant_id = %s
                 ORDER BY created_at, quarantine_id
                 """,
                 (seed.tenant_id,),
             ).fetchall()
             assert (
-                "unresolved_association",
-                seed.provider_payment_id,
-            ) in quarantine_rows
-            assert ("assertion_mismatch", seed.provider_payment_id) in quarantine_rows
+                sum(status == "unresolved_association" for status, _ in quarantine_rows)
+                == 3
+            )
+            assert (
+                sum(status == "assertion_mismatch" for status, _ in quarantine_rows)
+                == 1
+            )
+            assert (
+                sum(status == "mapping_conflict" for status, _ in quarantine_rows) == 1
+            )
             event_types = connection.execute(
-                "SELECT event_type FROM outbox_events WHERE tenant_id = %s",
+                "SELECT event_type FROM public.outbox_events WHERE tenant_id = %s",
                 (seed.tenant_id,),
             ).fetchall()
             assert all(
                 event_type == ("webhook.quarantined",) for event_type in event_types
             )
             assert connection.execute(
-                "SELECT current_state FROM cases WHERE tenant_id = %s AND case_id = %s",
-                (seed.tenant_id, seed.other_case_id),
-            ).fetchone() == ("intake_received",)
+                "SELECT count(*) FROM public.cases WHERE tenant_id = %s",
+                (seed.tenant_id,),
+            ).fetchone() == (2,)
+            assert connection.execute(
+                "SELECT count(*) FROM public.cases WHERE tenant_id = %s AND current_state <> 'intake_received'",
+                (seed.tenant_id,),
+            ).fetchone() == (0,)
+            assert connection.execute(
+                "SELECT count(*) FROM public.evidence_items WHERE tenant_id = %s",
+                (seed.tenant_id,),
+            ).fetchone() == (0,)
+            assert connection.execute(
+                "SELECT count(*) FROM public.timeline_events WHERE tenant_id = %s",
+                (seed.tenant_id,),
+            ).fetchone() == (0,)
     finally:
         _cleanup(database_url, (seed, other_seed))
 
@@ -501,17 +583,30 @@ def test_d3_non_owner_rls_isolation_for_provider_mappings() -> None:
 
         with psycopg.connect(rls_url) as connection:
             _set_tenant(connection, seed_a.tenant_id)
+            role_state = connection.execute(
+                """
+                SELECT current_user, table_owner.rolname, current_role_info.rolbypassrls
+                FROM pg_class AS relation
+                JOIN pg_roles AS table_owner ON table_owner.oid = relation.relowner
+                JOIN pg_roles AS current_role_info
+                  ON current_role_info.rolname = current_user
+                WHERE relation.oid = 'public.provider_correlation_mappings'::regclass
+                """
+            ).fetchone()
+            assert role_state is not None
+            assert role_state[0] != role_state[1]
+            assert role_state[2] is False
             assert connection.execute(
                 """
                 SELECT mapping_id, tenant_id
-                FROM provider_correlation_mappings
+                FROM public.provider_correlation_mappings
                 WHERE tenant_id IN (%s, %s)
                 ORDER BY mapping_id
                 """,
                 (seed_a.tenant_id, seed_b.tenant_id),
             ).fetchall() == [(seed_a.mapping_id, seed_a.tenant_id)]
             assert connection.execute(
-                "SELECT count(*) FROM provider_correlation_mappings WHERE tenant_id = %s",
+                "SELECT count(*) FROM public.provider_correlation_mappings WHERE tenant_id = %s",
                 (seed_b.tenant_id,),
             ).fetchone() == (0,)
 
@@ -519,7 +614,7 @@ def test_d3_non_owner_rls_isolation_for_provider_mappings() -> None:
             with pytest.raises(psycopg.Error):
                 connection.execute(
                     """
-                    INSERT INTO provider_correlation_mappings (
+                        INSERT INTO public.provider_correlation_mappings (
                         tenant_id, mapping_id, provider, connector_id,
                         provider_payment_id, incident_id, case_id, mapping_source,
                         mapping_source_reference, mapping_source_checksum, verified_at
@@ -539,10 +634,15 @@ def test_d3_non_owner_rls_isolation_for_provider_mappings() -> None:
             connection.execute("ROLLBACK TO SAVEPOINT d3_rls_insert")
             assert (
                 connection.execute(
-                    "UPDATE provider_correlation_mappings SET mapping_status = 'revoked' WHERE tenant_id = %s",
+                    "UPDATE public.provider_correlation_mappings SET mapping_status = 'revoked' WHERE tenant_id = %s",
                     (seed_b.tenant_id,),
                 ).rowcount
                 == 0
             )
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                connection.execute(
+                    "DELETE FROM public.provider_correlation_mappings WHERE tenant_id = %s",
+                    (seed_b.tenant_id,),
+                )
     finally:
         _cleanup(database_url, (seed_a, seed_b))

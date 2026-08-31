@@ -2,6 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-08-30
+**Last Reviewed**: 2026-08-31
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -34,6 +35,11 @@
 - Architecture and integration names appear only because they are explicit approved
   constraints in the feature input and assumptions; behavioral requirements and
   success criteria remain outcome-focused.
+- The D3 amendment adds a bounded provider-correlation contract, authoritative
+  PostgreSQL mapping, assertion-only caller IDs, fail-closed unresolved handling,
+  duplicate idempotency, and replay/simulator parity. All ten D3 implementation
+  acceptance criteria are explicit in `spec.md`; runtime implementation remains
+  intentionally out of scope for this review.
 - The checklist review found no unresolved clarification markers or completeness
   failures. Implementation readiness still requires the later plan, task, and review
   gates.

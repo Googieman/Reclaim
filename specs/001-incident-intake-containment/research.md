@@ -85,9 +85,42 @@ This research records planning decisions derived from the approved RECLAIM const
 
 **Alternatives considered**: Calling targets production SLOs before a baseline was rejected as unverifiable.
 
+## Decision: Authoritative provider correlation for webhook association
+
+**Decision**: Version the accepted Razorpay webhook contract as `2.0.0` and derive a
+`VerifiedProviderCorrelation` object at v1.0.0 only after original-payload
+authenticity succeeds. For FS-001 payment events, the minimum identity is the
+configured Razorpay connection, provider event ID, and provider payment ID; provider
+order ID and a signed merchant reference are retained and checked when present.
+Resolve that identity through exactly one active PostgreSQL
+`ProviderCorrelationMapping` containing the authoritative tenant, incident, case, and
+related order/payment context. Caller-supplied tenant, merchant, incident, and case
+values are context/assertions only. Missing, ambiguous, revoked, conflicting, or
+cross-tenant mappings quarantine without guessing.
+
+**Rationale**: A valid signature authenticates provider origin but does not prove which
+merchant case owns the event. The existing provider-event-only and case-optional
+contract permits arbitrary same-tenant case substitution. Provider-native payment/order
+identifiers bind the webhook to merchant-owned context, while PostgreSQL remains the
+only source of case and tenant ownership.
+
+**Alternatives considered**: Trusting caller-supplied case/incident IDs, using the
+transport correlation ID, using tenant/merchant fields as lookup authority, or
+creating a new universal correlation service were rejected. A temporary compatibility
+mode that preserves caller-selected association was also rejected as insecure. Existing
+case-only callers must migrate by provisioning the authoritative mapping; their IDs may
+remain only as consistency assertions.
+
+**Architecture impact**: No ownership boundary changes. PostgreSQL remains authoritative,
+Temporal remains orchestration, Redpanda remains transport, and Neo4j remains a
+rebuildable projection. No ADR change is required for D3.
+
 ## Implementation validation items deferred to coding
 
 - Confirm configured Razorpay Test Mode signature/header and secret rotation behavior from the approved merchant connector documentation.
+- Confirm the configured Razorpay Test Mode payload paths and event-family rules for
+  payment ID, order ID, and signed merchant/reference fields before implementing the
+  v2.0.0 extractor; do not infer provider behavior from replay fixtures alone.
 - Pin runtime/library/container versions and verify compatibility in the Compose environment.
 - Define the concrete benchmark provenance and labeling process; target at least 500 cases when feasible and at least 100 held-out cases, preferably 150 or more. If fewer cases exist, report the actual sample size, confidence-interval limitations, and shortfall; do not pad results.
 - Select exact test runners and dashboard queries without changing contract or ownership decisions.

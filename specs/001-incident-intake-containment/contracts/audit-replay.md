@@ -2,11 +2,19 @@
 
 ## Audit record
 
-Each record carries tenant/case, actor/service, event/action, input and evidence references, policy/model/provider/approval/execution versions, correlation IDs, outcome, timestamp, and append-only integrity linkage. Records must be sufficient to replay decisions without implying that a replay performed a live side effect.
+Each record carries tenant/case, actor/service, event/action, input and evidence references, policy/model/provider/approval/execution versions, correlation IDs, outcome, timestamp, and append-only integrity linkage. Webhook-derived records additionally retain the verified provider-correlation schema/version, provider event/payment/order identifiers, verification provenance, authoritative mapping reference when resolved, and caller assertion results. Records must be sufficient to replay decisions without implying that a replay performed a live side effect.
 
 ## Replay run
 
-Replay input includes fixture version, connector/action simulator versions, policy version, model/provider mode, deterministic seed, and environment metadata. Output includes all stage outcomes, terminal state, differences from expected result, and explicit `replay` label.
+Replay input includes fixture version, connector/action simulator versions, the v2.0.0
+webhook contract, `VerifiedProviderCorrelation` v1.0.0 data, a trusted authoritative
+mapping fixture/reference, policy version, model/provider mode, deterministic seed, and
+environment metadata. Mapping fixtures must be seeded from merchant-side order/payment
+context; caller-supplied case, incident, tenant, or merchant values may be present only
+as assertions. Output includes all stage outcomes, terminal state, mapping resolution
+status, differences from expected result, and explicit `replay` label. Missing or
+conflicting mapping data must produce the same unresolved/quarantine outcome as live
+processing.
 
 ## Evaluation record
 

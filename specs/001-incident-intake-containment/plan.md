@@ -8,7 +8,7 @@
 
 FS-001 is a complete tenant-ready incident response vertical slice. The design separates deterministic case, evidence, timeline, financial, policy, gateway, verification, and audit logic from model inference. A Temporal workflow coordinates durable progress and recovery; PostgreSQL owns business state; Redpanda transports versioned domain events; Neo4j is a rebuildable relationship projection; MinIO retains raw evidence and artifacts; Redis is limited to bounded coordination; and all external side effects pass through the isolated Action Gateway.
 
-The implementation sequence is dependency-ordered: establish contracts and tenant/security foundations, ingest and persist incidents, collect and normalize evidence, reconstruct the deterministic timeline, attribute and calculate exposure, generate bounded proposals, evaluate policy and approvals, execute/reconcile/verify actions, then add replay/evaluation and the complete demonstration topology. Every slice is independently testable and preserves the full architecture.
+The implementation sequence is dependency-ordered: establish contracts and tenant/security foundations, ingest and persist incidents, derive verified provider correlations and resolve authoritative webhook mappings, collect and normalize evidence, reconstruct the deterministic timeline, attribute and calculate exposure, generate bounded proposals, evaluate policy and approvals, execute/reconcile/verify actions, then add replay/evaluation and the complete demonstration topology. Every slice is independently testable and preserves the full architecture.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ The implementation sequence is dependency-ordered: establish contracts and tenan
 
 **Performance Goals**: Provisional targets only: p95 deterministic-simulator intake acknowledgement <=2 seconds and canonical replay completion <=5 minutes. Actual p50/p95 latency, throughput, recovery time, and failure rates must be measured on a documented environment before any release threshold or operational claim is adopted.
 
-**Constraints**: One demo merchant with tenant-ready contracts; Razorpay Test Mode only; strict original-payload webhook verification and tenant-scoped event idempotency; no production financial execution by default; no agent side-effect credentials; policy-owned immutable thresholds; separation of duties; explicit terminal states `verified_contained`, `verified_failed`, and `escalated_unresolved`; no generic successful close; no arbitrary network or attacker interaction.
+**Constraints**: One demo merchant with tenant-ready contracts; Razorpay Test Mode only; strict original-payload webhook verification, v2.0.0 verified provider correlation, and an authoritative PostgreSQL provider-to-case mapping; tenant-scoped event idempotency remains separate from action idempotency; no production financial execution by default; no agent side-effect credentials; policy-owned immutable thresholds; separation of duties; explicit terminal states `verified_contained`, `verified_failed`, and `escalated_unresolved`; no generic successful close; no arbitrary network or attacker interaction.
 
 **Scale/Scope**: One complete incident flow and deterministic failure variants for the first demonstration; benchmark target of at least 500 cases when feasible, with a 60% development, 20% validation, and 20% sealed held-out split acceptable. Target at least 100 held-out cases, preferably 150 or more, while never fabricating or padding cases. Splits must be leakage-safe across entity/customer and time before synthetic overlay generation, maintain at least 25% no-compromise/false-alert cases and mixed legitimate/malicious activity in at least 30% of compromised cases, keep held-out seeds/scenarios inaccessible to prompts/tuning/model selection, and report confidence intervals with evaluation metrics. The design must not hard-code a one-merchant data model.
 
@@ -54,7 +54,7 @@ No constitution violation or complexity exception is required.
 | Boundary | Owns | Reads | Writes / side effects |
 |---|---|---|---|
 | Next.js operator UI | Case review, approvals, replay/evaluation views | API read models and audit views | Submits typed intake, approval, replay, and escalation decisions through APIs |
-| Intake API | Incident requests, Razorpay Test Mode webhook verification, case creation command validation | Tenant/connector configuration | PostgreSQL incident/case/outbox; no remote merchant mutation |
+| Intake API | Incident requests, Razorpay Test Mode webhook verification, v1.0.0 provider-correlation derivation, authoritative mapping lookup, assertion validation, and case creation command validation | Tenant/connector configuration and PostgreSQL provider mappings | PostgreSQL incident/case/webhook delivery/quarantine/outbox; no remote merchant mutation |
 | Evidence orchestrator/adapters | Connector invocation and evidence provenance | Case and connector scope | PostgreSQL evidence metadata; MinIO raw objects; emits evidence events |
 | Deterministic domain services | Deduplication, ordering, attribution aggregation, exposure, proposal validation, policy evaluation | PostgreSQL facts and versioned policy/model outputs | PostgreSQL derived facts and audit; no external side effects |
 | Temporal workflow worker | Durable orchestration, retries, timers, signals, recovery, compensation/escalation routing | PostgreSQL state and event status | Workflow state and commands to activities; does not become business state |
@@ -76,7 +76,7 @@ No constitution violation or complexity exception is required.
 ### End-to-end event flow
 
 1. An authenticated merchant/operator or validated Razorpay Test Mode webhook reaches the Intake API.
-2. The API validates tenant and connector scope, verifies the original webhook payload where applicable, enforces `(tenant, connector, provider_event_id)` idempotency, and persists the incident/case and outbox record transactionally.
+2. The API validates connector scope, verifies the original webhook payload where applicable, derives the v1.0.0 provider correlation, resolves exactly one authoritative PostgreSQL mapping without using caller IDs as authority, checks optional case/incident assertions, enforces `(tenant, connector, provider_event_id)` idempotency, and persists the incident/case/webhook outcome and outbox record transactionally.
 3. Temporal starts or signals the case workflow. Evidence activities call only approved connector contracts and persist raw evidence checksums plus normalized metadata.
 4. Deterministic services deduplicate and order timeline events, combine rules/LightGBM attribution evidence, and calculate financial exposure.
 5. The bounded model gateway receives redacted structured case data and returns typed attribution/proposal output. The model has no side-effect credentials or unrestricted tools.
@@ -122,6 +122,7 @@ Create the canonical end-to-end fixture and deterministic variants, labeled live
 - **Integration**: PostgreSQL authority, transactional outbox/inbox, Redpanda delivery, Temporal restart/retry/signal behavior, MinIO checksums, Neo4j rebuild, Redis non-authority, Keycloak/Vault scopes, and OpenTelemetry correlation.
 - **Failure recovery**: duplicate/out-of-order events, unavailable/partial/stale connectors, invalid signatures, process restart, timeout, unknown remote result, reconciliation-before-retry, stale policy version, verification ambiguity, and escalation.
 - **Security**: cross-tenant access attempts, untrusted prompt/evidence injection, forbidden action proposals, missing/overbroad credentials, arbitrary network/tool access, PII leakage, approval self-dealing, and audit tampering.
+- **D3 association gate**: signed webhook plus arbitrary same-tenant case with no mapping, verified correlation with mapping, matching and conflicting case/incident assertions, cross-tenant substitution, unknown correlation, duplicate provider event, and caller attempts to establish mapping authority. Assert no accepted persistence or case attachment on unresolved/mismatch paths.
 - **Acceptance/E2E**: mixed legitimate/attacker canonical incident from intake through verified containment or escalation, including the complete Compose topology and reviewer traceability.
 - **Evaluation**: benchmark target of at least 500 cases when feasible; acceptable 60/20/20 development/validation/sealed-held-out split; at least 100 held-out cases targeted, preferably 150 or more; leakage-safe entity/customer and temporal separation before synthetic overlay generation; at least 25% no-compromise/false-alert cases; mixed legitimate/malicious activity in at least 30% of compromised cases; held-out seeds/scenarios inaccessible to prompts, tuning, and model selection; confidence intervals alongside malicious-action precision/recall, contained value, legitimate value disrupted, resolution success, latency, tool efficiency, forbidden attempts/executions, and model cost. Do not fabricate or pad cases; report actual sample size and statistical limitations.
 
@@ -157,6 +158,10 @@ The following decisions are recorded in feature-local ADRs and must be reviewed 
 - ADR-002: agent/action safety boundary and isolated Action Gateway.
 - ADR-003: deterministic replay, grouped evaluation, and honest performance baselines.
 
+The D3 provider-correlation decision is recorded in `research.md`. It changes the
+webhook safety contract and data model but not architectural ownership, so no ADR is
+changed.
+
 ## Phase 1 Design Artifacts
 
 - [research.md](./research.md) records the planning decisions, rationale, alternatives, and unresolved implementation validation items.
@@ -171,11 +176,17 @@ The following decisions are recorded in feature-local ADRs and must be reviewed 
 - **Defense and side effects**: PASS. All connectors are allowlisted and merchant-controlled; the model has typed proposal authority only; the Action Gateway is isolated and idempotent.
 - **Financial safety**: PASS. Trusted integer-minor-unit calculations, captured-payment/refund bounds, approval gates, reconciliation, and verification are explicit.
 - **Tenant/security boundary**: PASS. Tenant scope, OIDC/Vault least privilege, untrusted evidence, redaction, and cross-tenant tests are planned.
+- **D3 provider association**: PASS for specification. Verified provider correlation,
+  PostgreSQL-authoritative mapping, assertion-only caller IDs, fail-closed unresolved
+  handling, duplicate idempotency, and identical replay/simulator semantics are defined;
+  runtime implementation and migration remain gated.
 - **Model/evaluation integrity**: PASS. Providers share one interface and sealed grouped evaluation; replay and synthetic/hybrid results are labeled; metrics are not fabricated.
 - **Audit/test/decision governance**: PASS. Append-only audit, required test classes, ADRs, and baseline-before-threshold rules are included.
 
-No gate violations remain. The implementation queue is recorded in `tasks.md` and is
-ready for the implementation phase.
+The D3 specification gate passes with no architecture or constitution violation. The
+implementation queue remains recorded in `tasks.md`, but D3 runtime implementation and
+T059 are intentionally blocked until the versioned contract, PostgreSQL mapping, and
+direct acceptance tests are implemented in a later authorized session.
 
 ## Complexity Tracking
 

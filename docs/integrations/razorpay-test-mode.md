@@ -14,6 +14,23 @@ The intake API may read only this verification path. It cannot read Action
 Gateway credentials. Secret rotation is a validation seam for current/previous
 versioned references; secret values are provisioned out of band.
 
+## D3 contract migration
+
+The approved webhook association contract is v2.0.0. After signature verification,
+the connector must derive `VerifiedProviderCorrelation` v1.0.0 from the signed payload:
+`provider_event_id` plus `provider_payment_id` is required for supported `payment.*`
+events; `provider_order_id` and a signed merchant reference are retained when present.
+The intake path resolves those identifiers through a pre-provisioned PostgreSQL
+provider-correlation mapping. `case_id`, `incident_id`, `tenant_id`, and merchant IDs
+from callers remain assertions/context only.
+
+Existing case-only callers and the current `razorpay-test-v1` valid fixture are not
+compatible with an accepted v2.0.0 delivery by themselves. Migration must provision
+the trusted mapping and add provider payment/order correlation data to valid fixtures;
+the fixture's signature must be recomputed over the changed original payload. Invalid
+or incomplete fixtures may remain useful for quarantine coverage. No fixture,
+simulator, database, or runtime migration is performed by this specification change.
+
 The files under `tests/fixtures/razorpay/` are labeled `replay` and contain no
 secret. They validate deterministic adapter behavior only. No live Razorpay
 provider behavior is claimed until an explicitly configured Test Mode run passes

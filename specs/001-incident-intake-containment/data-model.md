@@ -4,7 +4,14 @@
 
 - Every entity below carries `tenant_id` directly or through a tenant-scoped parent; repositories and database policies must enforce the boundary.
 - Business identifiers are opaque, stable, and independent of provider identifiers.
-- Provider event identity is unique within `(tenant_id, connector_id, provider_event_id)`; action identity is separate and uses a stable proposal/action idempotency key.
+- A verified provider correlation is versioned and derived from the provider payload,
+  not supplied by the caller. For FS-001 Razorpay payment webhooks, its minimum
+  ownership identity is `(provider, connector_id, provider_event_id,
+  provider_payment_id)`; `provider_order_id` and a signed merchant reference are
+  retained and checked when present.
+- Valid webhook delivery identity remains unique within
+  `(tenant_id, connector_id, provider_event_id)`; action identity is separate and uses
+  a stable proposal/action idempotency key.
 - Monetary values are integer minor units with explicit ISO currency; no floating-point financial state is persisted.
 - Raw evidence/artifacts are immutable objects addressed by checksum; normalized facts retain source and evidence references.
 - Audit records are append-only and reference the policy, model/provider, approval, execution, and verification versions used.
@@ -21,9 +28,16 @@ Rules: inactive tenants cannot intake or act; credentials and connector scopes a
 
 ### Incident
 
-Represents the initial compromise report or accepted webhook correlation.
+Represents the initial compromise report. An accepted webhook may reference the
+incident only after verified provider correlation resolves through the authoritative
+mapping.
 
-Key fields: `incident_id`, `tenant_id`, source, reporter context, received time, correlation key, raw input reference, intake status, deduplication identity.
+Key fields: `incident_id`, `tenant_id`, source, reporter context, received time,
+correlation key, raw input reference, intake status, deduplication identity.
+
+Rules: the incident correlation key supports incident intake deduplication and
+traceability only; it does not establish provider ownership or replace a verified
+provider correlation mapping.
 
 ### Case
 
@@ -42,6 +56,57 @@ Declares a merchant-controlled connector or deterministic simulator.
 Key fields: `connector_id`, `tenant_id`, contract version, connector type, allowed resources/operations, credential scope reference, enabled status, simulator/live mode, schema and failure-state versions.
 
 Rules: no connector call is valid without tenant and allowlist checks.
+
+### ProviderCorrelationMapping
+
+Represents the authoritative merchant-owned association used to resolve a verified
+provider webhook. It is not created from caller-supplied case, incident, merchant, or
+tenant values, and the webhook processing path cannot create one from an unrecognized
+event.
+
+Key fields: `mapping_id`, `correlation_schema_version`, `provider`, configured
+`connector_id`, optional `provider_event_id`, `provider_payment_id`,
+`provider_order_id`, optional verified `merchant_reference`, `tenant_id`, `incident_id`,
+`case_id`, optional `related_order_reference` and `related_payment_reference`,
+`mapping_source`, `mapping_source_reference`, `mapping_source_checksum`,
+`mapping_status`, and created/verified/revoked times.
+
+Rules:
+
+- An active mapping has exactly one tenant/incident/case owner, composite foreign keys
+  to that tenant's incident and case, and at least one provider-native stable identity.
+- Within the configured provider connection scope, no active provider event, payment,
+  or order identifier may resolve to more than one tenant/case/incident. Multiple
+  matching active rows are an ambiguity and must fail closed.
+- Mapping provenance must point to a trusted merchant-side order/payment context or a
+  server-side pre-registration linked to an existing case/incident. A report's
+  `correlation_key`, a webhook's untrusted field, or any caller ID is insufficient.
+- Resource-level mappings may be reused by multiple provider events for the same
+  payment/order; event-specific mappings may additionally bind one provider event.
+  When several identifiers are present in a verified webhook, all must intersect the
+  same active mapping.
+- The mapping's `tenant_id` is authoritative and must match the configured connector
+  scope before any case association is returned. A different-tenant match is a
+  cross-tenant failure, never a selectable alternative.
+
+### WebhookDelivery and WebhookQuarantine
+
+`WebhookDelivery` represents a valid, idempotently recorded provider delivery.
+
+Key fields: tenant and connector scope, `provider_event_id`, original payload/checksum,
+`VerifiedProviderCorrelation` v1.0.0, authoritative `mapping_id`, resolved
+`incident_id`/`case_id`, related order/payment context, processing status, receipt
+metadata, and assertion-check results.
+
+Rules: an accepted delivery requires verified correlation and exactly one active
+provider mapping; its incident/case values come from that mapping. `case_id` and
+`incident_id` supplied by a caller may be retained as assertions and audit input but
+never as the source of the persisted association.
+
+`WebhookQuarantine` retains invalid, incomplete, unresolved, ambiguous, conflicting,
+or assertion-mismatched deliveries with raw payload provenance, verified correlation
+when authenticity succeeded, reason, and audit identity. It has no authoritative
+incident/case association and cannot create or mutate a provider mapping.
 
 ### EvidenceItem
 
@@ -141,6 +206,10 @@ Rules: target at least 500 benchmark cases when feasible; a 60/20/20 development
 
 `Tenant 1->N Incident 1->1 Case 1->N EvidenceItem`
 
+`Tenant 1->N ProviderCorrelationMapping 1->N WebhookDelivery`
+
+`ProviderCorrelationMapping N->1 Incident; ProviderCorrelationMapping N->1 Case`
+
 `Case 1->N TimelineEvent 1->N Attribution`
 
 `Case 1->N FinancialExposure`
@@ -155,6 +224,9 @@ Rules: target at least 500 benchmark cases when feasible; a 60/20/20 development
 
 - A case cannot become terminal while an action has unknown execution or inconclusive verification unless it transitions to `escalated_unresolved`.
 - A refund proposal cannot be allowed unless the payment is captured, unreimbursed amount is positive, currency is explicit, and the original payment source is known.
+- An accepted webhook must contain a verified provider correlation and resolve to exactly one active PostgreSQL provider mapping before it can attach to an incident or case.
+- Missing, revoked, ambiguous, conflicting, or cross-tenant provider mappings produce an auditable unresolved/quarantine outcome and never guess an association.
+- Caller-supplied `case_id`, `incident_id`, `tenant_id`, `merchant_id`, and transport `correlation_id` can be checked or audited but can never create mapping authority. Supplied case/incident assertions must match the authoritative mapping when present.
 - A duplicate webhook cannot create a second incident fact, financial exposure, proposal, or remote side effect.
 - A policy decision references exactly one immutable policy version; approval references the same applicable version and cannot be self-approved.
 - A Neo4j or Redis outage does not change authoritative case, financial, action, or audit correctness.

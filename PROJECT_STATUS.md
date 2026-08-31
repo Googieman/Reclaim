@@ -21,9 +21,10 @@ the initial remediation batches for MAJOR-1, MAJOR-3, MAJOR-4, and MAJOR-5 are
 complete locally, with the revised production Temporal workflow gate and live
 event-delivery/projection validation recorded below. The final US1 remediation gate
 closed D1 audit-chain concurrency and D2 timeline-uncertainty handoff. D3
-(MAJOR-5 authoritative provider-to-case association) remains partial because the
-approved webhook contract and persistence model do not contain the required
-provider-to-case correlation authority. Original Remediation Batch B for
+(MAJOR-5 authoritative provider-to-case association) was specification-approved on
+2026-08-31: the v2.0.0 webhook contract now requires verified provider correlation and
+an authoritative PostgreSQL mapping, while runtime implementation and migration remain
+open. Original Remediation Batch B for
 MAJOR-2 and MAJOR-6 is complete locally. Its follow-up review kept MAJOR-7 open;
 the focused approval-to-execution remediation and validation are recorded below.
 T059 remains blocked pending the release gate; no T059 or US2 implementation was
@@ -46,6 +47,11 @@ remains blocked by the explicit release-gate instruction.
 - 2026-08-30: Application implementation is not authorized by these approvals; the
   Spec Kit `specify`, planning, and task-generation phases for FS-001 are complete,
   and the approved specification remains the governing feature boundary.
+- 2026-08-31: The D3/MAJOR-5 contract/data-model change was approved for future
+  implementation: Razorpay webhook v2.0.0 derives `VerifiedProviderCorrelation`
+  v1.0.0 and resolves only through an authoritative PostgreSQL mapping. This approval
+  does not authorize D3 runtime code, migrations, repository changes, tests, T059, or
+  US2 work.
 
 ## Milestone state
 
@@ -59,8 +65,9 @@ remains blocked by the explicit release-gate instruction.
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, and final-gate D1/D2 remediation are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, webhook durability with tenant-scoped but not yet provider-authoritative optional case association, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, and complete backend wheel/sdist runtime package contents are present |
+| D3 contract/data-model approval | Complete for specification; runtime open | FS-001, provider-correlation, webhook/event/connector/replay contracts, data model, plan/research, quickstart, and Razorpay migration guidance define v2.0.0 semantics; no runtime code, repository, migration, fixture, or test changes |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T058 plus Remediation B, MAJOR-7 follow-up, Batch C, and final-gate D1/D2 focused validation complete; D3 remains contract-blocked; evaluation not started | The final default suite is 237 passed and 29 skipped; final-gate focused coverage is 39 passed and 3 expected live-service skips; live PostgreSQL D1/D2 coverage is 4 passed; the fresh clean-volume T043 run is 4 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T058 plus Remediation B, MAJOR-7 follow-up, Batch C, and final-gate D1/D2 focused validation complete; D3 runtime remains blocked; evaluation not started | The final default suite is 237 passed and 29 skipped; final-gate focused coverage is 39 passed and 3 expected live-service skips; live PostgreSQL D1/D2 coverage is 4 passed; the fresh clean-volume T043 run is 4 passed. No D3 runtime tests were run or changed in this specification session. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
@@ -219,18 +226,24 @@ remains blocked by the explicit release-gate instruction.
   the corresponding columns/index are also declared in migration `001`. D3 was not
   changed: the approved `RazorpayWebhookRequest` supplies provider identity but no
   authoritative provider-event-to-case/order/payment correlation, and the current
-  `webhook_deliveries` table stores caller-supplied optional IDs. A contract and
-  correlation-state migration are required before D3 can close.
+  `webhook_deliveries` table stores caller-supplied optional IDs. The approved D3
+  contract/data-model change now defines the required provider correlation and
+  migration authority; runtime implementation and correlation-state migration are
+  required before D3 runtime can close. No implementation has started.
 
 ## Architecture and safety
 
-No architecture or ADR deviation was made. Remediation Batch B and the MAJOR-7
+No architecture or ADR deviation was made. D3's contract/data-model amendment does
+not change ownership: PostgreSQL remains authoritative, Temporal remains orchestration,
+Redpanda remains transport, and Neo4j remains rebuildable. Remediation Batch B and the MAJOR-7
 follow-up changed no approved contract or ADR, Remediation Batch A changed no
 approved contract or ADR, Remediation Batch C changed no approved contract or ADR,
 and final-gate D1/D2 changed no approved contract or ADR. One implementation
 compatibility defect in
 the shared optional UTC timestamp validation was fixed so incomplete webhook timestamps
-remain representable for quarantine; contract shape and approved ADRs are unchanged.
+remain representable for quarantine. D3 changed the approved webhook/data-model contract
+but requires no ADR because the ownership model is unchanged. The shared contract shape
+outside D3 and approved ADRs remain unchanged.
 PostgreSQL remains the
 business correctness boundary; Temporal owns durable orchestration; Redpanda is only
 transport; Neo4j is rebuildable; MinIO stores immutable evidence; Redis is bounded
@@ -252,15 +265,17 @@ No production performance, fraud, or containment metric is claimed.
   rebuildable Neo4j projection/checkpoints, and the complete US1 live gate. The event
   transport still requires an authenticated single-tenant service context and validates
   event tenant binding before obtaining a tenant-scoped UoW.
-- Remediation Batch A closed MAJOR-1, MAJOR-3, and MAJOR-4. Its MAJOR-5 portion
+- Remediation Batch A closed MAJOR-1, MAJOR-3, and MAJOR-4. Its MAJOR-5 runtime portion
   remains partial at this final gate because same-tenant case-only webhook association
-  is not provider-authoritative. Original Remediation Batch B closed MAJOR-2 and
+  is not yet implemented against the newly approved provider-authoritative contract.
+  Original Remediation Batch B closed MAJOR-2 and
   MAJOR-6. The focused MAJOR-7 follow-up closes the approval-to-execution gap with no contract or ADR
   changes and passes its fresh, idempotent, direct-SQL, repository, RLS, event, and
   T058 checks. Batch C closes the payload-limit, atomic-immutability, and backend
   package-discovery findings in focused validation. Final-gate D1 and D2 are closed
-  by the live PostgreSQL and focused persistence/event/projection tests. D3 remains
-  open pending an approved provider-correlation contract and migration. The
+  by the live PostgreSQL and focused persistence/event/projection tests. D3 is
+  specification-approved but runtime remains open pending implementation of the
+  provider-correlation contract and migration. The
   clean-volume T043 rerun is `4/4` after the acceptance-fixture isolation repair,
   so the Batch C technical gate is PASS. T059 remains blocked by the explicit
   release-gate instruction; no US2 or T059 implementation was started.
@@ -297,11 +312,12 @@ Readiness evidence:
   delivery through Redpanda, tenant-bound event consumers, replayable Neo4j projection,
   and the full US1 gate passed against temporary live services.
 
-Current artifacts: the approved/generated FS-001 specification and planning package are
-under `specs/001-incident-intake-containment/`; three ADRs remain unchanged; and
+Current artifacts: the approved/generated FS-001 specification and amended D3
+planning/contract package are under `specs/001-incident-intake-containment/`; three
+ADRs remain unchanged; and
 `tasks.md` contains 133 dependency-ordered tasks with traceability for all 25 functional
 requirements. T036-T042 are complete with local contract/property/integration/security
   evidence; T043 and T044-T058 are complete with local and environment-qualified live
   validation. The MAJOR-7 follow-up release gate and Batch C technical gate are
-  validated, but T059 remains held pending explicit release-gate direction; no T059+
+validated, D3 is specification-approved but its runtime gate remains pending, and T059 remains held pending explicit release-gate direction; no T059+
   or US2 implementation was started.

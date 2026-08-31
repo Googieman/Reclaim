@@ -7,6 +7,9 @@ These contracts define data and authority boundaries for implementation and test
 - Every request, event, tool call, decision, and audit record carries `tenant_id` and correlation identifiers.
 - Every contract declares schema version, producer, timestamp semantics, and idempotency identity where applicable.
 - Evidence and model output are untrusted/advisory; only deterministic validators and policy can authorize action.
+- Webhook case/incident association is authoritative only when a verified provider
+  correlation resolves through PostgreSQL; caller-supplied IDs are consistency
+  assertions and never mapping authority.
 - Simulators implement the same contract and allowlist as live connectors.
 - Unknown remote result is a first-class state, never an implicit failure or success.
 

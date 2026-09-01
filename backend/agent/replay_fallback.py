@@ -59,11 +59,33 @@ class ReplayFallbackOutcome:
 
     @property
     def mode(self) -> str:
-        return self.effective_request.provider_mode.value
+        """The source mode of the accepted terminal result.
+
+        ``effective_request`` is intentionally still the request used for the
+        last provider attempt.  When that attempt fails, however, it is not an
+        accepted replay result, so the public mode must remain
+        ``deterministic_only`` rather than implying replay succeeded.
+        """
+
+        return self.final_mode
 
     @property
     def label(self) -> str:
-        return self.effective_request.replay_label.value
+        return self.final_mode
+
+    @property
+    def final_mode(self) -> str:
+        if self.status is ReplayFallbackStatus.LIVE:
+            return ProviderMode.LIVE.value
+        if self.status is ReplayFallbackStatus.REPLAY:
+            return ProviderMode.REPLAY.value
+        return ReplayFallbackStatus.DETERMINISTIC_ONLY.value
+
+    @property
+    def terminal_outcome(self) -> str:
+        if self.status in {ReplayFallbackStatus.LIVE, ReplayFallbackStatus.REPLAY}:
+            return "completed"
+        return self.status.value
 
     @property
     def analysis_response(self) -> Any | None:
@@ -105,6 +127,7 @@ class ReplayFallback:
         primary_failure: str | None = None
         primary_kind: str | None = None
         primary_forbidden_attempts: tuple[str, ...] = ()
+        attempted_providers: list[dict[str, str | None]] = []
 
         if request.provider_mode is ProviderMode.LIVE:
             if primary_provider is None:
@@ -117,6 +140,11 @@ class ReplayFallback:
                         request,
                         deterministic_uncertainty=uncertainty,
                     )
+                    attempted_providers.append(
+                        _attempt_metadata(
+                            primary_provider, mode=ProviderMode.LIVE, outcome="completed"
+                        )
+                    )
                     return self._success(
                         request=request,
                         effective_request=request,
@@ -125,11 +153,19 @@ class ReplayFallback:
                         parsed=parsed,
                         primary_failure=None,
                         failure_kind=None,
+                        attempted_providers=attempted_providers,
                     )
                 except _ProviderAttemptFailure as exc:
                     primary_failure = exc.safe_reason
                     primary_kind = exc.kind
                     primary_forbidden_attempts = exc.forbidden_attempts
+                    attempted_providers.append(
+                        _attempt_metadata(
+                            primary_provider,
+                            mode=ProviderMode.LIVE,
+                            outcome="failed",
+                        )
+                    )
 
         replay_request = _replay_request(request)
         if self.replay_provider is None:
@@ -141,6 +177,7 @@ class ReplayFallback:
                 fallback_reason="deterministic replay fixture is unavailable",
                 failure_kind=primary_kind or "unavailable",
                 forbidden_attempts=primary_forbidden_attempts,
+                attempted_providers=attempted_providers,
             )
         try:
             response, parsed = self._complete(
@@ -148,7 +185,21 @@ class ReplayFallback:
                 replay_request,
                 deterministic_uncertainty=uncertainty,
             )
+            attempted_providers.append(
+                _attempt_metadata(
+                    self.replay_provider,
+                    mode=ProviderMode.REPLAY,
+                    outcome="completed",
+                )
+            )
         except _ProviderAttemptFailure as exc:
+            attempted_providers.append(
+                _attempt_metadata(
+                    self.replay_provider,
+                    mode=ProviderMode.REPLAY,
+                    outcome="failed",
+                )
+            )
             return self._failure(
                 request=request,
                 effective_request=replay_request,
@@ -159,6 +210,7 @@ class ReplayFallback:
                 forbidden_attempts=tuple(
                     sorted(set(primary_forbidden_attempts) | set(exc.forbidden_attempts))
                 ),
+                attempted_providers=attempted_providers,
             )
         return self._success(
             request=request,
@@ -169,6 +221,7 @@ class ReplayFallback:
             primary_failure=primary_failure,
             failure_kind=primary_kind,
             forbidden_attempts=primary_forbidden_attempts,
+            attempted_providers=attempted_providers,
         )
 
     analyze = run
@@ -218,12 +271,14 @@ class ReplayFallback:
         primary_failure: str | None,
         failure_kind: str | None,
         forbidden_attempts: tuple[str, ...] = (),
+        attempted_providers: list[dict[str, str | None]] | tuple[dict[str, str | None], ...] = (),
     ) -> ReplayFallbackOutcome:
         metadata = response.metadata
         provenance = {
             "fallback_version": REPLAY_FALLBACK_VERSION,
             "requested_mode": request.provider_mode.value,
             "effective_mode": effective_request.provider_mode.value,
+            "final_mode": status.value,
             "label": effective_request.replay_label.value,
             "provider": metadata.provider,
             "model": metadata.model,
@@ -234,6 +289,7 @@ class ReplayFallback:
             "response_checksum": parsed.provenance.response_checksum,
             "primary_failure": primary_failure,
             "failure_kind": failure_kind,
+            "attempted_providers": tuple(attempted_providers),
             "side_effects": False,
         }
         return ReplayFallbackOutcome(
@@ -258,16 +314,20 @@ class ReplayFallback:
         fallback_reason: str,
         failure_kind: str,
         forbidden_attempts: tuple[str, ...] = (),
+        attempted_providers: list[dict[str, str | None]] | tuple[dict[str, str | None], ...] = (),
     ) -> ReplayFallbackOutcome:
         provenance = {
             "fallback_version": REPLAY_FALLBACK_VERSION,
             "requested_mode": request.provider_mode.value,
             "effective_mode": effective_request.provider_mode.value,
-            "label": effective_request.replay_label.value,
+            "final_mode": ReplayFallbackStatus.DETERMINISTIC_ONLY.value,
+            "attempted_fallback_mode": effective_request.provider_mode.value,
+            "label": ReplayFallbackStatus.DETERMINISTIC_ONLY.value,
             "request_checksum": _checksum(effective_request.model_dump(mode="json")),
             "primary_failure": primary_failure,
             "fallback_reason": fallback_reason,
             "failure_kind": failure_kind,
+            "attempted_providers": tuple(attempted_providers),
             "side_effects": False,
         }
         return ReplayFallbackOutcome(
@@ -315,6 +375,32 @@ class _ProviderAttemptFailure(RuntimeError):
         self.safe_reason = safe_reason
         self.kind = kind
         self.forbidden_attempts = tuple(forbidden_attempts)
+
+
+def _attempt_metadata(
+    provider: ModelProvider,
+    *,
+    mode: ProviderMode,
+    outcome: str,
+) -> dict[str, str | None]:
+    """Retain safe provider identity without retaining provider exception text."""
+
+    metadata = getattr(provider, "metadata", None)
+    if metadata is None:
+        return {"mode": mode.value, "outcome": outcome}
+    return {
+        "mode": mode.value,
+        "outcome": outcome,
+        "provider": _safe_metadata_text(getattr(metadata, "provider", None)),
+        "model": _safe_metadata_text(getattr(metadata, "model", None)),
+        "adapter_version": _safe_metadata_text(getattr(metadata, "adapter_version", None)),
+    }
+
+
+def _safe_metadata_text(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()[:256]
 
 
 def _replay_request(request: ModelAnalysisRequest) -> ModelAnalysisRequest:

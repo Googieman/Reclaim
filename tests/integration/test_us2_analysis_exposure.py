@@ -268,6 +268,23 @@ def test_t078_model_analysis_migration_declares_public_authority_and_rls() -> No
     ):
         assert fragment in migration
 
+    terminal_migration = (
+        Path(__file__).resolve().parents[2]
+        / "backend"
+        / "db"
+        / "migrations"
+        / "009_model_analysis_terminal_outcomes.sql"
+    )
+    terminal_sql = terminal_migration.read_text(encoding="utf-8")
+    for fragment in (
+        "ADD COLUMN IF NOT EXISTS requested_mode",
+        "ADD COLUMN IF NOT EXISTS terminal_outcome",
+        "ALTER COLUMN response_checksum DROP NOT NULL",
+        "deterministic_only",
+        "model_runs_response_metadata_check",
+    ):
+        assert fragment in terminal_sql
+
 
 def test_action_idempotency_schema_keeps_concurrent_retries_on_one_key() -> None:
     migration = (
@@ -307,6 +324,8 @@ def test_t076_fresh_model_analysis_migration_is_search_path_safe() -> None:
             "003_batch_b_integrity.sql",
             "004_final_gate_integrity.sql",
             "007_model_analysis_runs.sql",
+            "008_model_analysis_runtime_grants.sql",
+            "009_model_analysis_terminal_outcomes.sql",
         ):
             connection.execute(
                 (migration_root / migration_name).read_text(encoding="utf-8")

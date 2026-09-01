@@ -8,16 +8,16 @@ CREATE TABLE IF NOT EXISTS public.model_runs (
     case_id TEXT NOT NULL,
     correlation_id TEXT NOT NULL,
     deterministic_seed TEXT NOT NULL,
-    mode TEXT NOT NULL CHECK (mode IN ('live', 'replay')),
-    replay_label TEXT NOT NULL CHECK (replay_label IN ('live', 'replay')),
-    provider TEXT NOT NULL,
-    model TEXT NOT NULL,
-    adapter_version TEXT NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('live', 'replay', 'deterministic_only')),
+    replay_label TEXT NOT NULL CHECK (replay_label IN ('live', 'replay', 'deterministic_only')),
+    provider TEXT,
+    model TEXT,
+    adapter_version TEXT,
     request_schema_version TEXT NOT NULL,
-    response_schema_version TEXT NOT NULL,
-    parser_version TEXT NOT NULL,
+    response_schema_version TEXT,
+    parser_version TEXT,
     request_checksum TEXT NOT NULL CHECK (request_checksum ~ '^[0-9a-f]{64}$'),
-    response_checksum TEXT NOT NULL CHECK (response_checksum ~ '^[0-9a-f]{64}$'),
+    response_checksum TEXT CHECK (response_checksum IS NULL OR response_checksum ~ '^[0-9a-f]{64}$'),
     deterministic_analysis_checksum TEXT NOT NULL
         CHECK (deterministic_analysis_checksum ~ '^[0-9a-f]{64}$'),
     deterministic_exposure_checksum TEXT NOT NULL
@@ -43,10 +43,26 @@ CREATE TABLE IF NOT EXISTS public.model_runs (
         CHECK (jsonb_typeof(forbidden_attempts) = 'array'),
     provenance JSONB NOT NULL CHECK (jsonb_typeof(provenance) = 'object'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    requested_mode TEXT NOT NULL DEFAULT 'replay'
+        CHECK (requested_mode IN ('live', 'replay')),
+    terminal_outcome TEXT NOT NULL DEFAULT 'completed'
+        CHECK (terminal_outcome IN ('completed', 'deterministic_only', 'escalation', 'refusal')),
+    fallback_reason TEXT,
     PRIMARY KEY (tenant_id, analysis_id),
     UNIQUE (tenant_id, analysis_id, case_id),
     FOREIGN KEY (tenant_id, case_id) REFERENCES public.cases (tenant_id, case_id),
     CHECK (mode = replay_label),
+    CHECK (
+        (mode = 'deterministic_only'
+            AND provider IS NULL AND model IS NULL AND adapter_version IS NULL
+            AND response_schema_version IS NULL AND parser_version IS NULL
+            AND response_checksum IS NULL)
+        OR
+        (mode IN ('live', 'replay')
+            AND provider IS NOT NULL AND model IS NOT NULL AND adapter_version IS NOT NULL
+            AND response_schema_version IS NOT NULL AND parser_version IS NOT NULL
+            AND response_checksum IS NOT NULL)
+    ),
     CHECK (recoverable_value_minor <= gross_exposure_minor),
     CHECK (contained_value_minor <= recoverable_value_minor),
     CHECK (irreversible_loss_minor = gross_exposure_minor - recoverable_value_minor),

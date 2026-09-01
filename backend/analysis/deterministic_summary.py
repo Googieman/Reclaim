@@ -16,7 +16,7 @@ from typing import Any
 
 from agent.providers import ModelProvider, ReplayProvider
 from agent.redaction import build_analysis_request
-from agent.replay_fallback import run_with_replay_fallback
+from agent.replay_fallback import ReplayFallbackOutcome, run_with_replay_fallback
 from attribution.lightgbm_adapter import LightGBMBaselineAdapter
 from attribution.models import AttributionRecord, attribution_input_from_event
 from attribution.rules import RulesAttributor
@@ -355,6 +355,7 @@ def run_us2_analysis(
         "case_id": case_id,
         "correlation_id": correlation_id,
         "mode": mode,
+        "requested_mode": mode,
         "deterministic_seed": seed,
         "policy_version_id": policy_version_id,
         "analysis_version": DETERMINISTIC_ANALYSIS_VERSION,
@@ -418,29 +419,43 @@ def run_us2_analysis(
         **result.metadata,
         "analysis_status": fallback.status.value,
         "analysis_requested_mode": mode,
-        "analysis_mode": fallback.mode,
+        "analysis_mode": fallback.final_mode,
+        "analysis_final_mode": fallback.final_mode,
         "analysis_replay_label": fallback.label,
+        "analysis_terminal_outcome": fallback.terminal_outcome,
         "analysis_fallback_version": fallback.provenance.get("fallback_version"),
         "analysis_fallback_reason": fallback.fallback_reason,
         "analysis_primary_failure": fallback.primary_failure,
         "analysis_failure_kind": fallback.failure_kind,
         "analysis_request_checksum": fallback.provenance.get("request_checksum"),
+        "analysis_provenance": fallback.provenance,
         "analysis_side_effects": False,
     }
     if fallback.parsed_response is None:
-        return replace(
+        return _finalize_fallback_result(
             result,
-            analysis_request=fallback.effective_request,
+            fallback=fallback,
             metadata=fallback_metadata,
+            response=None,
             forbidden_attempts=tuple(
                 sorted(set(result.forbidden_attempts) | set(fallback.forbidden_attempts))
             ),
         )
     parsed = fallback.parsed_response
-    return replace(
+    return _finalize_fallback_result(
         result,
-        analysis_request=fallback.effective_request,
-        analysis_response=parsed.response,
+        fallback=fallback,
+        response=parsed.response,
+        metadata={
+            **fallback_metadata,
+            "analysis_provider": parsed.provenance.provider,
+            "analysis_model": parsed.provenance.model,
+            "analysis_adapter_version": fallback.provenance.get("adapter_version"),
+            "analysis_parser_version": parsed.provenance.parser_version,
+            "analysis_response_checksum": parsed.provenance.response_checksum,
+            "analysis_token_count": parsed.provenance.token_count,
+            "analysis_estimated_cost": parsed.provenance.estimated_cost,
+        },
         forbidden_attempts=tuple(
             sorted(
                 set(result.forbidden_attempts)
@@ -448,16 +463,46 @@ def run_us2_analysis(
                 | set(parsed.response.refusal_records)
             )
         ),
-        metadata={
-            **fallback_metadata,
-            "analysis_provider": parsed.provenance.provider,
-            "analysis_model": parsed.provenance.model,
-            "analysis_parser_version": parsed.provenance.parser_version,
-            "analysis_response_checksum": parsed.provenance.response_checksum,
-            "analysis_token_count": parsed.provenance.token_count,
-            "analysis_estimated_cost": parsed.provenance.estimated_cost,
-            "analysis_provenance": fallback.provenance,
-        },
+    )
+
+
+def _finalize_fallback_result(
+    result: DeterministicAnalysisResult,
+    *,
+    fallback: ReplayFallbackOutcome,
+    metadata: Mapping[str, Any],
+    response: ModelAnalysisResponse | None,
+    forbidden_attempts: tuple[str, ...],
+) -> DeterministicAnalysisResult:
+    """Apply accepted fallback provenance to every public deterministic field."""
+
+    final_mode = fallback.final_mode
+    terminal_outcome = fallback.terminal_outcome
+    fallback_reason = fallback.fallback_reason
+    record_without_checksum = dict(result.outcome_record)
+    record_without_checksum.pop("record_checksum", None)
+    record_without_checksum.update(
+        {
+            "mode": final_mode,
+            "replay_live_mode": final_mode,
+            "requested_mode": metadata.get("analysis_requested_mode"),
+            "analysis_status": metadata.get("analysis_status"),
+            "terminal_outcome": terminal_outcome,
+            "fallback_reason": fallback_reason,
+        }
+    )
+    record = {
+        **record_without_checksum,
+        "record_checksum": _checksum(record_without_checksum),
+    }
+    return replace(
+        result,
+        mode=final_mode,
+        outcome_record=record,
+        analysis_request=fallback.effective_request,
+        analysis_response=response,
+        metadata=dict(metadata),
+        forbidden_attempts=forbidden_attempts,
     )
 
 

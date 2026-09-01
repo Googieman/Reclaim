@@ -42,6 +42,7 @@ MIGRATION_NAMES = tuple(
         (6, "provider_correlation_schema"),
         (7, "model_analysis_runs"),
         (8, "model_analysis_runtime_grants"),
+        (9, "model_analysis_terminal_outcomes"),
     )
 )
 MODEL_TABLES = ("public.model_runs", "public.model_run_proposals")

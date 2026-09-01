@@ -44,12 +44,13 @@ class ModelRunRepository(TenantScopedRepository):
                 gross_exposure_minor, recoverable_value_minor, contained_value_minor,
                 legitimate_value_disrupted_minor, irreversible_loss_minor,
                 remaining_exposure_minor, uncertainty, refusal_records,
-                forbidden_attempts, provenance, created_at
+                forbidden_attempts, provenance, created_at,
+                requested_mode, terminal_outcome, fallback_reason
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s
+                %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s, %s, %s
             )
             ON CONFLICT (tenant_id, analysis_id) DO NOTHING
             RETURNING tenant_id, analysis_id, case_id, mode, response_checksum,
@@ -92,6 +93,9 @@ class ModelRunRepository(TenantScopedRepository):
                 _json(run.forbidden_attempts),
                 _json(run.provenance),
                 run.created_at,
+                run.requested_mode,
+                run.terminal_outcome,
+                run.fallback_reason,
             ),
         )
         if row is None:
@@ -173,7 +177,8 @@ class ModelRunRepository(TenantScopedRepository):
                    gross_exposure_minor, recoverable_value_minor, contained_value_minor,
                    legitimate_value_disrupted_minor, irreversible_loss_minor,
                    remaining_exposure_minor, uncertainty, refusal_records,
-                   forbidden_attempts, provenance, created_at
+                   forbidden_attempts, provenance, created_at,
+                   requested_mode, terminal_outcome, fallback_reason
             FROM public.model_runs
             WHERE tenant_id = %s AND analysis_id = %s
             """,
@@ -197,7 +202,8 @@ class ModelRunRepository(TenantScopedRepository):
                    gross_exposure_minor, recoverable_value_minor, contained_value_minor,
                    legitimate_value_disrupted_minor, irreversible_loss_minor,
                    remaining_exposure_minor, uncertainty, refusal_records,
-                   forbidden_attempts, provenance, created_at
+                   forbidden_attempts, provenance, created_at,
+                   requested_mode, terminal_outcome, fallback_reason
             FROM public.model_runs
             WHERE tenant_id = %s AND case_id = %s
             ORDER BY created_at, analysis_id
@@ -228,7 +234,8 @@ class ModelRunRepository(TenantScopedRepository):
                    provider, model, adapter_version, request_schema_version,
                    response_schema_version, parser_version, request_checksum,
                    response_checksum, deterministic_analysis_checksum,
-                   deterministic_exposure_checksum
+                   deterministic_exposure_checksum,
+                   requested_mode, terminal_outcome, fallback_reason
             FROM public.model_runs
             WHERE tenant_id = %s AND analysis_id = %s
             """,
@@ -254,6 +261,17 @@ class ModelRunRepository(TenantScopedRepository):
             ):
                 raise RepositoryError("existing model run proposal content conflicts")
 
+    def get_audit(self, *, analysis_id: str) -> ModelAnalysisAudit | None:
+        """Read back the redacted authoritative model-analysis audit value."""
+
+        row = self.get(analysis_id=analysis_id)
+        if row is None:
+            return None
+        return ModelAnalysisAudit.from_persisted_row(
+            row,
+            proposal_rows=self.proposals(analysis_id=analysis_id),
+        )
+
 
 def _same_run_identity(row: Sequence[object], run: ModelAnalysisAudit) -> bool:
     # Columns match the SELECT in _existing_run.
@@ -275,6 +293,10 @@ def _same_run_identity(row: Sequence[object], run: ModelAnalysisAudit) -> bool:
         run.response_checksum,
         run.deterministic_analysis_checksum,
         run.deterministic_exposure_checksum,
+    ) and tuple(row[17:20]) == (
+        run.requested_mode,
+        run.terminal_outcome,
+        run.fallback_reason,
     )
 
 

@@ -10,10 +10,11 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
+from agent.redaction import build_analysis_request
 from attribution.lightgbm_adapter import LightGBMBaselineAdapter
 from attribution.models import AttributionRecord, attribution_input_from_event
 from attribution.rules import RulesAttributor
@@ -21,6 +22,7 @@ from finance.exposure import FinancialExposure, calculate_exposure
 from packages.contracts.analysis_policy import (
     AttributionLabel,
     AttributionSuggestion,
+    ModelAnalysisRequest,
     ProviderMode,
 )
 
@@ -48,6 +50,7 @@ class DeterministicAnalysisResult:
     feature_schema_version: str | None = None
     model_versions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    analysis_request: ModelAnalysisRequest | None = None
 
     def __post_init__(self) -> None:
         for name in ("tenant_id", "case_id", "correlation_id", "mode", "deterministic_seed"):
@@ -65,6 +68,13 @@ class DeterministicAnalysisResult:
         object.__setattr__(self, "attribution_inputs", tuple(self.attribution_inputs))
         object.__setattr__(self, "model_versions", tuple(sorted(set(self.model_versions))))
         object.__setattr__(self, "metadata", dict(self.metadata))
+        if self.analysis_request is not None:
+            if (
+                self.analysis_request.tenant_id != self.tenant_id
+                or self.analysis_request.case_id != self.case_id
+                or self.analysis_request.correlation_id != self.correlation_id
+            ):
+                raise ValueError("analysis request does not match deterministic result scope")
 
     @property
     def labels(self) -> Mapping[str, str]:
@@ -237,8 +247,9 @@ def run_us2_analysis(
 ) -> DeterministicAnalysisResult:
     """Run the deterministic attribution/exposure hand-off for a prepared case.
 
-    This function stops at advisory deterministic analysis.  Proposal selection,
-    policy evaluation and all side effects belong to later tasks.
+    This function stops at advisory deterministic analysis and creates the safe,
+    versioned request hand-off.  Proposal selection, policy evaluation, and all
+    side effects belong to later tasks.
     """
 
     _required_text(tenant_id, "tenant_id")
@@ -347,7 +358,7 @@ def run_us2_analysis(
         "record_checksum": record_checksum,
         "replay_live_mode": mode,
     }
-    return DeterministicAnalysisResult(
+    result = DeterministicAnalysisResult(
         tenant_id=tenant_id,
         case_id=case_id,
         correlation_id=correlation_id,
@@ -367,6 +378,14 @@ def run_us2_analysis(
         feature_schema_version=model.feature_schema_version,
         model_versions=tuple(sorted(model_versions | {"rules-v1.0.0"})),
         metadata={"authoritative_store": "postgresql", "side_effects": False},
+    )
+    return replace(
+        result,
+        analysis_request=build_analysis_request(
+            result,
+            evidence_items=evidence,
+            timeline_events=events,
+        ),
     )
 
 

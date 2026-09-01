@@ -187,15 +187,27 @@ unbounded payment inputs; and T069 preserves uncertainty while linking attributi
 sources to exposure. The owned T060-T062 implementation checks are green. T065
 still has one strict expected-red assertion at the intentionally deferred
 agent/proposal boundary; T064's nine proposal-operation checks remain expected-red
-for T074/T075. T070+ production work was not started.
+for T074/T075. T070-T073 production work was intentionally deferred at that milestone.
 -->
 
 ### LangGraph/LiteLLM agent harness and typed proposal boundary
 
-- [ ] T070 [US2] Implement structured case redaction and PII minimization in `backend/agent/redaction.py` and `backend/tests/unit/test_agent_redaction.py`; retain evidence references without exposing unnecessary raw data.
-- [ ] T071 [US2] Implement the provider-neutral LangGraph analysis graph in `backend/agent/langgraph_harness.py` with bounded state, fixed tool registry, model budget, replay/live label, and typed output checkpoints.
-- [ ] T072 [US2] Implement LiteLLM provider adapters and provider/model metadata capture in `backend/agent/litellm_gateway.py` and `backend/agent/providers.py`; all providers receive the same case, tools, policy, budget, and schemas.
-- [ ] T073 [US2] Implement read-only evidence and proposal-interface tools in `backend/agent/tools.py` and `backend/agent/tool_registry.py`; explicitly deny payments, refunds, cancellations, account mutations, database writes, shell commands, credential access, arbitrary network, and attacker interaction.
+- [X] T070 [US2] Implement structured case redaction and PII minimization in `backend/agent/redaction.py` and `backend/tests/unit/test_agent_redaction.py`; retain evidence references without exposing unnecessary raw data.
+- [X] T071 [US2] Implement the provider-neutral LangGraph analysis graph in `backend/agent/langgraph_harness.py` with bounded state, fixed tool registry, model budget, replay/live label, and typed output checkpoints.
+- [X] T072 [US2] Implement LiteLLM provider adapters and provider/model metadata capture in `backend/agent/litellm_gateway.py` and `backend/agent/providers.py`; all providers receive the same case, tools, policy, budget, and schemas.
+- [X] T073 [US2] Implement read-only evidence and proposal-interface tools in `backend/agent/tools.py` and `backend/agent/tool_registry.py`; explicitly deny payments, refunds, cancellations, account mutations, database writes, shell commands, credential access, arbitrary network, and attacker interaction.
+
+<!--
+Validation note (2026-09-01): T070-T073 production boundaries and focused
+coverage are complete. T070 creates deterministic versioned redacted context
+and a ModelAnalysisRequest hand-off; T071 runs a finite LangGraph harness with
+typed checkpoints and fail-closed advisory-envelope validation; T072 isolates
+LiteLLM behind provider-neutral metadata and deterministic replay adapters; and
+T073 exposes only tenant/case-bound read-only tools plus a non-executable
+proposal interface. Focused T070-T073 coverage is 16 passed. T065 advances
+through the request hand-off and remains expected red at the absent
+T074 response/proposal parser. T074-T078 production work was not started.
+-->
 - [ ] T074 [US2] Implement typed analysis response parsing, uncertainty/refusal records, evidence references, token/cost metadata, and typed proposal construction in `backend/agent/output_parser.py` and `backend/agent/proposals.py`; free-form executable instructions are invalid.
 - [ ] T075 [US2] Implement deterministic proposal validation against tenant/connector/action allowlists in `backend/analysis/proposal_validator.py` and `backend/tests/unit/test_proposal_validator.py`; scope, target, parameters, currency, amount, and idempotency identity must be bounded before policy evaluation.
 - [ ] T076 [US2] Persist model/provider mode, analysis input/output references, refusals, forbidden attempts, and proposal provenance in `backend/app/audit/model_analysis.py` and `backend/app/db/repositories/model_runs.py`.

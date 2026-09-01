@@ -65,6 +65,7 @@ packages = [
   "connectors.razorpay",
   "connectors.simulators",
   "attribution",
+  "agent",
   "finance",
   "analysis",
   "evidence",

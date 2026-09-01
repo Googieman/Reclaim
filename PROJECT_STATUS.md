@@ -57,21 +57,19 @@ first US3 production slice: immutable policy/evaluation, bounded policy change
 control, approval lifecycle, policy audit/outbox handoff, the isolated Action
 Gateway, defensive action simulators, and the Razorpay Test Mode refund seam.
 T095-T102 are implemented and locally validated in the focused slice below. T103
-remains intentionally unstarted; the full US3 vertical-slice gate and safety
-evidence export are not claimed.
+passed as a deterministic replay qualification; the full US3 vertical-slice gate
+and safety evidence export are not claimed. The US4 T104-T110 test-first batch is now complete;
+T111+ remains intentionally unstarted.
 
-## Current milestone: US3 T088-T102 — 2026-09-01
+## Current milestone: US4 T104-T110 test-first replay/evaluation expectations — 2026-09-01
 
-T088-T094 are implemented and validated locally. The implementation adds immutable
-checksummed policy versions and deterministic evaluation; centrally bounded policy
-change control; authenticated approval lifecycle with optimistic concurrency and
-exact proposer/approver separation; PostgreSQL policy/approval audit and outbox
-handoff; a service-identity-only Action Gateway with allowlisted connectors; typed
-deterministic simulators; and a Razorpay Test Mode refund-validation seam. Live
-financial execution remains disabled. T095-T102 now add the durable action lifecycle,
-independent merchant-state verification, tenant-owned escalation, explicit terminal
-outcomes, typed control-plane boundaries, Temporal activity ordering, recovery
-coverage, and a redacted audit replay trace. T103 remains intentionally unimplemented.
+T104-T110 add the replay/evaluation contract, canonical determinism, required
+failure/recovery variant, grouped split/leakage, metric/confidence-interval, Compose
+topology, and operator-workflow test expectations. T104 passes against the current
+approved shared contracts. T105-T110 are strict expected-red boundaries for the
+future T111-T124 implementation tasks; their tests remain importable and preserve
+the exact future ownership. No replay runner, evaluation engine, Compose topology,
+or frontend operator workflow was implemented in this batch.
 
 Verification evidence for T088-T094 is retained in the earlier record below. The
 T095-T102 focused suite and the full available Python suite are recorded in the
@@ -133,6 +131,11 @@ other external-service checks remain environment-qualified and are not claimed.
   out of scope for this batch.
 - 2026-09-01: The user explicitly authorized implementation of US3 tasks T088-T094
   only. T095+ remains out of scope for this milestone.
+- 2026-09-01: The user explicitly authorized the test-first T104-T110 batch only.
+  T104 uses the existing approved replay/evaluation contracts; T105-T110 may remain
+  strict expected-red tests at their exact T111-T124 owners. T111+ production work,
+  shared-contract changes, constitution/ADR/AGENTS.md changes, and changes to the
+  pre-existing `packages/contracts/action_gateway.py` diff are not authorized.
 
 ## Milestone state
 
@@ -147,13 +150,13 @@ other external-service checks remain environment-qualified and are not claimed.
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T078 bounded US2 attribution/exposure/model-response/proposal-validation/persistence/fallback batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, deterministic pre-policy proposal validation, authoritative model-run/proposal provenance persistence, and labeled replay/escalation fallback are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
-| US3 T088-T094 production slice | Complete locally; live database checks unavailable | Immutable policy/evaluator and policy repositories, bounded tenant change control/API, approval lifecycle with optimistic concurrency, policy audit/outbox builders, isolated Action Gateway, defensive action manifests/simulators, Razorpay Test Mode refund seam, and regression coverage are present; T095+ remains unstarted |
+| US3 T088-T103 containment slice | Complete locally; live database checks unavailable | Immutable policy/evaluator and policy repositories, bounded tenant change control/API, approval lifecycle with optimistic concurrency, policy audit/outbox builders, isolated Action Gateway, defensive action manifests/simulators, Razorpay Test Mode refund seam, T095-T102 lifecycle/verification/escalation runtime, and the deterministic T103 gate are present; no live financial action is claimed |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T094 plus both focused US2 remediation batches, final-gate D1/D2, D3 validation, and migration-008/010 runtime validation complete; evaluation not started | Full available Python suite is 485 passed, 40 skipped, 5 expected-red, and one existing warning. The T088-T094 runtime regression and focused security/contract suites pass. The remaining expected-red tests cover T095+ recovery, verification, escalation, terminal, and canonical containment work. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T110 test/implementation scope is complete through the authorized T104-T110 test-first batch; T111+ evaluation/runtime implementation is not started | Full available Python suite is 503 passed, 40 skipped, 17 expected-red, and one existing warning. The T104-T110 focused suite is 3 passed and 17 expected-red. T103 and T087 smoke regressions pass. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the latest repository `.venv` suite is `485 passed, 40 skipped, 5 xfailed`
+- Tests: the latest repository `.venv` suite is `503 passed, 40 skipped, 17 xfailed`
   with one LangGraph deprecation warning. The system-Python attempt is not
   authoritative because its optional `langgraph`, `temporalio`, and `hypothesis`
   dependencies are absent.
@@ -188,11 +191,11 @@ other external-service checks remain environment-qualified and are not claimed.
   Skips require live PostgreSQL, Temporal,
   Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. No benchmark
   or production fraud metric is claimed.
-- US3 T079-T094: the test-first controls plus the T088-T094 implementation
-  regressions are green. The latest full suite retains five expected-red tests for
-  the intentionally deferred T095+ recovery, verification, escalation, terminal,
-  and canonical containment work. Live PostgreSQL fresh-migration and non-owner
-  RLS checks were skipped because the required environment variables are absent.
+- US3 T079-T103: the test-first controls, T088-T094 implementation, T095-T102
+  lifecycle implementation, and T103 deterministic gate are green. US4 T104 is
+  green against the current contracts; T105-T110 remain strict expected-red tests
+  with ownership recorded below. Live PostgreSQL fresh-migration and non-owner RLS
+  checks were not part of this test-only batch and remain environment-qualified.
 - Payload limits: `RECLAIM_INCIDENT_REPORT_MAX_BYTES` and
   `RECLAIM_WEBHOOK_MAX_BYTES` default to `1048576` bytes; the shared
   `RECLAIM_RAW_OBJECT_MAX_BYTES` boundary defaults to `16777216` bytes. Incident
@@ -282,9 +285,26 @@ future implementation ownership is explicit:
   `cases.terminal_states.transition_case`; T099 `api.control_plane.submit_action`;
   and T100 `workflows.activities.containment.run_containment`.
 
-T095+ implementation tasks remain incomplete and unstarted. The T087 diagnostic does
-not claim that any unavailable PostgreSQL, Temporal, Redpanda, connector, or
-financial side effect was exercised.
+The T087 diagnostic does not claim that any unavailable PostgreSQL, Temporal,
+Redpanda, connector, or financial side effect was exercised.
+
+### US4 expected-red ownership
+
+The T105-T110 tests are strict XFAILs, not skipped coverage. Their future
+implementation ownership is explicit:
+
+- T105: T111 labeled replay runner and T112 canonical fixture.
+- T106: T113 deterministic replay variants.
+- T107: T114 benchmark metadata, T115 grouped/leakage-safe split validation, and
+  T116 held-out sealing/access control.
+- T108: T117 benchmark metrics and confidence intervals.
+- T109: T120 authoritative Compose topology and safe defaults.
+- T110: T122 operator case-review workflow, T123 typed UI commands/read models, and
+  T124 live/replay mode selection and labeling.
+
+T111+ implementation tasks remain incomplete and unstarted. The expected-red tests
+do not claim that any live provider, Compose service, browser workflow, held-out
+dataset, benchmark corpus, or production metric was exercised.
 
 ## Live validation evidence
 
@@ -480,7 +500,7 @@ No production performance, fraud, or containment metric is claimed.
   regression validation passes; T074, T075, and T076-T078 validation passes;
   remaining US2 production work is not started.
 
-## Next milestone: Phase 5 User Story 3 containment safety — T088-T094 complete; T095+ not started
+## Next milestone: Phase 6 User Story 4 replay/evaluation/runtime — T104-T110 complete; T111+ not started
 
 Readiness evidence:
 
@@ -525,7 +545,9 @@ requirements. T036-T042 are complete with local contract/property/integration/se
   T066-T069 deterministic production implementation, the bounded T070-T073 model
   boundary, T074 typed response/proposal validation, T075 deterministic proposal
   validation, and T076-T078 persistence/fallback/integration-gate work are complete;
-  T079+ and the remaining US2 production implementation are not started.
+  T079-T103 are complete through the US3 deterministic gate; T104-T110 test-first
+  coverage is complete; T111+ and the remaining US4 production/runtime work are not
+  started.
 
 ## First focused US2 remediation — 2026-09-01
 
@@ -682,4 +704,31 @@ Observed evidence:
   credentials, and some CLIs were unavailable. No live-service or live-financial
   result is claimed. The untracked `security-audits/` directory remains preserved.
 
-T104 and all US4 tasks remain unchecked and out of scope.
+## US4 T104-T110 test-first completion — 2026-09-01
+
+T104-T110 are complete as a test-only batch. The current replay/evaluation shared
+contract is sufficient for T104: `ReplayRun` carries fixture, simulator, policy,
+model/provider, seed, environment, mode/label, stage outcomes, terminal state, and
+differences; `EvaluationCase` carries provenance, labels, grouped and temporal split
+metadata, leakage checks, held-out access policy, outcomes, confidence intervals,
+and metric references. No shared contract was changed.
+
+Evidence and quality gates:
+
+- T104-T110 focused suite: `3 passed, 17 xfailed` under the authoritative `.venv`
+  environment.
+- Combined T104-T110, replay/audit regressions, T103 containment smoke, and T087
+  safe-containment acceptance smoke: `21 passed, 17 xfailed, 1 warning`.
+- Full available Python suite: `503 passed, 40 skipped, 17 xfailed, 1 warning`.
+- Targeted Ruff check and format check passed for all seven new test files; `pip
+  check`, package/import smoke, compile validation, and `git diff --check` passed.
+  No configured type checker was available.
+- The Compose and browser tests are expected-red source-level boundaries because
+  T120 and T122-T124 are not implemented. No live Compose topology, browser session,
+  provider, held-out dataset, benchmark, or financial side effect was exercised.
+- Files changed by this batch are the seven requested test files, `tasks.md`, and
+  this status file. No production files, shared contracts, ADRs, constitution,
+  or `AGENTS.md` were changed. T111+ was not started.
+- The pre-existing `packages/contracts/action_gateway.py` working-tree diff remains
+  byte-for-byte unchanged and unstaged; `security-audits/` remains untracked and
+  untouched.

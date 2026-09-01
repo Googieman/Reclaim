@@ -324,13 +324,13 @@ focused closure review.
 
 ### Replay, evaluation, and performance tests
 
-- [ ] T104 [P] [US4] Add replay-run and evaluation-record contract tests in `tests/contract/test_replay_evaluation.py` for fixture/provider/policy/model/environment provenance, split metadata, labels, outcomes, and confidence-interval metadata.
-- [ ] T105 [P] [US4] Add canonical replay determinism tests in `tests/integration/test_canonical_replay.py` for identical timeline, exposure, policy, proposal-validation, terminal-state, and audit outputs under the same inputs/versions/seed.
-- [ ] T106 [P] [US4] Add deterministic replay-variant tests in `tests/integration/test_replay_variants.py` for invalid signatures, duplicates, out-of-order events, missing evidence, policy denial, approval gating, unknown remote results, forbidden proposals, verification failure, escalation, and provider unavailability.
-- [ ] T107 [P] [US4] Add grouped split and leakage tests in `tests/evaluation/test_dataset_splits.py` for entity/customer and temporal separation before synthetic overlays, 60/20/20 development/validation/sealed-held-out metadata, and inaccessible held-out seeds/scenarios.
-- [ ] T108 [P] [US4] Add evaluation metric and confidence-interval tests in `tests/evaluation/test_metrics.py` for malicious-action precision/recall, contained value, legitimate value disrupted, resolution success, latency, tool efficiency, forbidden attempts/executions, model cost, provenance, and actual sample size.
-- [ ] T109 [P] [US4] Add complete Compose health/smoke tests in `tests/integration/test_compose_topology.py` for all services, internal-only data/gateway administration, live-action-disabled defaults, and provider-unavailable replay.
-- [ ] T110 [US4] Add browser acceptance tests in `tests/browser/test_operator_workflow.py` for incident scope, legitimate/malicious activity, remaining exposure, containment outcome, next human decision, audit traceability, approval, escalation, and replay labels without editing underlying records.
+- [X] T104 [P] [US4] Add replay-run and evaluation-record contract tests in `tests/contract/test_replay_evaluation.py` for fixture/provider/policy/model/environment provenance, split metadata, labels, outcomes, and confidence-interval metadata.
+- [X] T105 [P] [US4] Add canonical replay determinism tests in `tests/integration/test_canonical_replay.py` for identical timeline, exposure, policy, proposal-validation, terminal-state, and audit outputs under the same inputs/versions/seed.
+- [X] T106 [P] [US4] Add deterministic replay-variant tests in `tests/integration/test_replay_variants.py` for invalid signatures, duplicates, out-of-order events, missing evidence, policy denial, approval gating, unknown remote results, forbidden proposals, verification failure, escalation, and provider unavailability.
+- [X] T107 [P] [US4] Add grouped split and leakage tests in `tests/evaluation/test_dataset_splits.py` for entity/customer and temporal separation before synthetic overlays, 60/20/20 development/validation/sealed-held-out metadata, and inaccessible held-out seeds/scenarios.
+- [X] T108 [P] [US4] Add evaluation metric and confidence-interval tests in `tests/evaluation/test_metrics.py` for malicious-action precision/recall, contained value, legitimate value disrupted, resolution success, latency, tool efficiency, forbidden attempts/executions, model cost, provenance, and actual sample size.
+- [X] T109 [P] [US4] Add complete Compose health/smoke tests in `tests/integration/test_compose_topology.py` for all services, internal-only data/gateway administration, live-action-disabled defaults, and provider-unavailable replay.
+- [X] T110 [US4] Add browser acceptance tests in `tests/browser/test_operator_workflow.py` for incident scope, legitimate/malicious activity, remaining exposure, containment outcome, next human decision, audit traceability, approval, escalation, and replay labels without editing underlying records.
 
 ### Replay and benchmark/evaluation harness
 

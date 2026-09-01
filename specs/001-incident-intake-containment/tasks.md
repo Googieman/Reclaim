@@ -149,11 +149,19 @@ environment-qualified in PROJECT_STATUS.md.
 ### Tests for User Story 2
 
 - [X] T059 [P] [US2] Add attribution contract tests in `tests/contract/test_attribution.py` for rules and LightGBM outputs, input/version/label/confidence/rationale retention, and distinct malicious/legitimate/uncertain labels.
-- [ ] T060 [P] [US2] Add LightGBM baseline fixture and adapter parity tests in `tests/unit/test_lightgbm_baseline.py` and `tests/fixtures/attribution/lightgbm/`; record model/version provenance without claiming production performance.
-- [ ] T061 [P] [US2] Add financial property tests in `tests/property/test_exposure_invariants.py` for minor units, explicit currency, captured-only refunds, reimbursement bounds, original payment source, contained value, legitimate value disrupted, irreversible loss, and remaining exposure.
-- [ ] T062 [P] [US2] Add uncertainty propagation tests in `tests/unit/test_uncertain_attribution.py`; uncertain events must remain uncertain through proposal and policy inputs and may trigger review/escalation.
-- [ ] T063 [P] [US2] Add model-boundary security tests in `tests/security/test_model_gateway_boundary.py` for redaction, no Action Gateway credentials, no database writes, no shell, no arbitrary network, and no direct connector access.
-- [ ] T064 [P] [US2] Add typed-proposal and forbidden-operation tests in `tests/contract/test_typed_proposals.py` and `tests/security/test_forbidden_proposals.py`; rejected attempts must be auditable and produce zero remote side effects.
+- [X] T060 [P] [US2] Add LightGBM baseline fixture and adapter parity tests in `tests/unit/test_lightgbm_baseline.py` and `tests/fixtures/attribution/lightgbm/`; record model/version provenance without claiming production performance.
+- [X] T061 [P] [US2] Add financial property tests in `tests/property/test_exposure_invariants.py` for minor units, explicit currency, captured-only refunds, reimbursement bounds, original payment source, contained value, legitimate value disrupted, irreversible loss, and remaining exposure.
+- [X] T062 [P] [US2] Add uncertainty propagation tests in `tests/unit/test_uncertain_attribution.py`; uncertain events must remain uncertain through proposal and policy inputs and may trigger review/escalation.
+- [X] T063 [P] [US2] Add model-boundary security tests in `tests/security/test_model_gateway_boundary.py` for redaction, no Action Gateway credentials, no database writes, no shell, no arbitrary network, and no direct connector access.
+- [X] T064 [P] [US2] Add typed-proposal and forbidden-operation tests in `tests/contract/test_typed_proposals.py` and `tests/security/test_forbidden_proposals.py`; rejected attempts must be auditable and produce zero remote side effects.
+
+<!--
+Validation note (2026-09-01): T060-T064 test artifacts now exist and collect/run
+without import or fixture errors. Their focused run is 15 passed and 27 strict
+expected-red tests. The expected-red checks intentionally target the not-yet-
+implemented T067/T068/T069/T074/T075 production seams; no production attribution,
+exposure, model gateway, or proposal implementation was added in this batch.
+-->
 - [ ] T065 [US2] Add the canonical US2 acceptance test in `tests/acceptance/test_attribution_exposure_analysis.py`, asserting the independent-test criteria and deterministic outcome recording.
 
 ### Deterministic attribution and exposure

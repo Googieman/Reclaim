@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "us2-lightgbm-baseline-001",
+  "fixture_version": "lightgbm-baseline-v1.0.0",
+  "mode": "replay",
+  "tenant_id": "tenant-us2-lightgbm",
+  "case_id": "case-us2-lightgbm-001",
+  "provenance": {
+    "source": "synthetic-development-fixture",
+    "dataset": "us2-development",
+    "model_family": "lightgbm",
+    "model_version": "lightgbm-baseline-v1.0.0",
+    "feature_schema_version": "lightgbm-features-v1.0.0",
+    "artifact_reference": "fixture://attribution/lightgbm/baseline-v1.0.0"
+  },
+  "claim_boundary": {
+    "production_performance_claim": false,
+    "metrics": null
+  },
+  "feature_schema": [
+    "payment_amount_minor",
+    "new_device",
+    "profile_change_24h",
+    "session_velocity_5m",
+    "successful_customer_orders"
+  ],
+  "events": [
+    {
+      "timeline_event_id": "timeline-lightgbm-malicious-001",
+      "evidence_references": [
+        "evidence-payment-001",
+        "evidence-session-001"
+      ],
+      "input_references": [
+        "timeline-lightgbm-malicious-001",
+        "evidence-payment-001",
+        "evidence-session-001"
+      ],
+      "feature_vector": {
+        "payment_amount_minor": 129900,
+        "new_device": 1,
+        "profile_change_24h": 1,
+        "session_velocity_5m": 7,
+        "successful_customer_orders": 0
+      },
+      "expected": {
+        "label": "malicious",
+        "confidence": 0.96,
+        "rationale": "The replay fixture combines a new device, a recent profile change, and high session velocity.",
+        "method": "lightgbm",
+        "model_or_rules_version": "lightgbm-baseline-v1.0.0"
+      }
+    },
+    {
+      "timeline_event_id": "timeline-lightgbm-legitimate-001",
+      "evidence_references": [
+        "evidence-payment-002",
+        "evidence-order-001"
+      ],
+      "input_references": [
+        "timeline-lightgbm-legitimate-001",
+        "evidence-payment-002",
+        "evidence-order-001"
+      ],
+      "feature_vector": {
+        "payment_amount_minor": 2499,
+        "new_device": 0,
+        "profile_change_24h": 0,
+        "session_velocity_5m": 1,
+        "successful_customer_orders": 12
+      },
+      "expected": {
+        "label": "legitimate",
+        "confidence": 0.91,
+        "rationale": "The replay fixture matches an established customer pattern without recent account changes.",
+        "method": "lightgbm",
+        "model_or_rules_version": "lightgbm-baseline-v1.0.0"
+      }
+    },
+    {
+      "timeline_event_id": "timeline-lightgbm-uncertain-001",
+      "evidence_references": [
+        "evidence-payment-003",
+        "evidence-profile-001"
+      ],
+      "input_references": [
+        "timeline-lightgbm-uncertain-001",
+        "evidence-payment-003",
+        "evidence-profile-001"
+      ],
+      "feature_vector": {
+        "payment_amount_minor": 7500,
+        "new_device": 1,
+        "profile_change_24h": 0,
+        "session_velocity_5m": 2,
+        "successful_customer_orders": 3
+      },
+      "expected": {
+        "label": "uncertain",
+        "confidence": 0.52,
+        "rationale": "The replay fixture contains a new device signal but insufficient corroboration for certainty.",
+        "method": "lightgbm",
+        "model_or_rules_version": "lightgbm-baseline-v1.0.0"
+      }
+    }
+  ]
+}

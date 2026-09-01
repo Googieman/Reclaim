@@ -269,6 +269,23 @@ def test_t078_model_analysis_migration_declares_public_authority_and_rls() -> No
         assert fragment in migration
 
 
+def test_action_idempotency_schema_keeps_concurrent_retries_on_one_key() -> None:
+    migration = (
+        Path(__file__).resolve().parents[2]
+        / "backend"
+        / "db"
+        / "migrations"
+        / "001_authoritative_entities.sql"
+    ).read_text(encoding="utf-8")
+
+    action_proposals = migration[
+        migration.index("CREATE TABLE IF NOT EXISTS action_proposals") :
+    ]
+    assert "UNIQUE (tenant_id, idempotency_key)" in action_proposals
+    assert "CREATE TABLE IF NOT EXISTS action_executions" in action_proposals
+    assert action_proposals.count("UNIQUE (tenant_id, idempotency_key)") >= 2
+
+
 def test_t076_fresh_model_analysis_migration_is_search_path_safe() -> None:
     database_url = os.getenv("RECLAIM_MODEL_ANALYSIS_MIGRATION_DATABASE_URL")
     if not database_url:

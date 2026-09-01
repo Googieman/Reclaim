@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+import json
 from typing import Any
 
 import pytest
@@ -15,7 +16,11 @@ from analysis.proposal_validator import (
 )
 from analysis.deterministic_summary import DeterministicAnalysisResult
 from app.audit.chain import AuditChain
-from app.audit.model_analysis import ModelAnalysisAudit, ModelAnalysisPersistenceError
+from app.audit.model_analysis import (
+    ModelAnalysisAudit,
+    ModelAnalysisPersistenceError,
+    PersistedProposal,
+)
 from app.db.repositories.model_runs import ModelRunRepository
 from app.auth.oidc import IdentityType, TenantAuthorizationContext
 from app.db.tenant_context import TenantContext
@@ -297,6 +302,11 @@ def test_t076_requires_typed_t075_validation_and_keeps_proposals_non_executable(
     assert audit.proposals[0].policy_evaluation_ready is True
     assert audit.proposals[0].execution_state == "not_executable"
     assert audit.proposals[0].approval_state == "not_approved"
+    assert audit.proposals[0].canonical_action_identity
+    assert (
+        audit.proposals[0].proposal.idempotency_key
+        == audit.proposals[0].canonical_action_identity
+    )
     assert audit.refusal_records == ("untrusted instruction refused",)
     assert audit.as_dict()["deterministic_seed"] == "seed-t076"
 
@@ -329,6 +339,21 @@ def test_t076_uses_append_only_audit_chain_and_tenant_bound_repository() -> None
     assert (
         "action_gateway" not in " ".join(query for query, _ in connection.calls).lower()
     )
+    proposal_params = next(
+        params
+        for query, params in connection.calls
+        if "INSERT INTO public.model_run_proposals" in query
+    )
+    stored_proposal = json.loads(str(proposal_params[12]))
+    stored_validation = json.loads(str(proposal_params[13]))
+    assert (
+        stored_proposal["idempotency_key"]
+        == audit.proposals[0].canonical_action_identity
+    )
+    assert (
+        stored_validation["canonical_action_identity"]
+        == audit.proposals[0].canonical_action_identity
+    )
 
     with pytest.raises(Exception, match="tenant"):
         repository.persist(replace(audit, tenant_id="tenant-other"))
@@ -343,3 +368,18 @@ def test_t076_rejects_stale_response_checksum_before_persistence() -> None:
             stale,
             proposal_validations={"proposal-t076": validation},
         )
+
+
+def test_t076_persistence_normalizes_arbitrary_proposal_key_to_canonical_identity() -> (
+    None
+):
+    result, validation = _validated_result()
+    proposal = result.analysis_response.proposals[0]
+    replay_with_new_key = proposal.model_copy(
+        update={"idempotency_key": "caller-chosen-key"}
+    )
+
+    persisted = PersistedProposal.from_validation(replay_with_new_key, validation)
+
+    assert persisted.canonical_action_identity == validation.canonical_action_identity
+    assert persisted.proposal.idempotency_key == validation.canonical_action_identity

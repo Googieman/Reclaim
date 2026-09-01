@@ -32,6 +32,7 @@ from packages.contracts.common import CONTRACT_VERSION
 from packages.contracts.connectors import ConnectorType
 
 PROPOSAL_VALIDATOR_VERSION = "proposal-validator-v1.0.0"
+ACTION_IDENTITY_VERSION = "action-identity-v1.0.0"
 
 
 class ProposalValidationStatus(StrEnum):
@@ -130,6 +131,7 @@ class ProposalValidationContext:
     timeline_events: Mapping[str, object] | Sequence[object] = field(default_factory=dict)
     attributions: Mapping[str, object] | Sequence[object] = field(default_factory=dict)
     resources: Mapping[str, object] | Sequence[object] = field(default_factory=dict)
+    ambiguous_resource_ids: frozenset[str] = frozenset()
     connectors: Mapping[str, object] | object = field(default_factory=dict)
     action_connector_ids: Mapping[str, str] = field(default_factory=dict)
     connector_registry: object | None = None
@@ -165,7 +167,13 @@ class ProposalValidationContext:
         object.__setattr__(
             self, "attributions", _index_values(self.attributions, "timeline_event_id")
         )
-        object.__setattr__(self, "resources", _index_values(self.resources, "resource_id"))
+        normalized_resources, discovered_ambiguities = _index_resources(self.resources)
+        object.__setattr__(self, "resources", normalized_resources)
+        object.__setattr__(
+            self,
+            "ambiguous_resource_ids",
+            frozenset((*_references(self.ambiguous_resource_ids), *discovered_ambiguities)),
+        )
         connector_source = self.connectors
         if isinstance(connector_source, Mapping):
             normalized_connectors = dict(connector_source)
@@ -246,6 +254,7 @@ class ProposalValidationResult:
     model: str | None
     policy_evaluation_ready: bool
     audit_record: Mapping[str, Any]
+    canonical_action_identity: str | None = None
 
     @property
     def valid(self) -> bool:
@@ -262,6 +271,18 @@ class ProposalValidationResult:
     @property
     def remote_side_effects(self) -> tuple[object, ...]:
         return ()
+
+    @property
+    def canonical_idempotency_key(self) -> str | None:
+        """The trusted action key; any proposal-supplied key is advisory only."""
+
+        return self.canonical_action_identity
+
+    @property
+    def action_idempotency_key(self) -> str | None:
+        """Compatibility alias for the trusted canonical action key."""
+
+        return self.canonical_action_identity
 
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
@@ -306,6 +327,7 @@ class ProposalValidator:
         escalation: list[str] = []
         action: ActionType | None = None
         connector_id: str | None = None
+        canonical_action_identity: str | None = None
         proposal_values = _proposal_values(proposal, hard)
         proposal_checksum = _checksum(proposal_values)
 
@@ -328,7 +350,6 @@ class ProposalValidator:
                 hard,
             )
             _check_money(proposal_values, action, context, hard)
-            _check_idempotency(proposal_values, context, hard)
         else:
             proposal_evidence = ()
             proposal_attributions = ()
@@ -342,6 +363,19 @@ class ProposalValidator:
                 proposal_values.get("target_resource"),
                 action,
                 connector_id,
+                context,
+                hard,
+            )
+            canonical_action_identity = _canonical_action_idempotency_key(
+                proposal_values,
+                action=action,
+                connector_id=connector_id,
+                resource=resource,
+                validation_version=self.validation_version,
+            )
+            _check_idempotency(
+                proposal_values,
+                canonical_action_identity,
                 context,
                 hard,
             )
@@ -375,6 +409,7 @@ class ProposalValidator:
             {
                 "validation_version": self.validation_version,
                 "proposal_checksum": proposal_checksum,
+                "canonical_action_identity": canonical_action_identity,
                 "authoritative_input_checksum": authoritative_checksum,
                 "status": status.value,
                 "reasons": reasons,
@@ -402,6 +437,7 @@ class ProposalValidator:
             model=_context_model(context),
             policy_evaluation_ready=status is ProposalValidationStatus.VALID,
             audit_record={},
+            canonical_action_identity=canonical_action_identity,
         )
         audit = {
             "outcome": status.value,
@@ -422,6 +458,7 @@ class ProposalValidator:
             "provider": result.provider,
             "model": result.model,
             "policy_evaluation_ready": result.policy_evaluation_ready,
+            "canonical_action_identity": result.canonical_action_identity,
             "side_effects": False,
         }
         return replace(result, audit_record=audit)
@@ -507,15 +544,28 @@ class ProposalValidator:
         if resource is None:
             reasons.append("target resource is not present in authoritative state")
             return None
+        if target in context.ambiguous_resource_ids:
+            reasons.append("target resource identity is ambiguous across authoritative connectors")
+            return None
         resource_tenant = _value(resource, "tenant_id")
         resource_case = _value(resource, "case_id")
         if resource_tenant != context.tenant_id:
             reasons.append("target resource crosses the tenant boundary")
         if resource_case != context.case_id:
             reasons.append("target resource crosses the case boundary")
+        resource_identity = _value(resource, "resource_id")
+        if resource_identity != target:
+            reasons.append("target resource identity does not match authoritative state")
         resource_type = _value(resource, "resource_type")
         if resource_type not in _required_connector_resource(action):
             reasons.append("target resource type is incompatible with the action")
+        resource_connector = _value(resource, "connector_id")
+        if not isinstance(resource_connector, str) or not resource_connector.strip():
+            reasons.append("target resource has no authoritative connector binding")
+        elif _unsafe_identity(resource_connector):
+            reasons.append("target resource connector binding is malformed")
+        elif connector_id is None or resource_connector != connector_id:
+            reasons.append("target resource connector does not match resolved action connector")
         return resource
 
     def _check_references(
@@ -773,6 +823,7 @@ class ProposalValidator:
             model=None,
             policy_evaluation_ready=False,
             audit_record=audit,
+            canonical_action_identity=None,
         )
 
 
@@ -859,6 +910,9 @@ def _proposal_values(proposal: object, reasons: list[str]) -> dict[str, Any]:
         return {}
     fields_set = set(TypedActionProposal.model_fields)
     raw_fields = set(getattr(proposal, "__dict__", {}))
+    model_extra = getattr(proposal, "model_extra", None)
+    if isinstance(model_extra, Mapping):
+        raw_fields.update(model_extra)
     unknown = raw_fields - fields_set
     if unknown:
         reasons.append(f"proposal contains unsupported fields: {sorted(unknown)}")
@@ -1044,26 +1098,37 @@ def _check_money(
 
 
 def _check_idempotency(
-    values: Mapping[str, Any], context: ProposalValidationContext, reasons: list[str]
+    values: Mapping[str, Any],
+    canonical_identity: str | None,
+    context: ProposalValidationContext,
+    reasons: list[str],
 ) -> None:
-    key = values.get("idempotency_key")
-    if not isinstance(key, str) or not key.strip() or _unsafe_identity(key):
+    supplied_key = values.get("idempotency_key")
+    if (
+        not isinstance(supplied_key, str)
+        or not supplied_key.strip()
+        or _unsafe_identity(supplied_key)
+    ):
         reasons.append("idempotency identity is malformed")
         return
-    identity = _checksum(
-        {
-            "tenant_id": values.get("tenant_id"),
-            "case_id": values.get("case_id"),
-            "action_type": _enum_value(values.get("action_type")),
-            "target_resource": values.get("target_resource"),
-            "parameters": values.get("parameters"),
-            "requested_amount_minor": values.get("requested_amount_minor"),
-            "currency": values.get("currency"),
-        }
-    )
-    prior = context.existing_idempotency_keys.get(key)
-    if prior is not None and prior != identity:
+    if canonical_identity is None:
+        reasons.append("canonical action identity cannot be derived from authoritative state")
+        return
+
+    # The supplied key remains T074 provenance only.  It never selects the
+    # identity that downstream persistence and execution boundaries use.
+    prior = context.existing_idempotency_keys.get(supplied_key)
+    if prior is not None and prior != canonical_identity:
         reasons.append("idempotency key is already bound to a different action identity")
+    canonical_prior = context.existing_idempotency_keys.get(canonical_identity)
+    if canonical_prior is not None and canonical_prior != canonical_identity:
+        reasons.append("canonical action identity is already bound to a different action")
+    for existing_key, existing_identity in context.existing_idempotency_keys.items():
+        if existing_key != canonical_identity and existing_identity == canonical_identity:
+            reasons.append(
+                "canonical action identity is already bound to a different idempotency key"
+            )
+            break
 
 
 def _action_type(value: object, reasons: list[str]) -> ActionType | None:
@@ -1082,6 +1147,74 @@ def _required_connector_resource(action: ActionType) -> frozenset[str]:
     return _ACTION_RESOURCE_TYPES[action]
 
 
+def _canonical_action_idempotency_key(
+    values: Mapping[str, Any],
+    *,
+    action: ActionType,
+    connector_id: str | None,
+    resource: object | None,
+    validation_version: str,
+) -> str | None:
+    """Derive a stable action key from trusted identity and semantic parameters."""
+
+    resource_id = _value(resource, "resource_id") if resource is not None else None
+    resource_type = _value(resource, "resource_type") if resource is not None else None
+    resource_connector = _value(resource, "connector_id") if resource is not None else None
+    if (
+        not isinstance(connector_id, str)
+        or _unsafe_identity(connector_id)
+        or not isinstance(resource_id, str)
+        or _unsafe_identity(resource_id)
+        or not isinstance(resource_type, str)
+        or _unsafe_identity(resource_type)
+        or resource_connector != connector_id
+    ):
+        return None
+    return _checksum(
+        {
+            "identity_version": ACTION_IDENTITY_VERSION,
+            "schema_version": values.get("schema_version", CONTRACT_VERSION),
+            "validation_version": validation_version,
+            "tenant_id": values.get("tenant_id"),
+            "case_id": values.get("case_id"),
+            "analysis_id": values.get("analysis_id"),
+            "action_type": action.value,
+            "connector_id": connector_id,
+            "target_resource": resource_id,
+            "resource_type": resource_type,
+            "parameters": values.get("parameters"),
+            "requested_amount_minor": values.get("requested_amount_minor"),
+            "currency": values.get("currency"),
+        }
+    )
+
+
+def canonical_action_identity(
+    proposal: TypedActionProposal,
+    *,
+    connector_id: str,
+    resource: AuthoritativeResource,
+    validation_version: str = PROPOSAL_VALIDATOR_VERSION,
+) -> str:
+    """Return the canonical key for an already-resolved authoritative action."""
+
+    if not isinstance(proposal, TypedActionProposal):
+        raise TypeError("proposal must be a TypedActionProposal")
+    identity = _canonical_action_idempotency_key(
+        proposal.model_dump(mode="json"),
+        action=proposal.action_type,
+        connector_id=connector_id,
+        resource=resource,
+        validation_version=validation_version,
+    )
+    if identity is None:
+        raise ValueError("canonical action identity requires matching authoritative state")
+    return identity
+
+
+canonical_action_idempotency_key = canonical_action_identity
+
+
 def _index_values(value: Mapping[str, object] | Sequence[object], name: str) -> dict[str, object]:
     if isinstance(value, Mapping):
         return {str(key): item for key, item in value.items()}
@@ -1093,6 +1226,33 @@ def _index_values(value: Mapping[str, object] | Sequence[object], name: str) -> 
         if isinstance(key, str) and key.strip():
             result[key] = item
     return result
+
+
+def _index_resources(
+    value: Mapping[str, object] | Sequence[object],
+) -> tuple[dict[str, object], tuple[str, ...]]:
+    """Index resource snapshots without silently collapsing duplicate identities."""
+
+    if isinstance(value, Mapping):
+        indexed = _index_values(value, "resource_id")
+        identities: dict[str, int] = {}
+        for item in value.values():
+            resource_id = _value(item, "resource_id")
+            if isinstance(resource_id, str) and resource_id.strip():
+                identities[resource_id] = identities.get(resource_id, 0) + 1
+        return indexed, tuple(
+            sorted(identity for identity, count in identities.items() if count > 1)
+        )
+    if isinstance(value, str | bytes):
+        raise ValueError("resource_id values must be a mapping or sequence")
+    indexed: dict[str, object] = {}
+    counts: dict[str, int] = {}
+    for item in value:
+        resource_id = _value(item, "resource_id")
+        if isinstance(resource_id, str) and resource_id.strip():
+            counts[resource_id] = counts.get(resource_id, 0) + 1
+            indexed.setdefault(resource_id, item)
+    return indexed, tuple(sorted(identity for identity, count in counts.items() if count > 1))
 
 
 def _manifest(value: object) -> object | None:
@@ -1360,6 +1520,9 @@ __all__ = [
     "AuthoritativeAttribution",
     "AuthoritativeProposalState",
     "AuthoritativeResource",
+    "ACTION_IDENTITY_VERSION",
+    "canonical_action_identity",
+    "canonical_action_idempotency_key",
     "DeterministicProposalValidator",
     "ProposalValidationContext",
     "ProposalValidationResult",

@@ -52,6 +52,7 @@ class PersistedProposal:
     policy_evaluation_ready: bool = False
     execution_state: str = "not_executable"
     approval_state: str = "not_approved"
+    canonical_action_identity: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.proposal, TypedActionProposal):
@@ -81,6 +82,16 @@ class PersistedProposal:
             )
         if self.approval_state != "not_approved":
             raise ModelAnalysisPersistenceError("model proposals are never approved at persistence")
+        if self.validation_status == "valid" and self.canonical_action_identity is None:
+            raise ModelAnalysisPersistenceError(
+                "valid proposal persistence requires a canonical action identity"
+            )
+        if self.canonical_action_identity is not None:
+            _checksum_text(self.canonical_action_identity, "canonical_action_identity")
+            if self.proposal.idempotency_key != self.canonical_action_identity:
+                raise ModelAnalysisPersistenceError(
+                    "persisted proposal idempotency key is not canonical"
+                )
 
     @classmethod
     def from_validation(
@@ -112,6 +123,14 @@ class PersistedProposal:
                     f"proposal validation {name} does not match proposal"
                 )
         status = _enum_value(validation.status)
+        canonical_identity = getattr(validation, "canonical_action_identity", None)
+        if canonical_identity is not None:
+            try:
+                proposal = proposal.model_copy(update={"idempotency_key": canonical_identity})
+            except (TypeError, ValueError) as exc:
+                raise ModelAnalysisPersistenceError(
+                    "canonical action identity cannot be applied to proposal"
+                ) from exc
         return cls(
             proposal=proposal,
             validation_status=status,
@@ -125,6 +144,7 @@ class PersistedProposal:
             proposal_checksum=_checksum_text(validation.proposal_checksum, "proposal_checksum"),
             validation_reasons=tuple(validation.reasons),
             policy_evaluation_ready=bool(validation.policy_evaluation_ready),
+            canonical_action_identity=canonical_identity,
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -139,6 +159,7 @@ class PersistedProposal:
             "policy_evaluation_ready": self.policy_evaluation_ready,
             "execution_state": self.execution_state,
             "approval_state": self.approval_state,
+            "canonical_action_identity": self.canonical_action_identity,
         }
 
 
@@ -615,12 +636,20 @@ def _proposal_validations(
             "every typed proposal requires exactly one deterministic validation result"
         )
     result: list[PersistedProposal] = []
+    canonical_identities: set[str] = set()
     for proposal, validation in zip(response.proposals, ordered, strict=True):
         if validation is None:
             raise ModelAnalysisPersistenceError(
                 f"proposal {proposal.proposal_id} has no deterministic validation result"
             )
-        result.append(PersistedProposal.from_validation(proposal, validation))
+        persisted = PersistedProposal.from_validation(proposal, validation)
+        if persisted.validation_status == "valid" and persisted.canonical_action_identity:
+            if persisted.canonical_action_identity in canonical_identities:
+                raise ModelAnalysisPersistenceError(
+                    "semantically duplicate valid action identities are not persistable"
+                )
+            canonical_identities.add(persisted.canonical_action_identity)
+        result.append(persisted)
     return tuple(result)
 
 

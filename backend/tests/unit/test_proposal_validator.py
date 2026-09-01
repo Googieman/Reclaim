@@ -128,6 +128,7 @@ def proposal(
     correlation_id: str = CORRELATION_ID,
     analysis_id: str = ANALYSIS_ID,
     parameters: dict[str, Any] | None = None,
+    rationale: str = "The authoritative malicious activity requires review.",
     evidence_references: tuple[str, ...] = (EVIDENCE_ID,),
     attribution_references: tuple[str, ...] = ("timeline-order-t075",),
     requested_amount_minor: int | None = None,
@@ -143,7 +144,7 @@ def proposal(
         action_type=action_type,
         target_resource=target_resource,
         parameters=parameters or {"reason": "deterministic review"},
-        rationale="The authoritative malicious activity requires review.",
+        rationale=rationale,
         evidence_references=evidence_references,
         attribution_references=attribution_references,
         requested_amount_minor=requested_amount_minor,
@@ -210,6 +211,132 @@ def test_cross_tenant_authoritative_target_is_rejected() -> None:
     assert any("resource crosses the tenant" in reason for reason in result.reasons)
 
 
+def test_same_tenant_resource_from_another_connector_is_rejected() -> None:
+    mismatched = replace(
+        resource("order-t075", "orders", "timeline-order-t075"),
+        connector_id="other-action-connector",
+    )
+
+    result = validate(proposal(), context(target_resource=mismatched))
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("connector" in reason for reason in result.reasons)
+
+
+def test_forged_typed_proposal_cannot_bypass_connector_resource_binding() -> None:
+    mismatched = replace(
+        resource("order-t075", "orders", "timeline-order-t075"),
+        connector_id="other-action-connector",
+    )
+    forged = TypedActionProposal.model_construct(**proposal().model_dump())
+
+    result = validate(forged, context(target_resource=mismatched))
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("connector" in reason for reason in result.reasons)
+
+
+def test_model_supplied_connector_metadata_is_not_authoritative() -> None:
+    forged_values = proposal().model_dump()
+    forged = TypedActionProposal.model_construct(**forged_values)
+    forged.__dict__["connector_id"] = "other-action-connector"
+
+    result = validate(forged)
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("unsupported fields" in reason for reason in result.reasons)
+
+
+def test_payment_from_another_connector_is_rejected() -> None:
+    payment = resource(
+        "payment-t075",
+        "payments",
+        "timeline-payment-t075",
+        attributes={
+            "state": "captured",
+            "amount_minor": 10_000,
+            "currency": "INR",
+            "payment_source": "source-t075",
+        },
+    )
+    mismatched = replace(payment, connector_id="other-payment-connector")
+    state = context(
+        target="payment-t075",
+        timeline_event_id="timeline-payment-t075",
+        target_resource=mismatched,
+    )
+
+    result = validate(
+        proposal(
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=1_000,
+            currency="INR",
+        ),
+        state,
+    )
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("connector" in reason for reason in result.reasons)
+
+
+def test_refund_to_source_with_wrong_connector_is_rejected() -> None:
+    payment = resource(
+        "payment-t075",
+        "payments",
+        "timeline-payment-t075",
+        attributes={
+            "state": "captured",
+            "amount_minor": 10_000,
+            "currency": "INR",
+            "payment_source": "source-t075",
+        },
+    )
+    state = context(
+        target="payment-t075",
+        timeline_event_id="timeline-payment-t075",
+        target_resource=replace(payment, connector_id="other-payment-connector"),
+    )
+
+    result = validate(
+        proposal(
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=1_000,
+            currency="INR",
+        ),
+        state,
+    )
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("connector" in reason for reason in result.reasons)
+
+
+def test_same_external_resource_id_under_two_connectors_is_ambiguous() -> None:
+    first = resource("order-shared-t075", "orders", "timeline-order-t075")
+    second = replace(first, connector_id="other-action-connector")
+    state = replace(
+        context(target="order-shared-t075", target_resource=first),
+        resources=(first, second),
+    )
+
+    result = validate(proposal(target_resource="order-shared-t075"), state)
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("ambiguous" in reason for reason in result.reasons)
+
+
+def test_action_requiring_connector_fails_closed_without_resource_binding() -> None:
+    unbound = replace(resource("order-t075", "orders", "timeline-order-t075"), connector_id=None)
+
+    result = validate(proposal(), context(target_resource=unbound))
+
+    assert result.status is ProposalValidationStatus.REJECTED
+    assert any("no authoritative connector binding" in reason for reason in result.reasons)
+
+
 def test_action_connector_operation_must_be_allowlisted() -> None:
     manifest = action_manifest().model_copy(
         update={
@@ -264,6 +391,188 @@ def test_idempotency_key_collision_with_different_identity_is_rejected() -> None
 
     assert result.status is ProposalValidationStatus.REJECTED
     assert any("idempotency key" in reason for reason in result.reasons)
+
+
+def test_semantically_identical_actions_share_canonical_identity_across_keys() -> None:
+    first = validate(proposal(proposal_id="proposal-key-a", idempotency_key="key-a"))
+    second = validate(proposal(proposal_id="proposal-key-b", idempotency_key="key-b"))
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity == second.canonical_action_identity
+    assert first.canonical_action_identity not in {"key-a", "key-b"}
+
+
+def test_canonical_identity_ignores_parameter_mapping_order() -> None:
+    first = validate(
+        proposal(
+            proposal_id="proposal-order-a",
+            parameters={"reason": "review", "review_reason": "bounded"},
+        )
+    )
+    second = validate(
+        proposal(
+            proposal_id="proposal-order-b",
+            parameters={"review_reason": "bounded", "reason": "review"},
+        )
+    )
+
+    assert first.canonical_action_identity == second.canonical_action_identity
+
+
+def test_canonical_identity_ignores_rationale() -> None:
+    first = validate(proposal(proposal_id="proposal-rationale-a"))
+    second = validate(
+        proposal(
+            proposal_id="proposal-rationale-b",
+            rationale="A different non-semantic explanation.",
+        )
+    )
+
+    assert first.canonical_action_identity == second.canonical_action_identity
+
+
+def test_canonical_identity_ignores_provider_and_model_metadata() -> None:
+    first = validate(
+        proposal(proposal_id="proposal-metadata-a"),
+        replace(context(), provider="provider-a", model="model-a"),
+    )
+    second = validate(
+        proposal(proposal_id="proposal-metadata-b"),
+        replace(context(), provider="provider-b", model="model-b"),
+    )
+
+    assert first.canonical_action_identity == second.canonical_action_identity
+
+
+def test_different_target_has_different_canonical_identity() -> None:
+    other_context = context(
+        target="order-other-t075",
+        timeline_event_id="timeline-order-other-t075",
+    )
+
+    first = validate(proposal(proposal_id="proposal-target-a"))
+    second = validate(
+        proposal(
+            proposal_id="proposal-target-b",
+            target_resource="order-other-t075",
+            attribution_references=("timeline-order-other-t075",),
+        ),
+        other_context,
+    )
+
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
+def test_different_action_type_has_different_canonical_identity() -> None:
+    fulfillment = resource(
+        "fulfillment-t075",
+        "fulfillment",
+        "timeline-fulfillment-t075",
+    )
+    state = context(
+        target="fulfillment-t075",
+        timeline_event_id="timeline-fulfillment-t075",
+        target_resource=fulfillment,
+    )
+
+    first = validate(proposal(proposal_id="proposal-action-a"))
+    second = validate(
+        proposal(
+            proposal_id="proposal-action-b",
+            action_type=ActionType.HOLD_FULFILLMENT,
+            target_resource="fulfillment-t075",
+            attribution_references=("timeline-fulfillment-t075",),
+        ),
+        state,
+    )
+
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
+def test_different_authoritative_refund_amount_has_different_identity() -> None:
+    payment = resource(
+        "payment-t075",
+        "payments",
+        "timeline-payment-t075",
+        attributes={
+            "state": "captured",
+            "amount_minor": 10_000,
+            "currency": "INR",
+            "payment_source": "source-t075",
+        },
+    )
+    state = context(
+        target="payment-t075",
+        timeline_event_id="timeline-payment-t075",
+        target_resource=payment,
+        exposure={"currency": "INR", "remaining_exposure_minor": 9_000},
+    )
+
+    first = validate(
+        proposal(
+            proposal_id="proposal-amount-a",
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=1_000,
+            currency="INR",
+        ),
+        state,
+    )
+    second = validate(
+        proposal(
+            proposal_id="proposal-amount-b",
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=2_000,
+            currency="INR",
+        ),
+        state,
+    )
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
+def test_different_authoritative_connector_has_different_identity() -> None:
+    other_connector = "other-action-connector"
+    other_manifest = action_manifest().model_copy(update={"connector_id": other_connector})
+    other_resource = replace(
+        resource("order-t075", "orders", "timeline-order-t075"), connector_id=other_connector
+    )
+    other_context = replace(
+        context(target_resource=other_resource),
+        connectors={other_connector: other_manifest},
+        action_connector_ids={action.value: other_connector for action in ActionType},
+    )
+
+    first = validate(proposal(proposal_id="proposal-connector-a"))
+    second = validate(
+        proposal(proposal_id="proposal-connector-b"),
+        other_context,
+    )
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
+def test_existing_semantic_identity_under_another_key_is_rejected() -> None:
+    first = validate(proposal(idempotency_key="key-a"))
+    assert first.canonical_action_identity is not None
+    state = context(
+        existing_idempotency_keys={
+            "legacy-key": first.canonical_action_identity,
+        }
+    )
+
+    second = validate(proposal(idempotency_key="key-b"), state)
+
+    assert second.status is ProposalValidationStatus.REJECTED
+    assert any("different idempotency key" in reason for reason in second.reasons)
 
 
 def test_unsupported_action_type_is_rejected_even_when_model_constructed_directly() -> None:

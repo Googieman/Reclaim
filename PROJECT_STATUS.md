@@ -439,3 +439,31 @@ requirements. T036-T042 are complete with local contract/property/integration/se
   boundary, T074 typed response/proposal validation, T075 deterministic proposal
   validation, and T076-T078 persistence/fallback/integration-gate work are complete;
   T079+ and the remaining US2 production implementation are not started.
+
+## Focused US2 remediation — 2026-09-01
+
+The focused remediation closed only the two requested US2 review findings. MAJOR-1 is
+closed: T075 now requires the resolved action connector to match the authoritative
+target resource connector, rejects missing or ambiguous connector bindings, and keeps
+forged proposal/model metadata from bypassing that authority. MAJOR-2 is closed:
+T075 derives a versioned canonical action identity from the authoritative tenant,
+case, analysis, action, connector, resource, parameters, amount, and currency; caller
+or model-supplied idempotency keys are advisory provenance only. T076 normalizes the
+persisted action key to this identity and rejects duplicate valid identities within a
+model analysis.
+
+No migration was required. The authoritative action proposal and execution tables
+already enforce tenant-scoped uniqueness on `(tenant_id, idempotency_key)`, so
+concurrent retries using the derived canonical key converge at the existing database
+boundary. No Action Gateway execution, side effect, contract, ADR, review-artifact,
+MAJOR-3/MAJOR-4, or payment MINOR remediation was performed.
+
+The focused adversarial and regression validation passed; the complete available US2
+regression set passed `144/144` with 4 environment-dependent skips, and the full
+available Python suite passed `400` with 37 skips and one existing warning. The four
+live model-analysis/PostgreSQL checks remain skipped because their configured database
+URLs are absent; this remediation does not claim the final live release gate.
+
+MAJOR-3 and MAJOR-4 remain open and untouched. The tracked no-payment MINOR remains
+open and untouched. T079 and US3 remain blocked/unstarted pending the outstanding
+review and release gates.

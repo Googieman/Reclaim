@@ -52,6 +52,12 @@ the focused Batch C checks and the clean-volume T043 remediation rerun pass. The
 D3 live release gate is now closed; T059 and T060-T065 test work are complete.
 The remaining US2 production work after T078 remains intentionally unstarted.
 
+The US3 test-first batch T079-T087 is now present. Its focused batch is 64 green
+tests and 8 strict expected-red tests; the expected-red seams are documented with
+their exact future-task owners below. T087 prepares the canonical containment case
+and reaches the expected-red production boundary. No US3 production implementation
+has started: T088-T103 remain incomplete and unstarted.
+
 ## Governance approvals
 
 - 2026-08-30: The user explicitly approved RECLAIM Constitution v1.0.0 as the
@@ -101,6 +107,10 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   batch for MAJOR-3 and MAJOR-4 only. MINOR-1, T079, US3, Action Gateway execution,
   financial/account side effects, attribution/exposure formulas, and
   `security-audits/` remain out of scope.
+- 2026-09-01: The user explicitly authorized the US3 test-first batch T079-T087.
+  T079-T086 may proceed as parallel test artifacts; T087 follows them as the
+  canonical acceptance target. T088+ and all US3 production implementation remain
+  out of scope for this batch.
 
 ## Milestone state
 
@@ -116,7 +126,7 @@ The remaining US2 production work after T078 remains intentionally unstarted.
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T078 bounded US2 attribution/exposure/model-response/proposal-validation/persistence/fallback batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, deterministic pre-policy proposal validation, authoritative model-run/proposal provenance persistence, and labeled replay/escalation fallback are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T078 plus both focused US2 remediation batches, final-gate D1/D2, D3 validation, and migration-008/010 runtime validation complete; evaluation not started | Full available Python suite is 419 passed and 34 skipped with one existing warning; the final focused MAJOR-2 set is 68 passed and 1 shared-database historical-upgrade skip, with that upgrade refusal separately passing 1/1 on a pre-010 database. Live fresh/idempotent migration, non-owner runtime/RLS, repository retry, and PostgreSQL race validation pass. The canonical T065 acceptance case is green. Broader US2 release authorization remains separate. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T087 plus both focused US2 remediation batches, final-gate D1/D2, D3 validation, and migration-008/010 runtime validation complete; evaluation not started | Full available Python suite is 477 passed, 40 skipped, 8 strict expected-red, and one existing warning. The focused T079-T087 batch is 64 passed and 8 strict expected-red. T087's expected-red report names the missing T088-T100 production seams exactly. T075/T078 regression coverage and the existing contract suite pass as recorded below. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
@@ -151,6 +161,18 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   Skips require live PostgreSQL, Temporal,
   Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. No benchmark
   or production fraud metric is claimed.
+- US3 test-first batch: T079 passed `20/20`; T080 passed `6` with `1` strict
+  expected-red owned by T089; T081 contract passed `9/9` and its separation suite
+  passed `3` with `1` strict expected-red owned by T090; T082 passed `4` with `1`
+  strict expected-red owned by T092/T095/T096/T097; T083 passed `11` with `1`
+  strict expected-red owned by T094; T084 passed `2` with `1` strict expected-red
+  owned by T095/T101; T085 passed `4` with `1` strict expected-red owned by
+  T096/T097; T086 passed `5` with `1` strict expected-red owned by T098; and T087
+  reached its strict expected-red boundary. The combined result is `64 passed,
+  8 xfailed, 1 warning`. The `--runxfail` T087 diagnostic failed only at the
+  intentional missing-production-seam assertion and listed every required owner.
+  No Action Gateway, connector, policy, approval, financial, verification,
+  escalation, terminal-state, API, or Temporal production implementation was added.
 - Payload limits: `RECLAIM_INCIDENT_REPORT_MAX_BYTES` and
   `RECLAIM_WEBHOOK_MAX_BYTES` default to `1048576` bytes; the shared
   `RECLAIM_RAW_OBJECT_MAX_BYTES` boundary defaults to `16777216` bytes. Incident
@@ -214,6 +236,38 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   The pre-existing untracked `security-audits/` artifacts remain preserved.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
+
+### US3 expected-red ownership
+
+The focused US3 expected-red tests are strict XFAILs, not skipped coverage. Their
+future implementation ownership is explicit:
+
+- T080: T089 `policy.tenant_configuration.validate_tenant_policy_configuration`.
+- T081 security: T090 `approvals.service.authorize_action`.
+- T082: T092 `action_gateway.state_machine.ActionGatewayStateMachine` for gateway
+  transitions, T095 for reconciliation, T096 for verification, and T097 for
+  escalation.
+- T083: T094 `connectors.razorpay.actions.validate_refund_action`.
+- T084: T095 `action_gateway.reconciliation.recover_action` and T101 for durable
+  PostgreSQL/Temporal/Redpanda recovery integration.
+- T085: T096 `action_gateway.verification.verify_and_route` and T097 for the
+  tenant-scoped escalation result.
+- T086: T098 `cases.terminal_states.transition_case`.
+- T087 diagnostic: T088 `policy.evaluator.evaluate_policy`; T089
+  `policy.tenant_configuration.validate_tenant_policy_configuration`; T090
+  `approvals.service.authorize_action`; T091 `app.audit.policy.persist_policy_decision`;
+  T092 `action_gateway.service.ActionGateway`; T093
+  `connectors.simulators.actions.DeterministicActionSimulator`; T094
+  `connectors.razorpay.actions.validate_refund_action`; T095
+  `action_gateway.reconciliation.recover_action`; T096
+  `action_gateway.verification.verify_and_route`; T097
+  `escalation.service.EscalationService`; T098
+  `cases.terminal_states.transition_case`; T099 `api.control_plane.submit_action`;
+  and T100 `workflows.activities.containment.run_containment`.
+
+All T088+ implementation tasks remain incomplete and unstarted. The T087 diagnostic
+does not claim that any unavailable PostgreSQL, Temporal, Redpanda, connector, or
+financial side effect was exercised.
 
 ## Live validation evidence
 
@@ -409,7 +463,7 @@ No production performance, fraud, or containment metric is claimed.
   regression validation passes; T074, T075, and T076-T078 validation passes;
   remaining US2 production work is not started.
 
-## Next milestone: Phase 4 User Story 2 bounded agent analysis and proposals (T070-T078) - T078 and final focused MAJOR-2 qualification complete; T079+ not started
+## Next milestone: Phase 5 User Story 3 containment safety — T079-T087 test-first batch complete; T088+ not started
 
 Readiness evidence:
 

@@ -280,15 +280,15 @@ focused closure review.
 
 ### Tests for control plane, policy, approvals, and financial safety
 
-- [ ] T079 [P] [US3] Add policy decision contract tests in `tests/contract/test_policy_decisions.py` for exactly-one results `allow`, `deny`, `approval_required`, or `escalate`, with tenant, permission, confidence, resource state, amount, reversibility, customer impact, approval, policy version, and evaluated conditions.
-- [ ] T080 [P] [US3] Add centrally bounded tenant-policy configuration tests in `tests/security/test_policy_bounds.py`; out-of-bound tenant thresholds and model-attempted threshold changes must be denied and audited.
-- [ ] T081 [P] [US3] Add approval contract and separation-of-duties tests in `tests/contract/test_approvals.py` and `tests/security/test_approval_separation.py`; cancellation, refund, and identity restoration cannot execute without a valid distinct approver.
-- [ ] T082 [P] [US3] Add Action Gateway state-machine contract tests in `tests/contract/test_action_gateway_state.py` for validation, remote result classes, unknown, reconciliation, verification, and escalation transitions.
-- [ ] T083 [P] [US3] Add refund and action financial-safety tests in `tests/security/test_refund_safety.py` for captured payment, unreimbursed amount, original source, explicit currency, and live-financial-execution-disabled defaults.
-- [ ] T084 [P] [US3] Add idempotency and failure-recovery tests in `tests/integration/test_action_recovery.py` for duplicate requests, process restart, timeout, unknown result, reconciliation-before-retry, and no duplicate non-idempotent remote effect.
-- [ ] T085 [P] [US3] Add verification and escalation tests in `tests/integration/test_verification_escalation.py` for verified success, verified failure, inconclusive state, assigned tenant-scoped owner, evidence links, remaining exposure, and human recommendation.
-- [ ] T086 [P] [US3] Add terminal-state transition tests in `tests/unit/test_case_terminal_states.py`; permit only `verified_contained`, `verified_failed`, and `escalated_unresolved`, with no generic `closed` state.
-- [ ] T087 [US3] Add the canonical US3 acceptance test in `tests/acceptance/test_safe_containment.py`, asserting all safety-critical independent-test conditions and zero forbidden/non-idempotent duplicate actions.
+- [X] T079 [P] [US3] Add policy decision contract tests in `tests/contract/test_policy_decisions.py` for exactly-one results `allow`, `deny`, `approval_required`, or `escalate`, with tenant, permission, confidence, resource state, amount, reversibility, customer impact, approval, policy version, and evaluated conditions.
+- [X] T080 [P] [US3] Add centrally bounded tenant-policy configuration tests in `tests/security/test_policy_bounds.py`; out-of-bound tenant thresholds and model-attempted threshold changes must be denied and audited.
+- [X] T081 [P] [US3] Add approval contract and separation-of-duties tests in `tests/contract/test_approvals.py` and `tests/security/test_approval_separation.py`; cancellation, refund, and identity restoration cannot execute without a valid distinct approver.
+- [X] T082 [P] [US3] Add Action Gateway state-machine contract tests in `tests/contract/test_action_gateway_state.py` for validation, remote result classes, unknown, reconciliation, verification, and escalation transitions.
+- [X] T083 [P] [US3] Add refund and action financial-safety tests in `tests/security/test_refund_safety.py` for captured payment, unreimbursed amount, original source, explicit currency, and live-financial-execution-disabled defaults.
+- [X] T084 [P] [US3] Add idempotency and failure-recovery tests in `tests/integration/test_action_recovery.py` for duplicate requests, process restart, timeout, unknown result, reconciliation-before-retry, and no duplicate non-idempotent remote effect.
+- [X] T085 [P] [US3] Add verification and escalation tests in `tests/integration/test_verification_escalation.py` for verified success, verified failure, inconclusive state, assigned tenant-scoped owner, evidence links, remaining exposure, and human recommendation.
+- [X] T086 [P] [US3] Add terminal-state transition tests in `tests/unit/test_case_terminal_states.py`; permit only `verified_contained`, `verified_failed`, and `escalated_unresolved`, with no generic `closed` state.
+- [X] T087 [US3] Add the canonical US3 acceptance test in `tests/acceptance/test_safe_containment.py`, asserting all safety-critical independent-test conditions and zero forbidden/non-idempotent duplicate actions.
 
 ### Deterministic policy and approval control plane
 

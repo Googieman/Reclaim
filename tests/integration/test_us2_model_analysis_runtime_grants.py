@@ -43,9 +43,14 @@ MIGRATION_NAMES = tuple(
         (7, "model_analysis_runs"),
         (8, "model_analysis_runtime_grants"),
         (9, "model_analysis_terminal_outcomes"),
+        (10, "canonical_action_identity"),
     )
 )
-MODEL_TABLES = ("public.model_runs", "public.model_run_proposals")
+MODEL_TABLES = (
+    "public.model_runs",
+    "public.model_run_proposals",
+    "public.canonical_actions",
+)
 REQUIRED_PRIVILEGES = {"SELECT", "INSERT"}
 FORBIDDEN_RUNTIME_PRIVILEGES = {
     "UPDATE",
@@ -167,12 +172,20 @@ def _cleanup(
         tenant_ids,
     )
     connection.execute(
+        f"DELETE FROM public.canonical_actions WHERE tenant_id IN ({placeholders})",
+        tenant_ids,
+    )
+    connection.execute(
         f"DELETE FROM public.model_runs WHERE tenant_id IN ({placeholders})",
         tenant_ids,
     )
     if audit is not None:
         connection.execute(
             "DELETE FROM public.model_run_proposals WHERE tenant_id = %s",
+            (audit.tenant_id,),
+        )
+        connection.execute(
+            "DELETE FROM public.canonical_actions WHERE tenant_id = %s",
             (audit.tenant_id,),
         )
         connection.execute(
@@ -246,7 +259,7 @@ def test_migration_008_is_scoped_to_model_analysis_runtime_operations() -> None:
     assert "reclaim.require_tenant_context()" in migration
 
 
-def test_fresh_migrations_001_to_008_are_search_path_independent_and_idempotent() -> (
+def test_fresh_migrations_001_to_010_are_search_path_independent_and_idempotent() -> (
     None
 ):
     psycopg = pytest.importorskip("psycopg")
@@ -260,13 +273,20 @@ def test_fresh_migrations_001_to_008_are_search_path_independent_and_idempotent(
                 encoding="utf-8"
             )
         )
+        connection.execute(
+            (MIGRATIONS / "010_canonical_action_identity.sql").read_text(
+                encoding="utf-8"
+            )
+        )
 
         assert connection.execute(
-            "SELECT to_regclass('public.model_runs'), to_regclass('public.model_run_proposals')"
-        ).fetchone() == ("model_runs", "model_run_proposals")
+            "SELECT to_regclass('public.model_runs'), to_regclass('public.model_run_proposals'), "
+            "to_regclass('public.canonical_actions')"
+        ).fetchone() == ("model_runs", "model_run_proposals", "canonical_actions")
         assert connection.execute(
-            "SELECT to_regclass('reclaim.model_runs'), to_regclass('reclaim.model_run_proposals')"
-        ).fetchone() == (None, None)
+            "SELECT to_regclass('reclaim.model_runs'), to_regclass('reclaim.model_run_proposals'), "
+            "to_regclass('reclaim.canonical_actions')"
+        ).fetchone() == (None, None, None)
         assert connection.execute(
             "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'reclaim_app')"
         ).fetchone() == (True,)
@@ -311,7 +331,11 @@ def test_reclaim_app_runtime_privileges_rls_and_persistence_boundary() -> None:
                    table_owner.rolname
             FROM pg_roles AS current_role_info
             JOIN pg_class AS relation
-              ON relation.oid IN ('public.model_runs'::regclass, 'public.model_run_proposals'::regclass)
+              ON relation.oid IN (
+                  'public.model_runs'::regclass,
+                  'public.model_run_proposals'::regclass,
+                  'public.canonical_actions'::regclass
+              )
             JOIN pg_roles AS table_owner ON table_owner.oid = relation.relowner
             WHERE current_role_info.rolname = current_user
             ORDER BY relation.relname

@@ -108,18 +108,21 @@ class ModelRunRepository(TenantScopedRepository):
             return existing
 
         for proposal in run.proposals:
+            self._persist_canonical_action(run, proposal)
             proposal_row = self.fetch_one(
                 """
                 INSERT INTO public.model_run_proposals (
                     tenant_id, analysis_id, case_id, proposal_id, proposal_checksum,
                     validation_status, validation_version, validation_checksum,
                     authoritative_input_checksum, policy_evaluation_ready,
-                    execution_state, approval_state, proposal, validation, created_at
+                    execution_state, approval_state, proposal, validation, created_at,
+                    canonical_action_id
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s::jsonb, %s::jsonb, %s)
+                        %s::jsonb, %s::jsonb, %s, %s)
                 ON CONFLICT (tenant_id, analysis_id, proposal_id) DO NOTHING
-                RETURNING tenant_id, analysis_id, proposal_id, validation_status
+                RETURNING tenant_id, analysis_id, proposal_id, validation_status,
+                          canonical_action_id
                 """,
                 (
                     run.tenant_id,
@@ -137,13 +140,14 @@ class ModelRunRepository(TenantScopedRepository):
                     _json(proposal.proposal),
                     _json(proposal.as_dict()),
                     run.created_at,
+                    proposal.canonical_action_identity,
                 ),
             )
             if proposal_row is None:
                 existing_proposal = self.fetch_one(
                     """
                     SELECT proposal_checksum, validation_checksum, validation_status,
-                           case_id, execution_state, approval_state
+                           case_id, execution_state, approval_state, canonical_action_id
                     FROM public.model_run_proposals
                     WHERE tenant_id = %s AND analysis_id = %s AND proposal_id = %s
                     """,
@@ -160,7 +164,44 @@ class ModelRunRepository(TenantScopedRepository):
                     raise RepositoryError(
                         "proposal identity conflicts with existing model-run proposal"
                     )
+                if (
+                    len(existing_proposal) > 6
+                    and existing_proposal[6] != proposal.canonical_action_identity
+                ):
+                    raise RepositoryError(
+                        "proposal canonical action identity conflicts with existing "
+                        "model-run proposal"
+                    )
         return row
+
+    def _persist_canonical_action(self, run: ModelAnalysisAudit, proposal: object) -> None:
+        canonical_action_id = getattr(proposal, "canonical_action_identity", None)
+        if canonical_action_id is None:
+            return
+        row = self.fetch_one(
+            """
+            INSERT INTO public.canonical_actions (
+                tenant_id, canonical_action_id, case_id, created_at
+            ) VALUES (%s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            RETURNING tenant_id, canonical_action_id, case_id
+            """,
+            (run.tenant_id, canonical_action_id, run.case_id, run.created_at),
+        )
+        if row is not None:
+            return
+        existing = self.fetch_one(
+            """
+            SELECT case_id
+            FROM public.canonical_actions
+            WHERE tenant_id = %s AND canonical_action_id = %s
+            """,
+            (run.tenant_id, canonical_action_id),
+        )
+        if existing is None:
+            raise RepositoryError("canonical action disappeared after identity conflict")
+        if existing[0] != run.case_id:
+            raise RepositoryError("canonical action identity conflicts with existing case")
 
     def get(self, *, analysis_id: str) -> object | None:
         _required_text(analysis_id, "analysis_id")
@@ -218,7 +259,8 @@ class ModelRunRepository(TenantScopedRepository):
             SELECT tenant_id, analysis_id, case_id, proposal_id, proposal_checksum,
                    validation_status, validation_version, validation_checksum,
                    authoritative_input_checksum, policy_evaluation_ready,
-                   execution_state, approval_state, proposal, validation, created_at
+                   execution_state, approval_state, proposal, validation, created_at,
+                   canonical_action_id
             FROM public.model_run_proposals
             WHERE tenant_id = %s AND analysis_id = %s
             ORDER BY proposal_id
@@ -260,6 +302,8 @@ class ModelRunRepository(TenantScopedRepository):
                 proposal.approval_state,
             ):
                 raise RepositoryError("existing model run proposal content conflicts")
+            if len(row) > 15 and row[15] != proposal.canonical_action_identity:
+                raise RepositoryError("existing model run proposal canonical identity conflicts")
 
     def get_audit(self, *, analysis_id: str) -> ModelAnalysisAudit | None:
         """Read back the redacted authoritative model-analysis audit value."""

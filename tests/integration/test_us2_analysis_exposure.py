@@ -57,6 +57,8 @@ class _RecordingPostgresConnection:
     def execute(self, query: str, params: Any = ()) -> _Cursor:
         values = tuple(params) if params else ()
         self.calls.append((query, values))
+        if "INSERT INTO public.canonical_actions" in query:
+            return _Cursor((values[0], values[1], values[2]))
         if "INSERT INTO public.model_runs" in query:
             return _Cursor(
                 (values[0], values[1], values[2], values[5], values[14], values[15])
@@ -326,6 +328,7 @@ def test_t076_fresh_model_analysis_migration_is_search_path_safe() -> None:
             "007_model_analysis_runs.sql",
             "008_model_analysis_runtime_grants.sql",
             "009_model_analysis_terminal_outcomes.sql",
+            "010_canonical_action_identity.sql",
         ):
             connection.execute(
                 (migration_root / migration_name).read_text(encoding="utf-8")
@@ -342,11 +345,12 @@ def test_t076_fresh_model_analysis_migration_is_search_path_safe() -> None:
             SELECT tablename, policyname
             FROM pg_policies
             WHERE schemaname = 'public'
-              AND tablename IN ('model_runs', 'model_run_proposals')
+              AND tablename IN ('model_runs', 'model_run_proposals', 'canonical_actions')
             ORDER BY tablename, policyname
             """
         ).fetchall()
         assert policy_rows == [
+            ("canonical_actions", "canonical_actions_tenant_isolation"),
             ("model_run_proposals", "model_run_proposals_tenant_isolation"),
             ("model_runs", "model_runs_tenant_isolation"),
         ]

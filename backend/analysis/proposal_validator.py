@@ -255,6 +255,7 @@ class ProposalValidationResult:
     policy_evaluation_ready: bool
     audit_record: Mapping[str, Any]
     canonical_action_identity: str | None = None
+    supplied_idempotency_key: str | None = None
 
     @property
     def valid(self) -> bool:
@@ -438,6 +439,7 @@ class ProposalValidator:
             policy_evaluation_ready=status is ProposalValidationStatus.VALID,
             audit_record={},
             canonical_action_identity=canonical_action_identity,
+            supplied_idempotency_key=_optional_text(proposal_values.get("idempotency_key")),
         )
         audit = {
             "outcome": status.value,
@@ -453,12 +455,14 @@ class ProposalValidator:
             "attribution_references": list(result.attribution_references),
             "authoritative_input_checksum": result.authoritative_input_checksum,
             "proposal_checksum": result.proposal_checksum,
+            "proposal_payload_checksum": result.proposal_checksum,
             "validation_checksum": result.validation_checksum,
             "replay_live_mode": result.replay_live_mode,
             "provider": result.provider,
             "model": result.model,
             "policy_evaluation_ready": result.policy_evaluation_ready,
             "canonical_action_identity": result.canonical_action_identity,
+            "supplied_idempotency_key": result.supplied_idempotency_key,
             "side_effects": False,
         }
         return replace(result, audit_record=audit)
@@ -1115,20 +1119,12 @@ def _check_idempotency(
         reasons.append("canonical action identity cannot be derived from authoritative state")
         return
 
-    # The supplied key remains T074 provenance only.  It never selects the
-    # identity that downstream persistence and execution boundaries use.
-    prior = context.existing_idempotency_keys.get(supplied_key)
-    if prior is not None and prior != canonical_identity:
-        reasons.append("idempotency key is already bound to a different action identity")
-    canonical_prior = context.existing_idempotency_keys.get(canonical_identity)
-    if canonical_prior is not None and canonical_prior != canonical_identity:
-        reasons.append("canonical action identity is already bound to a different action")
-    for existing_key, existing_identity in context.existing_idempotency_keys.items():
-        if existing_key != canonical_identity and existing_identity == canonical_identity:
-            reasons.append(
-                "canonical action identity is already bound to a different idempotency key"
-            )
-            break
+    # The supplied key is provenance only. It must be well-formed so it can
+    # be retained in the audit record, but it never participates in action
+    # identity or uniqueness. Do not consult the legacy
+    # ``existing_idempotency_keys`` compatibility input here: doing so would
+    # let caller/model metadata reject an otherwise identical semantic action.
+    del context
 
 
 def _action_type(value: object, reasons: list[str]) -> ActionType | None:
@@ -1155,11 +1151,20 @@ def _canonical_action_idempotency_key(
     resource: object | None,
     validation_version: str,
 ) -> str | None:
-    """Derive a stable action key from trusted identity and semantic parameters."""
+    """Derive a stable action key from authoritative semantic action fields.
 
+    Analysis/run/proposal metadata and the caller-supplied idempotency key are
+    deliberately absent. ``validation_version`` remains in the signature for
+    compatibility with the T075 API, but validation implementation versions do
+    not change the real-world action identity.
+    """
+
+    del validation_version
     resource_id = _value(resource, "resource_id") if resource is not None else None
     resource_type = _value(resource, "resource_type") if resource is not None else None
     resource_connector = _value(resource, "connector_id") if resource is not None else None
+    resource_tenant = _value(resource, "tenant_id") if resource is not None else None
+    resource_case = _value(resource, "case_id") if resource is not None else None
     if (
         not isinstance(connector_id, str)
         or _unsafe_identity(connector_id)
@@ -1167,6 +1172,10 @@ def _canonical_action_idempotency_key(
         or _unsafe_identity(resource_id)
         or not isinstance(resource_type, str)
         or _unsafe_identity(resource_type)
+        or not isinstance(resource_tenant, str)
+        or _unsafe_identity(resource_tenant)
+        or not isinstance(resource_case, str)
+        or _unsafe_identity(resource_case)
         or resource_connector != connector_id
     ):
         return None
@@ -1174,13 +1183,11 @@ def _canonical_action_idempotency_key(
         {
             "identity_version": ACTION_IDENTITY_VERSION,
             "schema_version": values.get("schema_version", CONTRACT_VERSION),
-            "validation_version": validation_version,
-            "tenant_id": values.get("tenant_id"),
-            "case_id": values.get("case_id"),
-            "analysis_id": values.get("analysis_id"),
+            "tenant_id": resource_tenant,
+            "case_id": resource_case,
             "action_type": action.value,
             "connector_id": connector_id,
-            "target_resource": resource_id,
+            "target_resource_id": resource_id,
             "resource_type": resource_type,
             "parameters": values.get("parameters"),
             "requested_amount_minor": values.get("requested_amount_minor"),

@@ -37,13 +37,14 @@ for deterministic attribution/exposure hand-off, redaction, provider-neutral
 replay/live analysis, read-only tools, strict response parsing, and side-effect-free
 typed proposals, and deterministic proposal validation. T076-T078 now add
 authoritative model-run persistence, deterministic replay fallback, and the US2
-integration gate; their implementation and second focused MAJOR-3/MAJOR-4
-remediation validation are complete. The US2 live-gate
-attempt then exposed a missing runtime grant for both migration-007 model-analysis
-tables and stopped at that blocker. Corrective migration 008 now grants the scoped
-runtime access, and fresh 001-008 plus non-owner runtime validation pass. US2 still
-awaits the FINAL live release gate. The remaining US2 production implementation is
-not started.
+  integration gate; their implementation and second focused MAJOR-3/MAJOR-4
+  remediation validation are complete. The US2 live-gate
+  attempt then exposed a missing runtime grant for both migration-007 model-analysis
+  tables and stopped at that blocker. Corrective migration 008 now grants the scoped
+  runtime access, and fresh 001-008 plus non-owner runtime validation pass. The final
+  focused MAJOR-2 identity gate now also passes live PostgreSQL qualification;
+  broader US2 release authorization remains separate. The remaining US2 production
+  implementation is not started.
 Remediation Batch C is implemented for
 MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
@@ -115,12 +116,12 @@ The remaining US2 production work after T078 remains intentionally unstarted.
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T078 bounded US2 attribution/exposure/model-response/proposal-validation/persistence/fallback batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, deterministic pre-policy proposal validation, authoritative model-run/proposal provenance persistence, and labeled replay/escalation fallback are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T078 plus both focused US2 remediation batches, final-gate D1/D2, D3 validation, and migration-008/009 runtime validation complete; evaluation not started | Full available Python suite is 404 passed and 37 skipped with one existing warning; the final focused remediation set is 26 passed and 4 skipped, including fresh and upgraded PostgreSQL migration validation plus non-owner runtime/RLS validation. The canonical T065 acceptance case is green. US2 still awaits the FINAL live release gate. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T078 plus both focused US2 remediation batches, final-gate D1/D2, D3 validation, and migration-008/010 runtime validation complete; evaluation not started | Full available Python suite is 419 passed and 34 skipped with one existing warning; the final focused MAJOR-2 set is 68 passed and 1 shared-database historical-upgrade skip, with that upgrade refusal separately passing 1/1 on a pre-010 database. Live fresh/idempotent migration, non-owner runtime/RLS, repository retry, and PostgreSQL race validation pass. The canonical T065 acceptance case is green. Broader US2 release authorization remains separate. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current elevated default suite is `404 passed, 37 skipped` in the
-  project `.venv`; the available environment-safe run emits one LangGraph deprecation
+- Tests: the current elevated default suite is `419 passed, 34 skipped` in the
+  project `.venv`; the available run emits one LangGraph deprecation
   warning. The focused MAJOR-3/MAJOR-4 remediation suite passed `4/4`; the combined
   final T076-T078, remediation, and migration/runtime set passed `26/26` with four
   environment-dependent skips, including fresh 001-009 migration, historical-007
@@ -130,6 +131,11 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   T075 adversarial suite passed `25/25`, and all nine T064 forbidden-operation
   cases plus the T065 canonical acceptance case are green. The existing complete
   contract suite remains green.
+  The final focused MAJOR-2 suite passed `68/68` with one shared-database historical
+  upgrade skip; the unsafe historical-row refusal passed `1/1` against a separate
+  pre-010 PostgreSQL database. The live PostgreSQL race, fresh/idempotent migration,
+  repository retry, and non-owner RLS/runtime checks passed. The current full suite
+  was run with the disposable PostgreSQL qualification database enabled.
   Batch C focused payload, MinIO, package-build, and existing provenance/checksum
   validation passed `20/20`, including the live MinIO conflict test. The final
   T058 live gate passed `1/1` against running PostgreSQL, MinIO, Temporal,
@@ -380,8 +386,9 @@ No production performance, fraud, or containment metric is claimed.
   T076-T078 model-run persistence/replay fallback/integration-gate work are complete.
   The previous US2 live-gate run exposed missing `reclaim_app` grants on the
   migration-007 model-analysis tables. Corrective migration 008 and its fresh
-  non-owner runtime validation close that confirmed blocker locally; US2 still
-  awaits the FINAL live release gate. T079/US3 remain unstarted.
+  non-owner runtime validation close that confirmed blocker locally. The final
+  focused MAJOR-2 identity gate is now closed after live PostgreSQL qualification;
+  broader US2 release authorization remains separate. T079/US3 remain unstarted.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -402,7 +409,7 @@ No production performance, fraud, or containment metric is claimed.
   regression validation passes; T074, T075, and T076-T078 validation passes;
   remaining US2 production work is not started.
 
-## Next milestone: Phase 4 User Story 2 bounded agent analysis and proposals (T070-T078) - T078 implementation complete; live qualification pending
+## Next milestone: Phase 4 User Story 2 bounded agent analysis and proposals (T070-T078) - T078 and final focused MAJOR-2 qualification complete; T079+ not started
 
 Readiness evidence:
 
@@ -504,3 +511,41 @@ reported 10 pre-existing findings and format check reported 17 pre-existing file
 no configured type checker was available. The final configured live release gate is
 not claimed because its external database URLs and hosted model credentials remain
 absent.
+
+## Final focused US2 MAJOR-2 remediation — 2026-09-01
+
+MAJOR-2 is CLOSED. The root cause was analysis-scoped idempotency identity: the
+previous derivation included `analysis_id`, so semantically identical actions from
+different analyses could not converge. The corrected versioned SHA-256 identity is
+derived from the authoritative tenant, case, action type, connector, resource type
+and ID, normalized parameters, and applicable integer minor-unit amount/currency
+plus schema/identity versions. It excludes `analysis_id`, run/proposal IDs,
+correlation and mode/provider/model metadata, timestamps, token/cost metadata,
+rationale, evidence/attribution references, and the caller/model-supplied
+idempotency key.
+
+The supplied idempotency key remains intact as advisory provenance on each
+analysis/proposal occurrence. PostgreSQL migration `010_canonical_action_identity.sql`
+adds the tenant-scoped `canonical_actions` authority with a primary key on
+`(tenant_id, canonical_action_id)`, a case-bound occurrence foreign key, forced
+tenant RLS, explicit `SELECT, INSERT` runtime grants only, and race-safe
+`ON CONFLICT DO NOTHING` persistence. Historical rows that cannot be safely
+recomputed are rejected explicitly; they are never silently backfilled. Migration
+files 007-009, shared contracts, ADRs, Action Gateway behavior, and side effects
+were not changed. `MINOR-1` remains tracked and untouched.
+
+Evidence for closure:
+
+- Focused implementation/regression suite: `68 passed, 1 skipped` (the shared
+  database already had migration 010); the historical-row refusal passed `1/1`
+  against a separate pre-010 PostgreSQL database.
+- Live PostgreSQL 16: concurrent cross-analysis writers produced one canonical
+  action row and two proposal occurrences with distinct supplied keys; fresh and
+  idempotent migration application, repository retry/readback, non-owner
+  `reclaim_app` RLS, cross-tenant/case isolation, and mutation denial passed.
+- Full Python suite: `419 passed, 34 skipped, 1 warning`. Ruff check/format,
+  compileall, `pip check`, and `git diff --check` passed.
+
+MAJOR-1, MAJOR-3, and MAJOR-4 remain CLOSED. T079/US3 remain unstarted and out of
+scope; no Action Gateway or financial/account side effect was attempted. The
+pre-existing untracked `security-audits/` directory remains preserved.

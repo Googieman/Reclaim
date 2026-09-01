@@ -248,6 +248,8 @@ class _RecordingConnection:
     def execute(self, query: str, params: Any = ()) -> _Cursor:
         values = tuple(params) if params else ()
         self.calls.append((query, values))
+        if "INSERT INTO public.canonical_actions" in query:
+            return _Cursor((TENANT_ID, values[1], CASE_ID))
         if "INSERT INTO public.model_runs" in query:
             return _Cursor(
                 (TENANT_ID, ANALYSIS_ID, CASE_ID, "replay", "checksum", "checksum")
@@ -303,10 +305,8 @@ def test_t076_requires_typed_t075_validation_and_keeps_proposals_non_executable(
     assert audit.proposals[0].execution_state == "not_executable"
     assert audit.proposals[0].approval_state == "not_approved"
     assert audit.proposals[0].canonical_action_identity
-    assert (
-        audit.proposals[0].proposal.idempotency_key
-        == audit.proposals[0].canonical_action_identity
-    )
+    assert audit.proposals[0].proposal.idempotency_key == "proposal-t076-key"
+    assert audit.proposals[0].supplied_idempotency_key == "proposal-t076-key"
     assert audit.refusal_records == ("untrusted instruction refused",)
     assert audit.as_dict()["deterministic_seed"] == "seed-t076"
 
@@ -326,6 +326,10 @@ def test_t076_uses_append_only_audit_chain_and_tenant_bound_repository() -> None
     row = repository.persist(audit)
     assert row[1] == ANALYSIS_ID
     assert len([query for query, _ in connection.calls if "model_runs" in query]) == 1
+    assert (
+        len([query for query, _ in connection.calls if "canonical_actions" in query])
+        == 1
+    )
     assert (
         len([query for query, _ in connection.calls if "model_run_proposals" in query])
         == 1
@@ -348,11 +352,15 @@ def test_t076_uses_append_only_audit_chain_and_tenant_bound_repository() -> None
     stored_validation = json.loads(str(proposal_params[13]))
     assert (
         stored_proposal["idempotency_key"]
-        == audit.proposals[0].canonical_action_identity
+        == audit.proposals[0].supplied_idempotency_key
     )
     assert (
         stored_validation["canonical_action_identity"]
         == audit.proposals[0].canonical_action_identity
+    )
+    assert (
+        stored_validation["supplied_idempotency_key"]
+        == audit.proposals[0].supplied_idempotency_key
     )
 
     with pytest.raises(Exception, match="tenant"):
@@ -370,16 +378,13 @@ def test_t076_rejects_stale_response_checksum_before_persistence() -> None:
         )
 
 
-def test_t076_persistence_normalizes_arbitrary_proposal_key_to_canonical_identity() -> (
-    None
-):
+def test_t076_persistence_keeps_supplied_key_separate_from_canonical_identity() -> None:
     result, validation = _validated_result()
     proposal = result.analysis_response.proposals[0]
-    replay_with_new_key = proposal.model_copy(
-        update={"idempotency_key": "caller-chosen-key"}
-    )
 
-    persisted = PersistedProposal.from_validation(replay_with_new_key, validation)
+    persisted = PersistedProposal.from_validation(proposal, validation)
 
     assert persisted.canonical_action_identity == validation.canonical_action_identity
-    assert persisted.proposal.idempotency_key == validation.canonical_action_identity
+    assert persisted.proposal.idempotency_key == "proposal-t076-key"
+    assert persisted.supplied_idempotency_key == "proposal-t076-key"
+    assert persisted.proposal_payload_checksum == persisted.proposal_checksum

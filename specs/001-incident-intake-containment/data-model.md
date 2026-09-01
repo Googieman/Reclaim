@@ -11,7 +11,10 @@
   retained and checked when present.
 - Valid webhook delivery identity remains unique within
   `(tenant_id, connector_id, provider_event_id)`; action identity is separate and uses
-  a stable proposal/action idempotency key.
+  a versioned canonical action identity derived from authoritative semantic fields.
+- A caller/model-supplied proposal idempotency key is advisory provenance only. The
+  canonical action identity is independent of analysis, proposal, correlation,
+  rationale, provider, timestamp, cost, and other run metadata.
 - Monetary values are integer minor units with explicit ISO currency; no floating-point financial state is persisted.
 - Raw evidence/artifacts are immutable objects addressed by checksum; normalized facts retain source and evidence references.
 - Audit records are append-only and reference the policy, model/provider, approval, execution, and verification versions used.
@@ -150,9 +153,25 @@ Rules: published versions are immutable; tenant values cannot exceed central saf
 
 Represents a typed defensive proposal.
 
-Key fields: `proposal_id`, case, tenant, action type, target resource, parameters, rationale/evidence references, attribution references, idempotency key, policy decision, status.
+Key fields: `proposal_id`, case, tenant, action type, target resource, parameters, rationale/evidence references, attribution references, supplied idempotency key, canonical action identity, policy decision, status.
 
-Rules: only allowlisted merchant-controlled operations; no free-form executable instruction.
+Rules: only allowlisted merchant-controlled operations; no free-form executable instruction. The supplied idempotency key remains occurrence provenance; the canonical action identity is the authoritative semantic idempotency identity.
+
+### CanonicalAction
+
+Represents one authoritative semantic action identity that may be referenced by
+multiple analysis proposal occurrences.
+
+Key fields: tenant, `canonical_action_id`, case, identity schema version, and created
+time. `canonical_action_id` is a SHA-256 digest of the versioned authoritative tenant,
+case, action, connector, resource, normalized parameters, and applicable amount/currency
+representation. Analysis IDs, proposal IDs, supplied idempotency keys, rationale,
+evidence ordering, provider/model metadata, timestamps, and cost metadata are not part
+of this digest.
+
+Rules: PostgreSQL enforces one canonical action row per `(tenant_id,
+canonical_action_id)`. Each analysis-specific proposal occurrence retains its own
+analysis/proposal/provenance row and references the shared canonical action.
 
 ### Approval
 

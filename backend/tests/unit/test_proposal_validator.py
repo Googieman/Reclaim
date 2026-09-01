@@ -13,6 +13,7 @@ from analysis.proposal_validator import (
     ProposalValidationContext,
     ProposalValidationStatus,
     ProposalValidator,
+    canonical_action_identity,
 )
 from packages.contracts.analysis_policy import (
     ActionType,
@@ -384,13 +385,14 @@ def test_missing_action_connector_declaration_is_rejected() -> None:
     assert any("not declared" in reason for reason in result.reasons)
 
 
-def test_idempotency_key_collision_with_different_identity_is_rejected() -> None:
+def test_supplied_idempotency_key_is_advisory_provenance_only() -> None:
     state = context(existing_idempotency_keys={"idempotency-t075": "different-action-identity"})
 
     result = validate(proposal(), state)
 
-    assert result.status is ProposalValidationStatus.REJECTED
-    assert any("idempotency key" in reason for reason in result.reasons)
+    assert result.status is ProposalValidationStatus.VALID
+    assert result.supplied_idempotency_key == "idempotency-t075"
+    assert result.canonical_action_identity
 
 
 def test_semantically_identical_actions_share_canonical_identity_across_keys() -> None:
@@ -401,6 +403,123 @@ def test_semantically_identical_actions_share_canonical_identity_across_keys() -
     assert second.status is ProposalValidationStatus.VALID
     assert first.canonical_action_identity == second.canonical_action_identity
     assert first.canonical_action_identity not in {"key-a", "key-b"}
+
+
+def test_major_2_reproduction_converges_across_analysis_ids_and_supplied_keys() -> None:
+    first = validate(
+        proposal(
+            proposal_id="proposal-analysis-a",
+            analysis_id="analysis-a",
+            idempotency_key="alpha",
+        ),
+        replace(context(), analysis_id="analysis-a", provider="provider-a", model="model-a"),
+    )
+    second = validate(
+        proposal(
+            proposal_id="proposal-analysis-b",
+            analysis_id="analysis-b",
+            idempotency_key="beta",
+        ),
+        replace(context(), analysis_id="analysis-b", provider="provider-b", model="model-b"),
+    )
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity == second.canonical_action_identity
+    assert first.supplied_idempotency_key == "alpha"
+    assert second.supplied_idempotency_key == "beta"
+
+
+def test_canonical_identity_excludes_provenance_and_evidence_metadata() -> None:
+    first = canonical_action_identity(
+        proposal(
+            proposal_id="proposal-provenance-a",
+            correlation_id="correlation-a",
+            analysis_id="analysis-a",
+            idempotency_key="supplied-a",
+        ),
+        connector_id="action-connector-t075",
+        resource=resource("order-t075", "orders", "timeline-order-t075"),
+    )
+    second = canonical_action_identity(
+        proposal(
+            proposal_id="proposal-provenance-b",
+            correlation_id="correlation-b",
+            analysis_id="analysis-b",
+            idempotency_key="supplied-b",
+            rationale="A different provenance explanation.",
+            evidence_references=(EVIDENCE_ID, "evidence-other"),
+            attribution_references=("timeline-order-t075", "timeline-other"),
+        ),
+        connector_id="action-connector-t075",
+        resource=resource("order-t075", "orders", "timeline-order-t075"),
+    )
+
+    assert first == second
+
+
+def test_canonical_identity_ignores_validation_version() -> None:
+    first = ProposalValidator(validation_version="validator-a").validate(proposal(), context())
+    second = ProposalValidator(validation_version="validator-b").validate(
+        proposal(proposal_id="proposal-validator-b"), context()
+    )
+
+    assert first.canonical_action_identity == second.canonical_action_identity
+
+
+def test_live_and_replay_provenance_share_canonical_identity() -> None:
+    live = validate(
+        proposal(analysis_id="analysis-live"),
+        replace(
+            replace(context(), analysis_id="analysis-live"),
+            provider_mode=ProviderMode.LIVE,
+            replay_label=ProviderMode.LIVE,
+        ),
+    )
+    replay = validate(
+        proposal(proposal_id="proposal-replay", analysis_id="analysis-replay"),
+        replace(
+            replace(context(), analysis_id="analysis-replay"),
+            provider_mode=ProviderMode.REPLAY,
+            replay_label=ProviderMode.REPLAY,
+        ),
+    )
+
+    assert live.status is ProposalValidationStatus.VALID
+    assert replay.status is ProposalValidationStatus.VALID
+    assert live.canonical_action_identity == replay.canonical_action_identity
+
+
+def test_different_semantic_parameters_have_different_canonical_identity() -> None:
+    first = validate(proposal(parameters={"reason": "review-a"}))
+    second = validate(
+        proposal(proposal_id="proposal-parameter-b", parameters={"reason": "review-b"})
+    )
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
+def test_different_tenant_and_case_scopes_have_different_canonical_identity() -> None:
+    base_resource = resource("order-t075", "orders", "timeline-order-t075")
+    other_resource = replace(base_resource, tenant_id="tenant-other", case_id="case-other")
+    first = canonical_action_identity(
+        proposal(proposal_id="proposal-scope-a"),
+        connector_id="action-connector-t075",
+        resource=base_resource,
+    )
+    second = canonical_action_identity(
+        proposal(
+            proposal_id="proposal-scope-b",
+            tenant_id="tenant-other",
+            case_id="case-other",
+        ),
+        connector_id="action-connector-t075",
+        resource=other_resource,
+    )
+
+    assert first != second
 
 
 def test_canonical_identity_ignores_parameter_mapping_order() -> None:
@@ -537,6 +656,63 @@ def test_different_authoritative_refund_amount_has_different_identity() -> None:
     assert first.canonical_action_identity != second.canonical_action_identity
 
 
+def test_different_authoritative_refund_currency_has_different_identity() -> None:
+    payment = resource(
+        "payment-t075",
+        "payments",
+        "timeline-payment-t075",
+        attributes={
+            "state": "captured",
+            "amount_minor": 10_000,
+            "currency": "INR",
+            "payment_source": "source-t075",
+        },
+    )
+    first_state = context(
+        target="payment-t075",
+        timeline_event_id="timeline-payment-t075",
+        target_resource=payment,
+        exposure={"currency": "INR", "remaining_exposure_minor": 9_000},
+    )
+    usd_payment = replace(
+        payment,
+        attributes={**payment.attributes, "currency": "USD"},
+    )
+    second_state = context(
+        target="payment-t075",
+        timeline_event_id="timeline-payment-t075",
+        target_resource=usd_payment,
+        exposure={"currency": "USD", "remaining_exposure_minor": 9_000},
+    )
+
+    first = validate(
+        proposal(
+            proposal_id="proposal-currency-inr",
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=1_000,
+            currency="INR",
+        ),
+        first_state,
+    )
+    second = validate(
+        proposal(
+            proposal_id="proposal-currency-usd",
+            action_type=ActionType.REFUND_PAYMENT,
+            target_resource="payment-t075",
+            attribution_references=("timeline-payment-t075",),
+            requested_amount_minor=1_000,
+            currency="USD",
+        ),
+        second_state,
+    )
+
+    assert first.status is ProposalValidationStatus.VALID
+    assert second.status is ProposalValidationStatus.VALID
+    assert first.canonical_action_identity != second.canonical_action_identity
+
+
 def test_different_authoritative_connector_has_different_identity() -> None:
     other_connector = "other-action-connector"
     other_manifest = action_manifest().model_copy(update={"connector_id": other_connector})
@@ -560,7 +736,7 @@ def test_different_authoritative_connector_has_different_identity() -> None:
     assert first.canonical_action_identity != second.canonical_action_identity
 
 
-def test_existing_semantic_identity_under_another_key_is_rejected() -> None:
+def test_existing_semantic_identity_under_another_key_remains_valid() -> None:
     first = validate(proposal(idempotency_key="key-a"))
     assert first.canonical_action_identity is not None
     state = context(
@@ -571,8 +747,8 @@ def test_existing_semantic_identity_under_another_key_is_rejected() -> None:
 
     second = validate(proposal(idempotency_key="key-b"), state)
 
-    assert second.status is ProposalValidationStatus.REJECTED
-    assert any("different idempotency key" in reason for reason in second.reasons)
+    assert second.status is ProposalValidationStatus.VALID
+    assert second.canonical_action_identity == first.canonical_action_identity
 
 
 def test_unsupported_action_type_is_rejected_even_when_model_constructed_directly() -> None:

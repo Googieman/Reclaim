@@ -60,6 +60,7 @@ class PersistedProposal:
     execution_state: str = "not_executable"
     approval_state: str = "not_approved"
     canonical_action_identity: str | None = None
+    supplied_idempotency_key: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.proposal, TypedActionProposal):
@@ -74,6 +75,10 @@ class PersistedProposal:
             "proposal_checksum",
         ):
             _checksum_text(getattr(self, name), name)
+        if self.proposal_payload_checksum != _checksum(self.proposal.model_dump(mode="json")):
+            raise ModelAnalysisPersistenceError(
+                "proposal payload checksum does not match the typed proposal"
+            )
         if any(
             not isinstance(reason, str) or not reason.strip() for reason in self.validation_reasons
         ):
@@ -95,10 +100,18 @@ class PersistedProposal:
             )
         if self.canonical_action_identity is not None:
             _checksum_text(self.canonical_action_identity, "canonical_action_identity")
-            if self.proposal.idempotency_key != self.canonical_action_identity:
-                raise ModelAnalysisPersistenceError(
-                    "persisted proposal idempotency key is not canonical"
-                )
+        supplied_key = self.supplied_idempotency_key or self.proposal.idempotency_key
+        if supplied_key != self.proposal.idempotency_key:
+            raise ModelAnalysisPersistenceError(
+                "supplied idempotency key does not match the persisted proposal payload"
+            )
+        object.__setattr__(self, "supplied_idempotency_key", supplied_key)
+
+    @property
+    def proposal_payload_checksum(self) -> str:
+        """Checksum of the original typed proposal payload, not its action identity."""
+
+        return self.proposal_checksum
 
     @classmethod
     def from_validation(
@@ -131,13 +144,14 @@ class PersistedProposal:
                 )
         status = _enum_value(validation.status)
         canonical_identity = getattr(validation, "canonical_action_identity", None)
-        if canonical_identity is not None:
-            try:
-                proposal = proposal.model_copy(update={"idempotency_key": canonical_identity})
-            except (TypeError, ValueError) as exc:
-                raise ModelAnalysisPersistenceError(
-                    "canonical action identity cannot be applied to proposal"
-                ) from exc
+        supplied_idempotency_key = getattr(validation, "supplied_idempotency_key", None)
+        if supplied_idempotency_key is None:
+            supplied_idempotency_key = proposal.idempotency_key
+        proposal_checksum = _checksum(proposal.model_dump(mode="json"))
+        if proposal_checksum != _checksum_text(validation.proposal_checksum, "proposal_checksum"):
+            raise ModelAnalysisPersistenceError(
+                "proposal validation checksum does not match the typed proposal"
+            )
         return cls(
             proposal=proposal,
             validation_status=status,
@@ -148,10 +162,11 @@ class PersistedProposal:
             authoritative_input_checksum=_checksum_text(
                 validation.authoritative_input_checksum, "authoritative_input_checksum"
             ),
-            proposal_checksum=_checksum_text(validation.proposal_checksum, "proposal_checksum"),
+            proposal_checksum=proposal_checksum,
             validation_reasons=tuple(validation.reasons),
             policy_evaluation_ready=bool(validation.policy_evaluation_ready),
             canonical_action_identity=canonical_identity,
+            supplied_idempotency_key=supplied_idempotency_key,
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -162,11 +177,13 @@ class PersistedProposal:
             "validation_checksum": self.validation_checksum,
             "authoritative_input_checksum": self.authoritative_input_checksum,
             "proposal_checksum": self.proposal_checksum,
+            "proposal_payload_checksum": self.proposal_payload_checksum,
             "validation_reasons": list(self.validation_reasons),
             "policy_evaluation_ready": self.policy_evaluation_ready,
             "execution_state": self.execution_state,
             "approval_state": self.approval_state,
             "canonical_action_identity": self.canonical_action_identity,
+            "supplied_idempotency_key": self.supplied_idempotency_key,
         }
 
 
@@ -675,6 +692,19 @@ class ModelAnalysisAudit:
             except (TypeError, ValueError) as exc:
                 raise ModelAnalysisPersistenceError("persisted proposal is not typed") from exc
             validation = dict(validation_value)
+            proposal_checksum = _checksum(proposal_value)
+            if proposal_checksum != _checksum_text(proposal_row[4], "proposal_checksum"):
+                raise ModelAnalysisPersistenceError(
+                    "persisted proposal payload checksum does not match proposal JSON"
+                )
+            canonical_action_identity = validation.get("canonical_action_identity")
+            if len(proposal_row) > 15:
+                stored_canonical_identity = proposal_row[15]
+                if stored_canonical_identity != canonical_action_identity:
+                    raise ModelAnalysisPersistenceError(
+                        "persisted canonical action identity does not match validation JSON"
+                    )
+                canonical_action_identity = stored_canonical_identity
             proposals.append(
                 PersistedProposal(
                     proposal=proposal,
@@ -684,12 +714,13 @@ class ModelAnalysisAudit:
                     authoritative_input_checksum=_checksum_text(
                         proposal_row[8], "authoritative_input_checksum"
                     ),
-                    proposal_checksum=_checksum_text(proposal_row[4], "proposal_checksum"),
+                    proposal_checksum=proposal_checksum,
                     validation_reasons=tuple(validation.get("validation_reasons", ())),
                     policy_evaluation_ready=bool(proposal_row[9]),
                     execution_state=_required_text(proposal_row[10], "execution_state"),
                     approval_state=_required_text(proposal_row[11], "approval_state"),
-                    canonical_action_identity=validation.get("canonical_action_identity"),
+                    canonical_action_identity=canonical_action_identity,
+                    supplied_idempotency_key=validation.get("supplied_idempotency_key"),
                 )
             )
         provenance = _json_value(row[34])

@@ -259,6 +259,15 @@ qualification remains pending; the previous gate attempt was environment-blocked
 because Docker was unavailable.
 T079+ and US3 remain unstarted.
 
+Final focused MAJOR-2 remediation note (2026-09-01): canonical action identity is
+now derived from the versioned authoritative semantic action representation and
+excludes analysis/run/proposal provenance and the supplied idempotency key. The
+supplied key is retained as advisory provenance; PostgreSQL migration 010 adds a
+tenant-scoped canonical-action authority, a cross-analysis occurrence reference,
+race-safe uniqueness, forced tenant RLS, and fail-closed handling for historical
+rows that cannot be safely recomputed. T079+ and US3 remain unstarted pending
+focused closure review.
+
 **Checkpoint**: US2 produces reproducible advisory analysis and trusted exposure with typed, validated proposals ready for policy; the agent has no side-effect credentials or execution path.
 
 ---

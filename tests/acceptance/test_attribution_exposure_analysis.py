@@ -13,8 +13,6 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-import pytest
-
 from app.auth.oidc import IdentityType, TenantAuthorizationContext
 from app.observability.redaction import REDACTED
 from app.security.boundaries import AllowedCapability
@@ -350,10 +348,6 @@ def _run(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T065 remains expected red until the T070-T075 agent/proposal flow exists",
-)
 def test_canonical_us2_attribution_exposure_analysis_records_deterministic_outcome() -> (
     None
 ):

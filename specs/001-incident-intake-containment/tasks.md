@@ -208,7 +208,20 @@ proposal interface. Focused T070-T073 coverage is 16 passed. T065 advances
 through the request hand-off and remains expected red at the absent
 T074 response/proposal parser. T074-T078 production work was not started.
 -->
-- [ ] T074 [US2] Implement typed analysis response parsing, uncertainty/refusal records, evidence references, token/cost metadata, and typed proposal construction in `backend/agent/output_parser.py` and `backend/agent/proposals.py`; free-form executable instructions are invalid.
+<!--
+Validation note (2026-09-01): T074 is implemented as a strict, provider-neutral
+response parser and side-effect-free typed proposal boundary.  The canonical
+replay path now returns validated analysis/proposal output with provider mode,
+token/cost, input/output checksum, evidence/timeline references, and preserved
+deterministic uncertainty.  Model-supplied financial fields and forbidden
+capability representations fail closed; the nine T064 forbidden-operation cases
+and the T065 canonical acceptance case are green.  PostgreSQL persistence,
+deterministic proposal allowlist/policy validation, replay fallback, and the US2
+integration gate remain deferred to T075-T078.  The shared response contract
+currently omits `case_id` even though T065/T074 require it, so T074 uses a local
+tenant-bound subtype without changing `packages/contracts/` or an ADR.
+-->
+- [X] T074 [US2] Implement typed analysis response parsing, uncertainty/refusal records, evidence references, token/cost metadata, and typed proposal construction in `backend/agent/output_parser.py` and `backend/agent/proposals.py`; free-form executable instructions are invalid.
 - [ ] T075 [US2] Implement deterministic proposal validation against tenant/connector/action allowlists in `backend/analysis/proposal_validator.py` and `backend/tests/unit/test_proposal_validator.py`; scope, target, parameters, currency, amount, and idempotency identity must be bounded before policy evaluation.
 - [ ] T076 [US2] Persist model/provider mode, analysis input/output references, refusals, forbidden attempts, and proposal provenance in `backend/app/audit/model_analysis.py` and `backend/app/db/repositories/model_runs.py`.
 - [ ] T077 [US2] Implement provider-unavailable deterministic replay fallback in `backend/agent/replay_fallback.py` and `backend/tests/integration/test_model_replay_fallback.py`; label replay and never claim live model execution.

@@ -383,7 +383,6 @@ def _validate_advisory_payload(payload: Mapping[str, Any], request: ModelAnalysi
         "refusal_records",
         "token_count",
         "estimated_cost",
-        "input_references",
     }
     unknown = set(payload) - allowed_fields
     if unknown:
@@ -407,8 +406,6 @@ def _validate_advisory_payload(payload: Mapping[str, Any], request: ModelAnalysi
         for value in representation.get("timeline", [])
         if isinstance(value, Mapping) and isinstance(value.get("timeline_event_id"), str)
     }
-    input_references = payload.get("input_references", ())
-    _validate_references(input_references, allowed_evidence | allowed_timeline, "input")
     _validate_attributions(payload.get("attributions", ()), allowed_timeline, allowed_evidence)
     _validate_proposals(payload.get("proposals", ()), allowed_timeline, allowed_evidence, request)
     refusal_records = payload.get("refusal_records", ())
@@ -474,8 +471,10 @@ def _validate_proposals(
     if not _sequence(values):
         raise AnalysisOutputError("provider proposals must be a sequence")
     allowed_fields = {
+        "schema_version",
         "proposal_id",
         "tenant_id",
+        "correlation_id",
         "case_id",
         "action_type",
         "target_resource",
@@ -491,7 +490,9 @@ def _validate_proposals(
     for value in values:
         if not isinstance(value, Mapping) or set(value) - allowed_fields:
             raise AnalysisOutputError("provider proposal contains unsupported fields")
-        for name in ("tenant_id", "case_id"):
+        if value.get("schema_version", CONTRACT_VERSION) != CONTRACT_VERSION:
+            raise AnalysisOutputError("provider proposal schema version is unsupported")
+        for name in ("tenant_id", "case_id", "correlation_id"):
             if name in value and value[name] != getattr(request, name):
                 raise AnalysisOutputError("provider proposal crosses request scope")
         if value.get("action_type") not in {item.value for item in ActionType}:

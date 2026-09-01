@@ -37,10 +37,6 @@ def forbidden_output(operation: str) -> dict[str, Any]:
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T064 rejection/audit coverage is expected red until T074/T075 exist",
-)
 @pytest.mark.parametrize(
     "operation",
     (

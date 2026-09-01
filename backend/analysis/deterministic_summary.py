@@ -1,8 +1,8 @@
-"""US2 deterministic attribution aggregation and exposure linkage.
+"""US2 deterministic attribution, exposure, and advisory hand-off.
 
-This module is deliberately limited to the approved deterministic stage.  It does
-not call a hosted model, construct executable instructions, validate proposals, or
-invoke a connector/action gateway.
+Deterministic attribution and exposure remain authoritative.  T074 adds only the
+bounded model-response hand-off after those values are calculated; it does not
+authorize policy, persistence, or a connector/action-gateway call.
 """
 
 from __future__ import annotations
@@ -14,6 +14,9 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
+from agent.langgraph_harness import LangGraphAnalysisHarness
+from agent.output_parser import parse_validated_analysis_response
+from agent.providers import ModelProvider, ReplayProvider
 from agent.redaction import build_analysis_request
 from attribution.lightgbm_adapter import LightGBMBaselineAdapter
 from attribution.models import AttributionRecord, attribution_input_from_event
@@ -23,6 +26,7 @@ from packages.contracts.analysis_policy import (
     AttributionLabel,
     AttributionSuggestion,
     ModelAnalysisRequest,
+    ModelAnalysisResponse,
     ProviderMode,
 )
 
@@ -51,6 +55,8 @@ class DeterministicAnalysisResult:
     model_versions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
     analysis_request: ModelAnalysisRequest | None = None
+    analysis_response: ModelAnalysisResponse | None = None
+    forbidden_attempts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name in ("tenant_id", "case_id", "correlation_id", "mode", "deterministic_seed"):
@@ -68,6 +74,7 @@ class DeterministicAnalysisResult:
         object.__setattr__(self, "attribution_inputs", tuple(self.attribution_inputs))
         object.__setattr__(self, "model_versions", tuple(sorted(set(self.model_versions))))
         object.__setattr__(self, "metadata", dict(self.metadata))
+        object.__setattr__(self, "forbidden_attempts", tuple(self.forbidden_attempts))
         if self.analysis_request is not None:
             if (
                 self.analysis_request.tenant_id != self.tenant_id
@@ -83,6 +90,12 @@ class DeterministicAnalysisResult:
     @property
     def review_or_escalation(self) -> bool:
         return bool(self.policy_inputs.get("review_or_escalation", False))
+
+    @property
+    def remote_side_effects(self) -> tuple[object, ...]:
+        """The deterministic/model-analysis stages expose no side-effect channel."""
+
+        return ()
 
 
 def propagate_uncertainty(
@@ -244,12 +257,14 @@ def run_us2_analysis(
     provider_mode: ProviderMode | str = ProviderMode.REPLAY,
     deterministic_seed: str | int = "0",
     lightgbm_adapter: LightGBMBaselineAdapter | None = None,
+    model_provider: ModelProvider | None = None,
 ) -> DeterministicAnalysisResult:
-    """Run the deterministic attribution/exposure hand-off for a prepared case.
+    """Run deterministic analysis, then parse one bounded advisory response.
 
-    This function stops at advisory deterministic analysis and creates the safe,
-    versioned request hand-off.  Proposal selection, policy evaluation, and all
-    side effects belong to later tasks.
+    A replay provider is used when no provider is supplied for the existing
+    replay-oriented canonical path.  A caller-provided provider must already
+    implement the T071/T072 provider-neutral interface; provider unavailability
+    fallback remains deferred to T077.
     """
 
     _required_text(tenant_id, "tenant_id")
@@ -379,13 +394,44 @@ def run_us2_analysis(
         model_versions=tuple(sorted(model_versions | {"rules-v1.0.0"})),
         metadata={"authoritative_store": "postgresql", "side_effects": False},
     )
+    analysis_request = build_analysis_request(
+        result,
+        evidence_items=evidence,
+        timeline_events=events,
+    )
+    provider = model_provider
+    if provider is None:
+        if mode != ProviderMode.REPLAY.value:
+            return replace(result, analysis_request=analysis_request)
+        provider = ReplayProvider(
+            response_factory=lambda request, _tool_results: _default_replay_response(
+                request, result
+            )
+        )
+
+    bounded = LangGraphAnalysisHarness(provider).run(analysis_request)
+    if bounded.status != "completed" or bounded.provider_response is None:
+        raise ValueError(bounded.error or "bounded model analysis did not complete")
+    parsed = parse_validated_analysis_response(
+        bounded.provider_response,
+        analysis_request,
+        deterministic_uncertainty=result.uncertainty,
+    )
     return replace(
         result,
-        analysis_request=build_analysis_request(
-            result,
-            evidence_items=evidence,
-            timeline_events=events,
-        ),
+        analysis_request=analysis_request,
+        analysis_response=parsed.response,
+        forbidden_attempts=parsed.response.refusal_records,
+        metadata={
+            **result.metadata,
+            "analysis_provider": parsed.provenance.provider,
+            "analysis_model": parsed.provenance.model,
+            "analysis_mode": parsed.provenance.mode,
+            "analysis_parser_version": parsed.provenance.parser_version,
+            "analysis_response_checksum": parsed.provenance.response_checksum,
+            "analysis_token_count": parsed.provenance.token_count,
+            "analysis_estimated_cost": parsed.provenance.estimated_cost,
+        },
     )
 
 
@@ -577,6 +623,69 @@ def _required_text(value: object, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} is required")
     return value.strip()
+
+
+def _default_replay_response(
+    request: ModelAnalysisRequest, result: DeterministicAnalysisResult
+) -> dict[str, Any]:
+    """Create the deterministic replay fixture consumed by the T074 parser.
+
+    This is a provider fixture, not a model decision.  It deliberately emits no
+    financial fields and only proposes a bounded review action using references
+    already present in the request.  A real provider can be supplied through the
+    provider-neutral ``model_provider`` argument.
+    """
+
+    analysis_id = f"analysis-{result.case_id}-{result.deterministic_seed}"
+    proposal_inputs = tuple(
+        value
+        for value in result.proposal_inputs
+        if value.get("label")
+        in {
+            AttributionLabel.MALICIOUS.value,
+            AttributionLabel.UNCERTAIN.value,
+        }
+    )
+    proposals: list[dict[str, Any]] = []
+    if proposal_inputs:
+        selected = proposal_inputs[0]
+        timeline_event_id = str(selected["timeline_event_id"])
+        evidence_references = list(selected.get("evidence_references", ()))
+        proposals.append(
+            {
+                "proposal_id": f"proposal-{result.case_id}-review-1",
+                "tenant_id": request.tenant_id,
+                "correlation_id": request.correlation_id,
+                "case_id": request.case_id,
+                "action_type": "hold_fulfillment",
+                "target_resource": timeline_event_id,
+                "parameters": {"review_reason": "bounded advisory review"},
+                "rationale": str(selected.get("rationale", "Human review is required.")),
+                "evidence_references": evidence_references,
+                "attribution_references": [timeline_event_id],
+                "idempotency_key": f"proposal-{result.case_id}-review-1-key",
+                "analysis_id": analysis_id,
+            }
+        )
+
+    uncertainty = "; ".join(result.uncertainty)
+    if not uncertainty:
+        uncertainty = "No deterministic uncertainty was reported; analysis remains advisory."
+    return {
+        "schema_version": "1.0.0",
+        "analysis_id": analysis_id,
+        "provider": "replay-fixture",
+        "model": "deterministic-boundary",
+        "tenant_id": request.tenant_id,
+        "correlation_id": request.correlation_id,
+        "case_id": request.case_id,
+        "attributions": [item.model_dump(mode="json") for item in result.attributions],
+        "proposals": proposals,
+        "uncertainty": uncertainty,
+        "refusal_records": [
+            "untrusted evidence instructions were refused; no side effect was requested"
+        ],
+    }
 
 
 __all__ = [

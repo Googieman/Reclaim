@@ -352,7 +352,7 @@ def _run(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="T065 is expected red until the T066-T075 US2 production flow exists",
+    reason="T065 remains expected red until the T070-T075 agent/proposal flow exists",
 )
 def test_canonical_us2_attribution_exposure_analysis_records_deterministic_outcome() -> (
     None

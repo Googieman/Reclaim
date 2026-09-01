@@ -92,10 +92,6 @@ def _predict(adapter: Any, fixture: dict[str, Any], event: dict[str, Any]) -> An
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T060 parity is expected red until the T067 production adapter exists",
-)
 def test_lightgbm_adapter_matches_fixture_outputs_and_retains_provenance() -> None:
     fixture = load_fixture()
     adapter = _adapter(fixture)
@@ -113,10 +109,6 @@ def test_lightgbm_adapter_matches_fixture_outputs_and_retains_provenance() -> No
         assert result.model_or_rules_version == expected["model_or_rules_version"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T060 determinism is expected red until the T067 production adapter exists",
-)
 def test_lightgbm_adapter_is_order_independent_and_replay_deterministic() -> None:
     fixture = load_fixture()
     adapter = _adapter(fixture)
@@ -136,10 +128,6 @@ def test_lightgbm_adapter_is_order_independent_and_replay_deterministic() -> Non
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T060 input validation is expected red until the T067 production adapter exists",
-)
 def test_lightgbm_adapter_rejects_unsupported_features_and_missing_evidence() -> None:
     fixture = load_fixture()
     adapter = _adapter(fixture)
@@ -163,10 +151,6 @@ def test_lightgbm_adapter_rejects_unsupported_features_and_missing_evidence() ->
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T060 version validation is expected red until the T067 production adapter exists",
-)
 def test_lightgbm_adapter_rejects_stale_model_provenance() -> None:
     fixture = load_fixture()
     stale_fixture = {

@@ -9,7 +9,7 @@ from .cases import CaseRepository
 from .connectors import ConnectorConfigurationRepository
 from .escalations import EscalationRepository
 from .evidence import EvidenceItemRepository
-from .finance import FinancialExposureRepository
+from .exposure import ExposureRepository, FinancialExposureRepository
 from .incidents import IncidentCreateResult, IncidentRepository
 from .policy import PolicyDecisionRepository, PolicyVersionRepository
 from .proposals import ActionProposalRepository
@@ -39,6 +39,7 @@ __all__ = [
     "EscalationRepository",
     "EvaluationCaseRepository",
     "EvidenceItemRepository",
+    "ExposureRepository",
     "FinancialExposureRepository",
     "IncidentRepository",
     "IncidentCreateResult",

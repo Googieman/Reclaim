@@ -101,10 +101,6 @@ def assert_exposure(
         assert value >= 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 exact arithmetic is expected red until the T068 production calculator exists",
-)
 def test_partial_recovery_uses_exact_minor_units_and_excludes_uncertain_activity() -> (
     None
 ):
@@ -145,15 +141,12 @@ def test_partial_recovery_uses_exact_minor_units_and_excludes_uncertain_activity
 @st.composite
 def recoverable_payment_values(draw: st.DrawFn) -> tuple[int, int, int]:
     amount = draw(st.integers(min_value=0, max_value=10**12))
-    reimbursed = draw(st.integers(min_value=0, max_value=amount))
+    max_reimbursed = amount if amount == 0 else amount - 1
+    reimbursed = draw(st.integers(min_value=0, max_value=max_reimbursed))
     contained = draw(st.integers(min_value=0, max_value=amount - reimbursed))
     return amount, reimbursed, contained
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 property coverage is expected red until the T068 production calculator exists",
-)
 @settings(max_examples=25, deadline=None)
 @given(values=recoverable_payment_values())
 def test_random_minor_unit_values_preserve_exposure_bounds(
@@ -189,10 +182,6 @@ def test_random_minor_unit_values_preserve_exposure_bounds(
     assert result_field(result, "remaining_exposure_minor") <= amount
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 duplicate protection is expected red until the T068 production calculator exists",
-)
 def test_duplicate_timeline_payment_records_do_not_double_count_exposure() -> None:
     item = payment(
         payment_id="payment-deduplicated",
@@ -207,10 +196,6 @@ def test_duplicate_timeline_payment_records_do_not_double_count_exposure() -> No
     assert duplicate == single
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 ordering convergence is expected red until the T068 production calculator exists",
-)
 def test_payment_delivery_order_does_not_change_exposure() -> None:
     payments = (
         payment(payment_id="payment-order-1", amount_minor=1_100),
@@ -220,10 +205,6 @@ def test_payment_delivery_order_does_not_change_exposure() -> None:
     assert calculate(payments) == calculate(tuple(reversed(payments)))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 input validation is expected red until the T068 production calculator exists",
-)
 @pytest.mark.parametrize(
     "invalid_payment",
     (
@@ -248,6 +229,11 @@ def test_payment_delivery_order_does_not_change_exposure() -> None:
             payment_source=None,
         ),
         payment(
+            payment_id="payment-unknown-source",
+            amount_minor=100,
+            payment_source="unknown_source",
+        ),
+        payment(
             payment_id="payment-no-currency",
             amount_minor=100,
             currency=None,
@@ -261,10 +247,6 @@ def test_refund_inputs_without_captured_bounded_source_are_rejected(
         calculate((invalid_payment,))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 tenant/currency validation is expected red until the T068 production calculator exists",
-)
 @pytest.mark.parametrize("invalid_payments", ("cross_currency", "cross_tenant"))
 def test_cross_currency_and_cross_tenant_inputs_are_rejected(
     invalid_payments: str,
@@ -282,10 +264,6 @@ def test_cross_currency_and_cross_tenant_inputs_are_rejected(
         calculate((first, second))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T061 currency and zero-value coverage is expected red until T068 exists",
-)
 def test_zero_and_large_minor_values_remain_nonnegative_and_currency_explicit() -> None:
     result = calculate(
         (

@@ -173,10 +173,22 @@ is one strict expected-red result; no T066+ production implementation was added.
 
 ### Deterministic attribution and exposure
 
-- [ ] T066 [US2] Implement rules-based attribution evidence in `backend/attribution/rules.py` and `backend/attribution/models.py`, retaining inputs, method/version, label, confidence, rationale, and evidence references.
-- [ ] T067 [US2] Implement the LightGBM baseline adapter and versioned feature/model manifest in `backend/attribution/lightgbm_adapter.py`, `backend/attribution/lightgbm_manifest.py`, and `tests/fixtures/attribution/`; keep output advisory and interchangeable with rules.
-- [ ] T068 [US2] Implement trusted deterministic exposure calculation in `backend/finance/exposure.py` and `backend/app/db/repositories/exposure.py` using integer minor currency units and explicit currency; reject uncaptured, unlinked, fully reimbursed, cross-currency, or unknown-source payment amounts.
-- [ ] T069 [US2] Implement attribution aggregation and exposure-source linkage in `backend/analysis/deterministic_summary.py` and `backend/app/db/repositories/attribution.py`; legitimate activity must remain measurable and not silently influence malicious exposure.
+- [X] T066 [US2] Implement rules-based attribution evidence in `backend/attribution/rules.py` and `backend/attribution/models.py`, retaining inputs, method/version, label, confidence, rationale, and evidence references.
+- [X] T067 [US2] Implement the LightGBM baseline adapter and versioned feature/model manifest in `backend/attribution/lightgbm_adapter.py`, `backend/attribution/lightgbm_manifest.py`, and `tests/fixtures/attribution/`; keep output advisory and interchangeable with rules.
+- [X] T068 [US2] Implement trusted deterministic exposure calculation in `backend/finance/exposure.py` and `backend/app/db/repositories/exposure.py` using integer minor currency units and explicit currency; reject uncaptured, unlinked, fully reimbursed, cross-currency, or unknown-source payment amounts.
+- [X] T069 [US2] Implement attribution aggregation and exposure-source linkage in `backend/analysis/deterministic_summary.py` and `backend/app/db/repositories/attribution.py`; legitimate activity must remain measurable and not silently influence malicious exposure.
+
+<!--
+Validation note (2026-09-01): T066-T069 production seams are implemented. Rules
+attribution retains tenant/case-bound timeline input and provenance; the T067
+fixture-backed LightGBM baseline validates fixed feature/model versions without
+unsafe artifact loading; T068 calculates integer-minor-unit exposure and rejects
+unbounded payment inputs; and T069 preserves uncertainty while linking attribution
+sources to exposure. The owned T060-T062 implementation checks are green. T065
+still has one strict expected-red assertion at the intentionally deferred
+agent/proposal boundary; T064's nine proposal-operation checks remain expected-red
+for T074/T075. T070+ production work was not started.
+-->
 
 ### LangGraph/LiteLLM agent harness and typed proposal boundary
 

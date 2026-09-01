@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-import pytest
 
 from app.auth.oidc import IdentityType, TenantAuthorizationContext
 from packages.contracts.analysis_policy import (
@@ -156,10 +155,6 @@ def test_uncertainty_is_explicit_in_analysis_proposal_and_policy_contracts() -> 
     assert policy.evaluated_conditions["uncertainty_preserved"] is True
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T062 propagation is expected red until the later US2 analysis components exist",
-)
 def test_uncertain_timeline_input_stays_uncertain_through_proposal_and_policy_inputs() -> (
     None
 ):
@@ -185,10 +180,6 @@ def test_uncertain_timeline_input_stays_uncertain_through_proposal_and_policy_in
     assert outcome["review_or_escalation"] is True
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T062 missing-evidence behavior is expected red until the later US2 analysis components exist",
-)
 def test_missing_evidence_cannot_be_fabricated_into_certain_attribution() -> None:
     propagate = require_symbol(
         "analysis.deterministic_summary",

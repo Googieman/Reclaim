@@ -222,7 +222,21 @@ currently omits `case_id` even though T065/T074 require it, so T074 uses a local
 tenant-bound subtype without changing `packages/contracts/` or an ADR.
 -->
 - [X] T074 [US2] Implement typed analysis response parsing, uncertainty/refusal records, evidence references, token/cost metadata, and typed proposal construction in `backend/agent/output_parser.py` and `backend/agent/proposals.py`; free-form executable instructions are invalid.
-- [ ] T075 [US2] Implement deterministic proposal validation against tenant/connector/action allowlists in `backend/analysis/proposal_validator.py` and `backend/tests/unit/test_proposal_validator.py`; scope, target, parameters, currency, amount, and idempotency identity must be bounded before policy evaluation.
+<!--
+Validation note (2026-09-01): T075 is implemented as a deterministic,
+side-effect-free pre-policy gate. It binds proposals to the authoritative
+tenant/case/analysis scope; validates schema, action/connector/resource
+allowlists, evidence/timeline/attribution linkage, uncertainty, action-specific
+state, integer-minor-unit refund bounds, original payment source, idempotency
+identity, replay/live metadata, and version freshness; and fails closed for
+forged typed payloads and forbidden capabilities. The T075-focused adversarial
+suite passes 25/25, the complete available US2 regression set passes 109/109,
+and the full environment-safe suite passes 363/363 with 33 live-service skips.
+The gate emits only VALID, REJECTED, or ESCALATION_ONLY advisory results and
+does not evaluate policy, persist state, or execute an Action Gateway effect.
+T076-T078 remain intentionally unstarted.
+-->
+- [X] T075 [US2] Implement deterministic proposal validation against tenant/connector/action allowlists in `backend/analysis/proposal_validator.py` and `backend/tests/unit/test_proposal_validator.py`; scope, target, parameters, currency, amount, and idempotency identity must be bounded before policy evaluation.
 - [ ] T076 [US2] Persist model/provider mode, analysis input/output references, refusals, forbidden attempts, and proposal provenance in `backend/app/audit/model_analysis.py` and `backend/app/db/repositories/model_runs.py`.
 - [ ] T077 [US2] Implement provider-unavailable deterministic replay fallback in `backend/agent/replay_fallback.py` and `backend/tests/integration/test_model_replay_fallback.py`; label replay and never claim live model execution.
 - [ ] T078 [US2] Run the US2 integration gate in `tests/integration/test_us2_analysis_exposure.py`, proving model output cannot bypass deterministic financial/proposal validation or execute a side effect.

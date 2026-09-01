@@ -35,12 +35,13 @@ analysis, bounded response, and typed proposal hand-off. The first US2 productio
 batch, T066-T069, the bounded T070-T073 model-boundary batch, and T074 are complete
 for deterministic attribution/exposure hand-off, redaction, provider-neutral
 replay/live analysis, read-only tools, strict response parsing, and side-effect-free
-typed proposals; T075-T078 and the remaining US2 production implementation are not
-started. Remediation Batch C is implemented for MAJOR-8 payload enforcement,
+typed proposals, and deterministic proposal validation; T076-T078 and the remaining
+US2 production implementation are not started. Remediation Batch C is implemented for
+MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
 the focused Batch C checks and the clean-volume T043 remediation rerun pass. The
 D3 live release gate is now closed; T059 and T060-T065 test work are complete.
-The remaining US2 production work after T074 remains intentionally unstarted.
+The remaining US2 production work after T075 remains intentionally unstarted.
 
 ## Governance approvals
 
@@ -78,6 +79,9 @@ The remaining US2 production work after T074 remains intentionally unstarted.
 - 2026-09-01: The user explicitly authorized T074 only for typed model-response
   parsing, uncertainty/refusal retention, reference validation, provenance metadata,
   and side-effect-free typed proposal construction. T075+ and US3 remain out of scope.
+- 2026-09-01: The user explicitly authorized T075 only for deterministic,
+  side-effect-free proposal validation before policy evaluation. T076+ and US3
+  remain out of scope.
 
 ## Milestone state
 
@@ -90,17 +94,17 @@ The remaining US2 production work after T074 remains intentionally unstarted.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T074 bounded US2 attribution/exposure/model-response batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, and non-executable typed proposal construction are present |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T075 bounded US2 attribution/exposure/model-response/proposal-validation batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, and deterministic pre-policy proposal validation are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T074 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Elevated full suite is 338 passed and 33 skipped; the focused T074/T064/T065 plus T070-T073 regression set is 48 passed, the complete available US2 subset is 82 passed, all nine T064 forbidden-operation cases and the T065 canonical acceptance case are green, and no strict expected-red T064/T065 cases remain. Fresh live D3 matrix is 3 passed and migration regression is 1 passed; D1/D2 is 4 passed; T043 is 4 passed; T058 is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T075 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Environment-safe full suite is 363 passed and 33 skipped; the T075-focused adversarial suite is 25 passed, and the complete available US2 regression set is 109 passed. All nine T064 forbidden-operation cases and the T065 canonical acceptance case are green. Fresh live D3 matrix is 3 passed and migration regression is 1 passed; D1/D2 is 4 passed; T043 is 4 passed; T058 is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current elevated default suite is `338 passed, 33 skipped` in the
+- Tests: the current elevated default suite is `363 passed, 33 skipped` in the
   project `.venv`; the available environment-safe run emits one LangGraph deprecation
-  warning. The complete available US2 subset passed `82/82`, the focused T074/T064/T065
-  plus T070-T073 regression set passed `48/48`, and all nine T064 forbidden-operation
+  warning. The complete available US2 regression set passed `109/109`, the focused
+  T075 adversarial suite passed `25/25`, and all nine T064 forbidden-operation
   cases plus the T065 canonical acceptance case are green. The existing complete
   contract suite remains green.
   Batch C focused payload, MinIO, package-build, and existing provenance/checksum
@@ -139,14 +143,15 @@ The remaining US2 production work after T074 remains intentionally unstarted.
 - Post-remediation full Python suite before T059 was `256 passed, 33 skipped`; the
   post-T059 baseline was `264 passed, 33 skipped`; the post-T069 suite was
   `301 passed, 33 skipped, 10 xfailed`; the post-T073 suite was
-  `315 passed, 33 skipped, 10 xfailed`; and the post-T074 elevated suite is
-  `338 passed, 33 skipped`. Skipped tests require live services or optional
+  `315 passed, 33 skipped, 10 xfailed`; the post-T074 elevated suite was
+  `338 passed, 33 skipped`; and the post-T075 elevated suite is
+  `363 passed, 33 skipped`. Skipped tests require live services or optional
   configuration. The T064/T065 expected-red tests are now green; no later-task
   xfails were removed.
-- Python: `.venv` Python 3.12.13; T074 touched-file Ruff and format checks, explicit
+- Python: `.venv` Python 3.12.13; T075 touched-file Ruff and format checks, explicit
   source compileall, git diff check, and pip check pass. Repository-wide Ruff reports
-  10 pre-existing findings outside this batch; repository-wide format check reports
-  17 pre-existing files needing formatting. No available mypy or pyright executable
+  97 pre-existing findings outside this batch; repository-wide format check reports
+  51 pre-existing files needing formatting. No available mypy or pyright executable
   is installed, so no type-check pass is claimed.
 - Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
   range. `npm ci --prefix frontend` completed and reported 12 audit findings (2 low,
@@ -173,7 +178,8 @@ The remaining US2 production work after T074 remains intentionally unstarted.
   below 0.28.
 - Git: repository is on `main`; the tenant-role remediation, T036-T042 batch, T044-T049
   intake batch, T050-T055 evidence/timeline batch, and T056-T058 event/projection/gate
-  batch are committed separately; T074 is committed in the current HEAD.
+  batch are committed separately; T074 is committed in the pre-T075 HEAD and T075
+  is committed separately in the current HEAD.
   The pre-existing untracked `security-audits/` artifacts remain preserved.
 - Extensions: `agent-context` is installed. Staff Review and Project Status are not
   installed; they appear only as uninstalled catalog candidates.
@@ -332,8 +338,8 @@ No production performance, fraud, or containment metric is claimed.
   so the Batch C technical gate is PASS. The D3 live release gate is now PASS; T059
   attribution contract coverage, T060-T065 test-first coverage, T066-T069
   deterministic production implementation, T070-T073 bounded model boundaries, and
-  T074 typed response/proposal validation are complete, while T075-T078 remain
-  unstarted.
+  T074 typed response/proposal validation and T075 deterministic proposal validation
+  are complete, while T076-T078 remain unstarted.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -351,10 +357,10 @@ No production performance, fraud, or containment metric is claimed.
   regressions and quality gates passed as recorded above. T059 subsequently passed
   its focused contract validation and the full Python suite; T060-T065 test-first
   validation passes available checks; T066-T069 production validation passes; T070-T073
-  regression validation passes; T074 validation passes; T075-T078 and remaining US2
-  production work are not started.
+  regression validation passes; T074 and T075 validation passes; T076-T078 and
+  remaining US2 production work are not started.
 
-## Next milestone: Phase 4 User Story 2 bounded agent analysis and proposals (T070-T078) - T074 complete
+## Next milestone: Phase 4 User Story 2 bounded agent analysis and proposals (T070-T078) - T075 complete
 
 Readiness evidence:
 
@@ -381,9 +387,10 @@ Readiness evidence:
   test-first fixture, property, uncertainty, model-boundary, typed-proposal, and
   forbidden-operation, and canonical acceptance coverage; T066-T069 now provide
   deterministic rules, advisory LightGBM, trusted exposure, source linkage, and
-  uncertainty propagation; T070-T074 now provide redaction, a bounded provider-neutral
-  response path, strict typed response/provenance parsing, and side-effect-free typed
-  proposals. Later production work remains unstarted.
+  uncertainty propagation; T070-T075 now provide redaction, a bounded provider-neutral
+  response path, strict typed response/provenance parsing, side-effect-free typed
+  proposals, and deterministic pre-policy proposal validation. Later production work
+  remains unstarted.
 
 Current artifacts: the approved/generated FS-001 specification and amended D3
 planning/contract package are under `specs/001-incident-intake-containment/`; three
@@ -395,5 +402,6 @@ requirements. T036-T042 are complete with local contract/property/integration/se
   validated, D3 is specification-approved with live runtime validation complete, and
   T059 is complete as a contract-test-only first batch; T060-T065 test-first coverage,
   T066-T069 deterministic production implementation, the bounded T070-T073 model
-  boundary, and T074 typed response/proposal validation are complete; T075+ and the
-  remaining US2 production implementation are not started.
+  boundary, T074 typed response/proposal validation, and T075 deterministic proposal
+  validation are complete; T076+ and the remaining US2 production implementation
+  are not started.

@@ -17,6 +17,7 @@ from .providers import (
     ModelProvider,
     ModelProviderError,
     ModelProviderTimeout,
+    ModelProviderUnavailable,
     ProviderMetadata,
 )
 from .redaction import redact_value
@@ -183,6 +184,20 @@ class LangGraphAnalysisHarness:
                 "error": "model provider timeout",
                 "checkpoints": state.get("checkpoints", [])
                 + [_checkpoint(request, stage="provider_timeout", status="failed", error=str(exc))],
+            }
+        except ModelProviderUnavailable as exc:
+            return {
+                "status": "failed",
+                "error": "model provider unavailable",
+                "checkpoints": state.get("checkpoints", [])
+                + [
+                    _checkpoint(
+                        request,
+                        stage="provider_unavailable",
+                        status="failed",
+                        error=str(exc),
+                    )
+                ],
             }
         except ModelProviderError as exc:
             return {

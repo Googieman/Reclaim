@@ -20,6 +20,7 @@ from app.db.repositories import (
     EvidenceItemRepository,
     FinancialExposureRepository,
     IncidentRepository,
+    ModelRunRepository,
     PolicyDecisionRepository,
     PolicyVersionRepository,
     ProviderCorrelationRepository,
@@ -69,6 +70,7 @@ class PostgresUnitOfWork:
         self.escalations: EscalationRepository
         self.replay_runs: ReplayRunRepository
         self.evaluation_cases: EvaluationCaseRepository
+        self.model_runs: ModelRunRepository
         self.outbox: OutboxEventRepository
         self.inbox: InboxMessageRepository
         self.webhooks: WebhookDeliveryRepository
@@ -96,6 +98,7 @@ class PostgresUnitOfWork:
         self.escalations = EscalationRepository(self.connection, self.tenant_context)
         self.replay_runs = ReplayRunRepository(self.connection, self.tenant_context)
         self.evaluation_cases = EvaluationCaseRepository(self.connection, self.tenant_context)
+        self.model_runs = ModelRunRepository(self.connection, self.tenant_context)
         self.outbox = OutboxEventRepository(self.connection, self.tenant_context)
         self.inbox = InboxMessageRepository(self.connection, self.tenant_context)
         self.webhooks = WebhookDeliveryRepository(self.connection, self.tenant_context)

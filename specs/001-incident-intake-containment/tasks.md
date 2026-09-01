@@ -204,9 +204,9 @@ and a ModelAnalysisRequest hand-off; T071 runs a finite LangGraph harness with
 typed checkpoints and fail-closed advisory-envelope validation; T072 isolates
 LiteLLM behind provider-neutral metadata and deterministic replay adapters; and
 T073 exposes only tenant/case-bound read-only tools plus a non-executable
-proposal interface. Focused T070-T073 coverage is 16 passed. T065 advances
-through the request hand-off and remains expected red at the absent
-T074 response/proposal parser. T074-T078 production work was not started.
+proposal interface. Focused T070-T073 coverage is 16 passed. This note records
+the T070-T073 checkpoint before the subsequent T074-T078 implementation batch;
+the canonical T065 acceptance and T074-T078 gates are now green as recorded below.
 -->
 <!--
 Validation note (2026-09-01): T074 is implemented as a strict, provider-neutral
@@ -217,7 +217,7 @@ deterministic uncertainty.  Model-supplied financial fields and forbidden
 capability representations fail closed; the nine T064 forbidden-operation cases
 and the T065 canonical acceptance case are green.  PostgreSQL persistence,
 deterministic proposal allowlist/policy validation, replay fallback, and the US2
-integration gate remain deferred to T075-T078.  The shared response contract
+integration gate were completed in the subsequent T075-T078 batch.  The shared response contract
 currently omits `case_id` even though T065/T074 require it, so T074 uses a local
 tenant-bound subtype without changing `packages/contracts/` or an ADR.
 -->
@@ -234,12 +234,30 @@ suite passes 25/25, the complete available US2 regression set passes 109/109,
 and the full environment-safe suite passes 363/363 with 33 live-service skips.
 The gate emits only VALID, REJECTED, or ESCALATION_ONLY advisory results and
 does not evaluate policy, persist state, or execute an Action Gateway effect.
-T076-T078 remain intentionally unstarted.
+T076-T078 are implemented in the current US2 batch; T079+ remain intentionally
+unstarted.
 -->
 - [X] T075 [US2] Implement deterministic proposal validation against tenant/connector/action allowlists in `backend/analysis/proposal_validator.py` and `backend/tests/unit/test_proposal_validator.py`; scope, target, parameters, currency, amount, and idempotency identity must be bounded before policy evaluation.
-- [ ] T076 [US2] Persist model/provider mode, analysis input/output references, refusals, forbidden attempts, and proposal provenance in `backend/app/audit/model_analysis.py` and `backend/app/db/repositories/model_runs.py`.
-- [ ] T077 [US2] Implement provider-unavailable deterministic replay fallback in `backend/agent/replay_fallback.py` and `backend/tests/integration/test_model_replay_fallback.py`; label replay and never claim live model execution.
-- [ ] T078 [US2] Run the US2 integration gate in `tests/integration/test_us2_analysis_exposure.py`, proving model output cannot bypass deterministic financial/proposal validation or execute a side effect.
+- [X] T076 [US2] Persist model/provider mode, analysis input/output references, refusals, forbidden attempts, and proposal provenance in `backend/app/audit/model_analysis.py` and `backend/app/db/repositories/model_runs.py`.
+- [X] T077 [US2] Implement provider-unavailable deterministic replay fallback in `backend/agent/replay_fallback.py` and `backend/tests/integration/test_model_replay_fallback.py`; label replay and never claim live model execution.
+- [X] T078 [US2] Run the US2 integration gate in `tests/integration/test_us2_analysis_exposure.py`, proving model output cannot bypass deterministic financial/proposal validation or execute a side effect.
+
+Validation note (2026-09-01): T076 persists only typed T074 responses paired with
+deterministic T075 validation results, including tenant/case/analysis bindings,
+checksums, references, uncertainty/refusals/forbidden attempts, deterministic
+seed/exposure values, and fixed non-executable/non-approved proposal state in
+PostgreSQL with forced tenant RLS and duplicate/conflict checks. T077 provides
+explicit live/replay/escalation outcomes, preserves deterministic uncertainty,
+records provider failures, rejects stale/malformed/cross-scope replay, and
+retains forbidden tool attempts without any remote side-effect channel. T078
+passes the canonical T065 evidence/timeline → deterministic exposure → redacted
+replay → typed response → T075 rejection → advisory persistence gate. Focused
+T076-T078 coverage passes 20/20, including fresh-migration and non-owner RLS
+validation against disposable PostgreSQL; the full environment-safe suite passes
+383/383 with 33 live-service skips. The separate US2 live PostgreSQL/RLS
+qualification remains pending; the previous gate attempt was environment-blocked
+because Docker was unavailable.
+T079+ and US3 remain unstarted.
 
 **Checkpoint**: US2 produces reproducible advisory analysis and trusted exposure with typed, validated proposals ready for policy; the agent has no side-effect credentials or execution path.
 

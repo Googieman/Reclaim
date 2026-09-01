@@ -11,6 +11,7 @@ from .escalations import EscalationRepository
 from .evidence import EvidenceItemRepository
 from .exposure import ExposureRepository, FinancialExposureRepository
 from .incidents import IncidentCreateResult, IncidentRepository
+from .model_runs import ModelRunRepository
 from .policy import PolicyDecisionRepository, PolicyVersionRepository
 from .proposals import ActionProposalRepository
 from .provider_correlations import (
@@ -43,6 +44,7 @@ __all__ = [
     "FinancialExposureRepository",
     "IncidentRepository",
     "IncidentCreateResult",
+    "ModelRunRepository",
     "PolicyDecisionRepository",
     "PolicyVersionRepository",
     "ProviderCorrelationMapping",

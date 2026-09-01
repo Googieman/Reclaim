@@ -14,10 +14,9 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
-from agent.langgraph_harness import LangGraphAnalysisHarness
-from agent.output_parser import parse_validated_analysis_response
 from agent.providers import ModelProvider, ReplayProvider
 from agent.redaction import build_analysis_request
+from agent.replay_fallback import run_with_replay_fallback
 from attribution.lightgbm_adapter import LightGBMBaselineAdapter
 from attribution.models import AttributionRecord, attribution_input_from_event
 from attribution.rules import RulesAttributor
@@ -258,13 +257,14 @@ def run_us2_analysis(
     deterministic_seed: str | int = "0",
     lightgbm_adapter: LightGBMBaselineAdapter | None = None,
     model_provider: ModelProvider | None = None,
+    replay_provider: ModelProvider | None = None,
 ) -> DeterministicAnalysisResult:
     """Run deterministic analysis, then parse one bounded advisory response.
 
     A replay provider is used when no provider is supplied for the existing
-    replay-oriented canonical path.  A caller-provided provider must already
-    implement the T071/T072 provider-neutral interface; provider unavailability
-    fallback remains deferred to T077.
+    replay-oriented canonical path.  A live provider failure is handled by the
+    T077 deterministic replay boundary; deterministic attribution and exposure
+    are returned even when both model paths fail.
     """
 
     _required_text(tenant_id, "tenant_id")
@@ -399,38 +399,64 @@ def run_us2_analysis(
         evidence_items=evidence,
         timeline_events=events,
     )
-    provider = model_provider
-    if provider is None:
-        if mode != ProviderMode.REPLAY.value:
-            return replace(result, analysis_request=analysis_request)
-        provider = ReplayProvider(
-            response_factory=lambda request, _tool_results: _default_replay_response(
-                request, result
-            )
-        )
-
-    bounded = LangGraphAnalysisHarness(provider).run(analysis_request)
-    if bounded.status != "completed" or bounded.provider_response is None:
-        raise ValueError(bounded.error or "bounded model analysis did not complete")
-    parsed = parse_validated_analysis_response(
-        bounded.provider_response,
+    default_replay = ReplayProvider(
+        response_factory=lambda request, _tool_results: _default_replay_response(request, result)
+    )
+    if mode == ProviderMode.REPLAY.value:
+        selected_replay = replay_provider or model_provider or default_replay
+        selected_primary = None
+    else:
+        selected_replay = replay_provider or default_replay
+        selected_primary = model_provider
+    fallback = run_with_replay_fallback(
         analysis_request,
+        primary_provider=selected_primary,
+        replay_provider=selected_replay,
         deterministic_uncertainty=result.uncertainty,
     )
+    fallback_metadata = {
+        **result.metadata,
+        "analysis_status": fallback.status.value,
+        "analysis_requested_mode": mode,
+        "analysis_mode": fallback.mode,
+        "analysis_replay_label": fallback.label,
+        "analysis_fallback_version": fallback.provenance.get("fallback_version"),
+        "analysis_fallback_reason": fallback.fallback_reason,
+        "analysis_primary_failure": fallback.primary_failure,
+        "analysis_failure_kind": fallback.failure_kind,
+        "analysis_request_checksum": fallback.provenance.get("request_checksum"),
+        "analysis_side_effects": False,
+    }
+    if fallback.parsed_response is None:
+        return replace(
+            result,
+            analysis_request=fallback.effective_request,
+            metadata=fallback_metadata,
+            forbidden_attempts=tuple(
+                sorted(set(result.forbidden_attempts) | set(fallback.forbidden_attempts))
+            ),
+        )
+    parsed = fallback.parsed_response
     return replace(
         result,
-        analysis_request=analysis_request,
+        analysis_request=fallback.effective_request,
         analysis_response=parsed.response,
-        forbidden_attempts=parsed.response.refusal_records,
+        forbidden_attempts=tuple(
+            sorted(
+                set(result.forbidden_attempts)
+                | set(fallback.forbidden_attempts)
+                | set(parsed.response.refusal_records)
+            )
+        ),
         metadata={
-            **result.metadata,
+            **fallback_metadata,
             "analysis_provider": parsed.provenance.provider,
             "analysis_model": parsed.provenance.model,
-            "analysis_mode": parsed.provenance.mode,
             "analysis_parser_version": parsed.provenance.parser_version,
             "analysis_response_checksum": parsed.provenance.response_checksum,
             "analysis_token_count": parsed.provenance.token_count,
             "analysis_estimated_cost": parsed.provenance.estimated_cost,
+            "analysis_provenance": fallback.provenance,
         },
     )
 

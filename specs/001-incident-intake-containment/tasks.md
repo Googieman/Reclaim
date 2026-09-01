@@ -162,7 +162,14 @@ expected-red tests. The expected-red checks intentionally target the not-yet-
 implemented T067/T068/T069/T074/T075 production seams; no production attribution,
 exposure, model gateway, or proposal implementation was added in this batch.
 -->
-- [ ] T065 [US2] Add the canonical US2 acceptance test in `tests/acceptance/test_attribution_exposure_analysis.py`, asserting the independent-test criteria and deterministic outcome recording.
+- [X] T065 [US2] Add the canonical US2 acceptance test in `tests/acceptance/test_attribution_exposure_analysis.py`, asserting the independent-test criteria and deterministic outcome recording.
+
+<!--
+Validation note (2026-09-01): T065 acceptance coverage now collects and executes
+without import, fixture, or environment-skip errors. The canonical test reaches
+the absent `analysis.deterministic_summary.run_us2_analysis` production seam and
+is one strict expected-red result; no T066+ production implementation was added.
+-->
 
 ### Deterministic attribution and exposure
 

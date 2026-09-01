@@ -29,11 +29,12 @@ were completed on 2026-09-01; fresh live PostgreSQL/RLS validation and the reque
 regression gates pass. Original Remediation Batch B for
 MAJOR-2 and MAJOR-6 is complete locally. Its follow-up review kept MAJOR-7 open;
 the focused approval-to-execution remediation and validation are recorded below.
-T059 is unblocked for a future authorized session; no T059 or US2 implementation was
-started. Remediation Batch C is implemented for MAJOR-8 payload enforcement,
+T059 attribution contract coverage is complete; T060-T078 and the remaining US2
+implementation are not started. Remediation Batch C is implemented for MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
 the focused Batch C checks and the clean-volume T043 remediation rerun pass. The
-D3 live release gate is now closed; T059 and US2 remain not started.
+D3 live release gate is now closed; T059 is complete and the remaining US2 work
+remains not started.
 
 ## Governance approvals
 
@@ -55,6 +56,8 @@ D3 live release gate is now closed; T059 and US2 remain not started.
   approval point, implementation remained gated.
 - 2026-09-01: The user explicitly authorized and requested the D3/MAJOR-5 runtime
   remediation only, with T059 and US2 out of scope for that request.
+- 2026-09-01: The user explicitly authorized T059 as the first US2 batch after the
+  closed US1/D3 release gate; T059 is test-only and does not authorize T060+.
 
 ## Milestone state
 
@@ -70,11 +73,13 @@ D3 live release gate is now closed; T059 and US2 remain not started.
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, and D3 runtime remediation are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, and complete backend wheel/sdist runtime package contents are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T058 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Current default suite is 256 passed and 33 skipped; fresh live D3 matrix is 3 passed and migration regression is 1 passed; D1/D2 is 4 passed; T043 is 4 passed; T058 is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T059 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Current default suite is 264 passed and 33 skipped; T059 focused attribution contracts are 8 passed and the full contract suite is 77 passed; fresh live D3 matrix is 3 passed and migration regression is 1 passed; D1/D2 is 4 passed; T043 is 4 passed; T058 is 1 passed. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current default suite is `256 passed, 33 skipped` in the project `.venv`.
+- Tests: the current default suite is `264 passed, 33 skipped` in the project `.venv`.
+  T059 attribution contract tests passed `8/8`; the complete contract suite passed
+  `77/77`.
   Batch C focused payload, MinIO, package-build, and existing provenance/checksum
   validation passed `20/20`, including the live MinIO conflict test. The final
   T058 live gate passed `1/1` against running PostgreSQL, MinIO, Temporal,
@@ -108,14 +113,16 @@ D3 live release gate is now closed; T059 and US2 remain not started.
   contents, installed each artifact into an isolated target from a clean working
   directory, and imported API, workflow, worker, evidence, timeline, Razorpay,
   Redpanda, Neo4j, and shared-contract modules from the installed targets.
-- Post-remediation full Python suite: `256 passed, 33 skipped` in the project
-  `.venv`; skipped tests require live services or optional configuration.
-- Python: `.venv` Python 3.12.13; final-gate touched-file Ruff and format checks,
+- Post-remediation full Python suite before T059 was `256 passed, 33 skipped`; the
+  current post-T059 suite is `264 passed, 33 skipped` in the project `.venv`.
+  Skipped tests require live services or optional configuration.
+- Python: `.venv` Python 3.12.13; T059's touched-file Ruff and format checks,
   compileall, and git diff check pass; pip check reports no broken requirements.
   Repository-wide Ruff
   0.8.6 reports 12 existing
-  findings outside the completed batch; repository-wide format check reports 8
-  pre-existing files needing formatting. Existing findings remain in their owning scope.
+  findings outside the completed batch; repository-wide format check reports 17
+  pre-existing files needing formatting.
+  Existing findings remain in their owning scope.
 - Backend mypy/pyright: no type-check executable is installed in this environment; no
   type-check pass is claimed.
 - Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
@@ -298,8 +305,8 @@ No production performance, fraud, or containment metric is claimed.
   by the live PostgreSQL and focused persistence/event/projection tests. D3 is
   specification-approved and runtime-implemented locally; the
   clean-volume T043 rerun is `4/4` after the acceptance-fixture isolation repair,
-  so the Batch C technical gate is PASS. The D3 live release gate is now PASS; no
-  US2 or T059 implementation was started.
+  so the Batch C technical gate is PASS. The D3 live release gate is now PASS; T059
+  attribution contract coverage is complete, while T060-T078 remain unstarted.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -312,10 +319,11 @@ No production performance, fraud, or containment metric is claimed.
   matrix (`3 passed`) and its search-path regression (`1 passed`); T043 passed
   against fresh PostgreSQL + MinIO (`4 passed`); T058 passed against PostgreSQL +
   MinIO + Temporal + Redpanda + Neo4j (`1 passed`); and the remaining focused
-  regressions and quality gates passed as recorded above. T059 and US2 were not
-  started.
+  regressions and quality gates passed as recorded above. T059 subsequently passed
+  its focused contract validation and the full Python suite; remaining US2 work is
+  not started.
 
-## Next milestone: Phase 4 User Story 2 attribution and exposure (T059-T078) - ready; not started
+## Next milestone: Phase 4 User Story 2 attribution and exposure (T060-T078) - T059 complete; remaining work not started
 
 Readiness evidence:
 
@@ -348,5 +356,5 @@ requirements. T036-T042 are complete with local contract/property/integration/se
   evidence; T043 and T044-T058 are complete with local and environment-qualified live
   validation. The MAJOR-7 follow-up release gate and Batch C technical gate are
   validated, D3 is specification-approved with live runtime validation complete, and
-  T059 is unblocked for a future authorized session; no T059+ or US2 implementation
-  was started.
+  T059 is complete as a contract-test-only first batch; T060+ and the remaining US2
+  implementation are not started.

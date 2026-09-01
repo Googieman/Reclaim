@@ -148,7 +148,7 @@ environment-qualified in PROJECT_STATUS.md.
 
 ### Tests for User Story 2
 
-- [ ] T059 [P] [US2] Add attribution contract tests in `tests/contract/test_attribution.py` for rules and LightGBM outputs, input/version/label/confidence/rationale retention, and distinct malicious/legitimate/uncertain labels.
+- [X] T059 [P] [US2] Add attribution contract tests in `tests/contract/test_attribution.py` for rules and LightGBM outputs, input/version/label/confidence/rationale retention, and distinct malicious/legitimate/uncertain labels.
 - [ ] T060 [P] [US2] Add LightGBM baseline fixture and adapter parity tests in `tests/unit/test_lightgbm_baseline.py` and `tests/fixtures/attribution/lightgbm/`; record model/version provenance without claiming production performance.
 - [ ] T061 [P] [US2] Add financial property tests in `tests/property/test_exposure_invariants.py` for minor units, explicit currency, captured-only refunds, reimbursement bounds, original payment source, contained value, legitimate value disrupted, irreversible loss, and remaining exposure.
 - [ ] T062 [P] [US2] Add uncertainty propagation tests in `tests/unit/test_uncertain_attribution.py`; uncertain events must remain uncertain through proposal and policy inputs and may trigger review/escalation.

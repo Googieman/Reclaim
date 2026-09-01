@@ -37,10 +37,12 @@ for deterministic attribution/exposure hand-off, redaction, provider-neutral
 replay/live analysis, read-only tools, strict response parsing, and side-effect-free
 typed proposals, and deterministic proposal validation. T076-T078 now add
 authoritative model-run persistence, deterministic replay fallback, and the US2
-integration gate; their implementation validation is complete, while the separate
-US2 live PostgreSQL/RLS qualification remains pending. The previous US2 live-gate
-attempt was environment-blocked because Docker was unavailable. The remaining US2
-production implementation is not started.
+integration gate; their implementation validation is complete. The US2 live-gate
+attempt then exposed a missing runtime grant for both migration-007 model-analysis
+tables and stopped at that blocker. Corrective migration 008 now grants the scoped
+runtime access, and fresh 001-008 plus non-owner runtime validation pass. US2 still
+awaits the FINAL live release gate. The remaining US2 production implementation is
+not started.
 Remediation Batch C is implemented for
 MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
@@ -90,6 +92,9 @@ The remaining US2 production work after T078 remains intentionally unstarted.
 - 2026-09-01: The user explicitly authorized T076-T078 only for model-analysis
   persistence, provider-unavailable deterministic replay fallback, and the US2
   integration gate. T079+ and US3 remain out of scope.
+- 2026-09-01: The user explicitly authorized the grant-only repair for the confirmed
+  US2 live-gate blocker: add corrective migration 008 for model-analysis runtime
+  access, prove the non-owner persistence/RLS boundary, and do not start T079/US3.
 
 ## Milestone state
 
@@ -105,17 +110,17 @@ The remaining US2 production work after T078 remains intentionally unstarted.
 | Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T078 bounded US2 attribution/exposure/model-response/proposal-validation/persistence/fallback batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, deterministic pre-policy proposal validation, authoritative model-run/proposal provenance persistence, and labeled replay/escalation fallback are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T078 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, and D3 validation complete; evaluation not started | Full available Python suite is 383 passed and 33 skipped; focused T076-T078 coverage is 20/20, including fresh-migration and non-owner RLS validation against disposable PostgreSQL; the separate US2 live PostgreSQL/RLS qualification remains pending after the previous gate attempt was environment-blocked because Docker was unavailable. The canonical T065 acceptance case is green. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T078 plus Remediation B, MAJOR-7 follow-up, Batch C, final-gate D1/D2, D3 validation, and migration-008 runtime-grant validation complete; evaluation not started | Full available Python suite is 386 passed and 33 skipped; focused T076-T078 plus migration-008 coverage is 23/23, including fresh 001-008 migration and non-owner runtime/RLS validation against disposable PostgreSQL. The complete available US2 regression set is 132 passed, and the canonical T065 acceptance case is green. US2 still awaits the FINAL live release gate. No held-out dataset, benchmark, production metric, or containment claim exists |
 
 ## Quality state
 
-- Tests: the current elevated default suite is `383 passed, 33 skipped` in the
+- Tests: the current elevated default suite is `386 passed, 33 skipped` in the
   project `.venv`; the available environment-safe run emits one LangGraph deprecation
-  warning. Focused T076-T078 coverage passed `20/20`, including fresh migration and
-  non-owner RLS validation against disposable PostgreSQL. The separate US2 live
-  PostgreSQL/RLS qualification remains pending; the previous gate attempt was
-  environment-blocked because Docker was unavailable. The complete available US2
-  regression set passed `121/121`, the focused
+  warning. Focused T076-T078 plus migration-008 runtime-grant coverage passed `23/23`,
+  including fresh 001-008 migration and non-owner RLS validation against disposable
+  PostgreSQL. The confirmed runtime-grant blocker is closed locally; US2 still awaits
+  the FINAL live release gate. The complete available US2 regression set passed
+  `132/132`, the focused
   T075 adversarial suite passed `25/25`, and all nine T064 forbidden-operation
   cases plus the T065 canonical acceptance case are green. The existing complete
   contract suite remains green.
@@ -160,7 +165,7 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   `363 passed, 33 skipped`. Skipped tests require live services or optional
   configuration. The T064/T065 expected-red tests are now green; no later-task
   xfails were removed.
-- Python: `.venv` Python 3.12.13; T076-T078 touched-file Ruff and format checks, explicit
+- Python: `.venv` Python 3.12.13; migration-008 touched-file Ruff and format checks, explicit
   source compileall, git diff check, and pip check pass. Repository-wide Ruff reports
   97 pre-existing findings outside this batch; repository-wide format check reports
   51 pre-existing files needing formatting. No available mypy or pyright executable
@@ -181,7 +186,8 @@ The remaining US2 production work after T078 remains intentionally unstarted.
   linear chain, tenant partitions remained independent, rollback left no root, and
   a conflicting timeline survived PostgreSQL readback and outbox construction.
 - Runtime: temporary dependency-safe validation containers were used, including a
-  disposable PostgreSQL instance for the T076 migration/RLS checks; the full future
+  disposable PostgreSQL instance for the migration-008 fresh migration/runtime-role
+  checks; the full future
   Compose topology and operational observability stack were not started.
 - Current local service check: Docker Desktop is installed and was started for the
   fresh 2026-09-01 release-gate attempt; no persistent `RECLAIM_*` service
@@ -199,6 +205,15 @@ The remaining US2 production work after T078 remains intentionally unstarted.
 
 ## Live validation evidence
 
+- On 2026-09-01, a disposable PostgreSQL 16 instance applied migrations 001-008
+  from scratch with `ON_ERROR_STOP=1`; migration 008 was also reapplied idempotently
+  under a changed `search_path`. The public model-analysis tables remained the only
+  grant targets, and `reclaim_app` had exactly `SELECT, INSERT` on each table.
+  The actual non-owner `reclaim_app` connection was non-owner, non-superuser, and
+  `NOBYPASSRLS`; focused migration/runtime validation passed `3/3`, including
+  persistence/readback, idempotent retry, conflict rejection, cross-tenant and
+  same-tenant cross-case isolation, unvalidated-proposal rejection, and DELETE
+  denial. No Action Gateway or financial side effect was attempted.
 - PostgreSQL 16 Alpine ran on `localhost:55432`. Migrations
   `001_authoritative_entities.sql`, `002_tenant_isolation.sql`, and the updated `003`
   executed with `ON_ERROR_STOP=1`. A non-owner,
@@ -313,8 +328,10 @@ the shared optional UTC timestamp validation was fixed so incomplete webhook tim
 remain representable for quarantine. D3 changed the approved webhook/data-model contract
 but requires no ADR because the ownership model is unchanged. The shared contract shape
 outside D3 and approved ADRs remain unchanged.
-The corrective migration 006 is a schema-placement/RLS consistency repair only;
-no architecture or ADR changed, and no approved contract changed in this repair.
+The corrective migrations 006 and 008 are schema-placement/RLS consistency and
+scoped-runtime-grant repairs only; no architecture or ADR changed, and no approved
+contract changed in this repair. Migration 008 grants only the model-analysis table
+permissions required by the existing repository and leaves forced RLS authoritative.
 PostgreSQL remains the
 business correctness boundary; Temporal owns durable orchestration; Redpanda is only
 transport; Neo4j is rebuildable; MinIO stores immutable evidence; Redis is bounded
@@ -352,6 +369,10 @@ No production performance, fraud, or containment metric is claimed.
   deterministic production implementation, T070-T073 bounded model boundaries, T074
   typed response/proposal validation, T075 deterministic proposal validation, and
   T076-T078 model-run persistence/replay fallback/integration-gate work are complete.
+  The previous US2 live-gate run exposed missing `reclaim_app` grants on the
+  migration-007 model-analysis tables. Corrective migration 008 and its fresh
+  non-owner runtime validation close that confirmed blocker locally; US2 still
+  awaits the FINAL live release gate. T079/US3 remain unstarted.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.

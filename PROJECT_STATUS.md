@@ -732,3 +732,57 @@ Evidence and quality gates:
 - The pre-existing `packages/contracts/action_gateway.py` working-tree diff remains
   byte-for-byte unchanged and unstaged; `security-audits/` remains untracked and
   untouched.
+## US4 T125 quickstart validation — 2026-09-02
+
+T125 is complete. T126 and all later Phase 7 tasks remain unstarted. The T125
+acceptance test records the available local deterministic quickstart flow,
+replay/live truth, all required replay variants, projection rebuild behavior,
+evaluation metadata and held-out controls, observability redaction/configuration,
+Compose topology, and reviewer UI traceability. No production behavior was
+implemented by T125, and no contract, constitution, ADR, migration,
+authentication/RLS, or Action Gateway implementation file was changed for this
+validation.
+
+Observed evidence:
+
+- T125 acceptance: `8 passed, 1 warning`; combined T125/regression gate:
+  `30 passed, 1 warning`.
+- Selected complete-US4 suite: `41 passed, 1 warning`; full available Python
+  suite: `537 passed, 40 skipped, 1 warning`.
+- Security suite: `58 passed, 1 skipped`; explicit Action Gateway, approval,
+  recovery, verification, and tenant authorization checks: `27 passed, 1
+  skipped`.
+- Explicit fresh-migration, PostgreSQL, and non-owner RLS checks: `5 passed,
+  14 skipped` because the required database URLs were not configured.
+- Frontend Vitest (`2 passed`), typecheck, ESLint, and production build passed.
+- Merged Compose config passed. An isolated Compose project started PostgreSQL,
+  Redis, and MinIO and observed all three healthy; the full 21-service stack was
+  not started because application images reference unavailable external GHCR
+  images.
+- Canonical replay was deterministic across two runs, replay-labelled, and had
+  no remote side effects. Its terminal state was `escalated_unresolved`; all
+  required stage outcomes, attribution labels, exposure fields, approval,
+  reconciliation, verification, escalation, and 13 audit records were observed.
+- All 21 replay variants were exercised with replay labels, `side_effects:
+  false`, and empty remote side effects. Unknown remote results reconciled before
+  retry; forbidden proposals were rejected; inconclusive verification escalated.
+- Fake Neo4j projection rebuild applied two tenant-scoped events in deterministic
+  order and rejected a mixed-tenant input. Live Neo4j checks were skipped because
+  connection variables were absent.
+- Evaluation manifest actual corpus counts remain zero, with held-out sealing
+  and assignment-freeze controls true. A three-case in-memory harness verified
+  provenance and metric controls; it is not a benchmark result.
+- The operator UI was exercised in the in-app browser with a temporary local
+  deterministic read-model stub. Filter, technical-chain expansion, replay
+  recording, audit, approval, escalation, exposure, verification, and terminal
+  presentation were observed; browser console errors and warnings were empty.
+  This was not a live API or merchant-action execution claim.
+- Targeted T125 Ruff and format checks passed. Repository-wide Ruff still has
+  pre-existing errors/format findings outside T125; they were not modified.
+
+The authoritative evidence record is
+`docs/validation/fs001-quickstart.md`. Live PostgreSQL/fresh migration,
+non-owner RLS, Temporal, Redpanda, Neo4j, MinIO, Vault, provider/connector,
+hosted observability, and full-stack Compose checks remain environment-gated and
+are recorded as skips or not run. No final FS-001 release-readiness claim is
+made.

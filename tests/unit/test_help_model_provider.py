@@ -7,6 +7,8 @@ import pytest
 
 from agent.providers import ModelProviderResponseError, ModelProviderUnavailable
 from model_gateway.help_provider import (
+    MAX_HELP_PASSAGE_BYTES,
+    MAX_HELP_PASSAGES_BYTES,
     HelpModelProvider,
     build_help_provider,
 )
@@ -132,6 +134,53 @@ def test_provider_converts_transport_failure_to_safe_unavailable_error() -> None
         provider.complete(_request())
 
     assert "secret endpoint" not in str(error.value)
+
+
+def test_provider_rejects_an_oversized_passage_before_transport() -> None:
+    calls: list[dict[str, Any]] = []
+    secret = "reviewed-secret-value"
+    provider = HelpModelProvider(
+        model="deepseek-test",
+        api_base="http://model-help.test/v1",
+        api_key="model-secret",
+        completion=lambda **payload: calls.append(payload),
+    )
+
+    with pytest.raises(ModelProviderResponseError, match="passage") as error:
+        provider.complete(
+            _request(
+                passages=(
+                    "[oversized] "
+                    + secret
+                    + "x" * (MAX_HELP_PASSAGE_BYTES - len(secret) + 1),
+                )
+            )
+        )
+
+    assert calls == []
+    assert secret not in str(error.value)
+
+
+def test_provider_rejects_oversized_aggregate_passages_before_transport() -> None:
+    calls: list[dict[str, Any]] = []
+    secret = "aggregate-secret-value"
+    provider = HelpModelProvider(
+        model="deepseek-test",
+        api_base="http://model-help.test/v1",
+        api_key="model-secret",
+        completion=lambda **payload: calls.append(payload),
+    )
+    passages = tuple(
+        f"[source-{index}] {secret if index == 0 else ''}"
+        + "x" * (MAX_HELP_PASSAGES_BYTES // 3)
+        for index in range(3)
+    )
+
+    with pytest.raises(ModelProviderResponseError, match="passages") as error:
+        provider.complete(_request(passages=passages))
+
+    assert calls == []
+    assert secret not in str(error.value)
 
 
 def test_build_help_provider_requires_the_model_secret() -> None:

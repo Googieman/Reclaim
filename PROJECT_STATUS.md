@@ -19,6 +19,26 @@ reported `status: ready`, with live financial actions disabled. This is a
 deployment smoke observation only and does not qualify the full hosted
 final-round system or its remaining production gates.
 
+## Dashboard help-chat documentation/configuration — 2026-09-05
+
+Task 5 updated the public README and model-services runbook with the verified
+frontend/API URLs, the public-frontend → public-API → private-model-gateway →
+private-model topology, the exact non-secret Railway variable names and values,
+the secret variable names without secret values, and the manifest-pinned model
+volume and `/health` check. The documented chatbot is a small bottom-right
+dashboard control for reviewed documentation help only; it has no case,
+connector, payment, refund, cancellation, approval, mutation, arbitrary-tool,
+or arbitrary-network authority. Live action and live financial action flags
+remain disabled.
+
+This is documentation and checked-in configuration status only. The Railway
+model service remains a private, proposal-shaped service with no committed
+weights; the manifest still reports `artifact-not-present`. No hosted help-model
+deployment, private-service health result, authenticated help answer, safe
+abstention, or Task 7 smoke evidence is claimed here. Task 7 remains responsible
+for deployment-owned observation and recording only the evidence it actually
+collects.
+
 ## Hosted final-round completion planning — 2026-09-05
 
 The user-supplied final-round chat has been reconciled with the repository in

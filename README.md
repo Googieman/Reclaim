@@ -17,8 +17,9 @@ not qualify live merchant execution or production deployment.
 - Local PostgreSQL-backed operator flow: available.
 - Deterministic REPLAY flow: available.
 - Fresh Agent path: opt-in and advisory-only; model promotion is not approved.
-- Documentation help path: locally wired, reviewer-authenticated, advisory-only,
-  and disabled by default; the private DeepSeek candidate is not qualified or hosted.
+- Documentation help path: reviewer-authenticated and advisory-only; the hosted
+  private model path is documented but remains disabled until its deployment and
+  smoke gates are observed.
 - Live refunds, cancellations, payments, and other merchant effects: disabled.
 - Public Railway frontend: available at
   [marvelous-truth-production-5c3d.up.railway.app](https://marvelous-truth-production-5c3d.up.railway.app).
@@ -121,6 +122,32 @@ The public Railway deployment is available at:
 
 The operator UI is deployed as the public Railway web service and is connected
 to the Railway API service. Hosted live financial actions remain disabled.
+
+## Dashboard help chat
+
+The dashboard exposes a small fixed bottom-right help icon. It answers reviewed
+dashboard and RECLAIM documentation questions only. It cannot inspect cases,
+call connectors, make payments, issue refunds, cancel anything, approve actions,
+mutate business state, or use arbitrary tools or network access. The help path is
+defense-only and advisory; keep both `RECLAIM_LIVE_ACTIONS_ENABLED=false` and
+`RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED=false`.
+
+The browser sees only the public services. The private service topology is:
+
+```text
+public frontend (marvelous-truth)
+        | relative /help/chat request
+        v
+public API (Reclaim) ---> private model-gateway ---> private model-help
+                              /v1/help/complete       llama.cpp /health
+```
+
+The `model-gateway` and `model-help` Railway services have no public browser
+URL. The API is the only public backend entry point, and the gateway is the only
+supported caller of the private model service. The deployment checklist,
+manifest identity, volume, health path, and non-secret variables are in the
+[model services runbook](docs/runbooks/model-services.md). Task 7 owns observed
+hosted help-chat smoke evidence; this README does not claim that evidence.
 
 Useful commands:
 

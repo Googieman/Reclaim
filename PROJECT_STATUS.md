@@ -1558,3 +1558,29 @@ restart run was performed in this turn. T153 preserved project/volumes were not
 deleted or reset. Live qualification, production secret-manager storage, backup
 destination encryption/retention enforcement, and deployment firewall/service
 recovery evidence remain open gates.
+
+## Hosted final-round CP06 local model/agent boundary — 2026-09-05
+
+The isolated worktree now contains a provider-neutral model-gateway client and
+private FastAPI service, plus a separately authenticated advisory-agent service.
+The model gateway owns the installed profile/provider mapping; callers submit
+only a strict `ModelAnalysisRequest` and bounded tool results. Extra model,
+endpoint, API-key, and other transport fields are rejected. The agent service
+accepts only the typed request, calls the provider-neutral gateway client, keeps
+the existing fresh-agent parser and advisory-only result contract, and rejects
+the merchant-live action environment.
+
+Observed local validation:
+
+- Hosted model transport and agent-boundary tests: `6 passed`.
+- Existing fresh-agent API, safety, regression, and runtime tests with the new
+  boundary coverage: `19 passed, 8 warnings`; warnings are dependency
+  deprecations from the local Python environment.
+- Scoped Ruff, Python compilation, and `git diff --check`: passed.
+
+This is a local contract slice, not CP06 hosted lifecycle qualification. No
+provider credential, external model endpoint, real OIDC token, n8n workflow,
+approval-resume run, Action Gateway execution, terminal recovery, or hosted
+provider/model latency/usage/cost evidence was available or used. Fresh-agent
+production wiring and full lifecycle recovery remain open until those external
+dependencies and evidence are supplied.

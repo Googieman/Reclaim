@@ -20,7 +20,8 @@ not qualify live merchant execution or production deployment.
 - Documentation help path: locally wired, reviewer-authenticated, advisory-only,
   and disabled by default; the private DeepSeek candidate is not qualified or hosted.
 - Live refunds, cancellations, payments, and other merchant effects: disabled.
-- Render deployment: not yet configured or qualified in this repository.
+- Railway environment: configured, but the latest deployment is not healthy and
+  no verified public application domain is recorded in the repository metadata.
 - Release gate: currently conditional no-go until deployment-owned qualification
   and Temporal-drain evidence are complete.
 
@@ -108,13 +109,15 @@ The launcher starts the local application and supporting services, including
 PostgreSQL, Redpanda, Redis, MinIO, the event relay, n8n, the API, and the web
 operator UI. It uses the Compose project name `reclaim-demo` by default.
 
-Open:
+The verified Railway project environment is available at:
 
-- Operator UI: <http://127.0.0.1:3000>
-- Case inbox: <http://127.0.0.1:3000/cases>
-- API liveness: <http://127.0.0.1:8000/health/live>
-- API readiness: <http://127.0.0.1:8000/health/ready>
-- Canonical case: <http://127.0.0.1:3000/cases/case-canonical-demo-001>
+- [Open RECLAIM on Railway](https://railway.com/project/bb577ba0-a3c0-495d-8265-87ed9577bacc?environmentId=3fd8c49f-683a-4326-aa2c-90ffac65a70c)
+
+This is the Railway project dashboard, not a public site URL. Railway has not
+published a verified public service domain for this repository, and the latest
+deployment status is failing. Do not share a guessed `*.up.railway.app` address;
+after the deployment is healthy, copy the generated domain from Railway into this
+section.
 
 Useful commands:
 
@@ -162,7 +165,7 @@ Set a LiteLLM-compatible provider before starting the demo when needed:
 
 ```powershell
 $env:RECLAIM_SPECIALIST_MODEL = "your-model-name"
-$env:RECLAIM_SPECIALIST_API_BASE = "http://127.0.0.1:8003/v1"
+$env:RECLAIM_SPECIALIST_API_BASE = "<private-model-gateway-url>/v1"
 .\scripts\start-demo.ps1
 ```
 

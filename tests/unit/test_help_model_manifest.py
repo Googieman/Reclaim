@@ -24,4 +24,3 @@ def test_deployable_help_model_identity_matches_the_pinned_manifest() -> None:
         "quantization": "Q4_0",
     }
     assert not (ROOT / "models" / "help-deepseek" / model["filename"]).exists()
-

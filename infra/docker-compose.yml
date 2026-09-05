@@ -229,7 +229,7 @@ services:
       RECLAIM_MODE_CREDENTIAL_SCOPE: model-gateway-read-only
       RECLAIM_HELP_ENABLED: "${RECLAIM_HELP_ENABLED:-false}"
       RECLAIM_HELP_API_BASE: http://model-help:8080/v1
-      MODEL_API_KEY: "${MODEL_API_KEY:?MODEL_API_KEY is required}"
+      MODEL_API_KEY: "${MODEL_API_KEY:-}"
     networks: [app-services, observability]
     depends_on:
       model-help:
@@ -243,7 +243,7 @@ services:
     image: reclaim/fs001-model-help:${RECLAIM_IMAGE_TAG:-dev}
     restart: unless-stopped
     environment:
-      MODEL_API_KEY: "${MODEL_API_KEY:?MODEL_API_KEY is required}"
+      MODEL_API_KEY: "${MODEL_API_KEY:-}"
       MODEL_PATH: /models/deepseek-r1-distill-qwen-1.5b-q4_0.gguf
       MODEL_DIR: /models
       MODEL_MANIFEST_PATH: /etc/reclaim/help-model-manifest.json

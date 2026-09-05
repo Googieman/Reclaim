@@ -11,8 +11,7 @@ WORKDIR /opt/reclaim
 # The localhost product flow needs the authoritative PostgreSQL adapter and the
 # configured LiteLLM boundary. It still keeps all action execution in the local
 # deterministic simulator.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install \
+RUN python -m pip install \
       aiokafka==0.12.0 \
       fastapi==0.115.6 \
       langgraph==0.2.60 \

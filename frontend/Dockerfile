@@ -39,5 +39,5 @@ COPY --from=build /app/.next ./.next
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=6 \
-  CMD-SHELL wget -q -O /dev/null "http://127.0.0.1:$${PORT:-3000}/"
+  CMD ["sh", "-c", "wget -q -O /dev/null http://127.0.0.1:${PORT:-3000}/"]
 CMD ["sh", "-c", "exec npm run start -- -H 0.0.0.0 -p \"${PORT:-3000}\""]

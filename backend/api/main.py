@@ -80,11 +80,11 @@ def create_app(
     if configured.help_chat_enabled:
         if local_verifier is None:
             raise ValueError("enabled help chat requires a verified identity implementation")
-        configured_gateway = (
-            help_chat_gateway
-            if help_chat_gateway is not None
-            else _build_help_gateway(configured)
-        )
+        if help_chat_gateway is None:
+            configured_gateway = _build_help_gateway(configured)
+            application.add_event_handler("shutdown", configured_gateway.close)
+        else:
+            configured_gateway = help_chat_gateway
         from app.help_chat.retrieval import DocumentationRetriever
         from app.help_chat.service import HelpChatService
 

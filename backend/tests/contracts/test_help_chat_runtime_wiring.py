@@ -49,7 +49,9 @@ def _app_with_mock_gateway(
     def client_factory(*args: Any, **kwargs: Any) -> httpx.Client:
         client_options.update(kwargs)
         kwargs["transport"] = httpx.MockTransport(handler)
-        return original_client(*args, **kwargs)
+        client = original_client(*args, **kwargs)
+        client_options["client"] = client
+        return client
 
     monkeypatch.setattr(httpx, "Client", client_factory)
     try:
@@ -158,3 +160,17 @@ def test_injected_fake_gateway_remains_compatible() -> None:
 
     assert response.status_code == 200
     assert response.json()["model_revision"] == "fake-gateway"
+
+
+def test_internal_gateway_client_closes_on_app_shutdown(monkeypatch: Any) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, request=request)
+
+    application, client_options = _app_with_mock_gateway(monkeypatch, handler)
+    gateway_client = client_options["client"]
+    assert gateway_client.is_closed is False
+
+    with TestClient(application):
+        assert gateway_client.is_closed is False
+
+    assert gateway_client.is_closed is True

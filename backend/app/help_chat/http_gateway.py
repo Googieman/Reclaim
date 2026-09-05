@@ -74,6 +74,11 @@ class HttpHelpGateway:
         except Exception:
             raise HelpGatewayUnavailable("help gateway is unavailable") from None
 
+    def close(self) -> None:
+        """Release the owned HTTP connection pool."""
+
+        self._client.close()
+
     __call__ = complete
 
 

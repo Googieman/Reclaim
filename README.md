@@ -20,6 +20,8 @@ not qualify live merchant execution or production deployment.
 - Documentation help path: locally wired, reviewer-authenticated, advisory-only,
   and disabled by default; the private DeepSeek candidate is not qualified or hosted.
 - Live refunds, cancellations, payments, and other merchant effects: disabled.
+- Public Railway frontend: available at
+  [marvelous-truth-production-5c3d.up.railway.app](https://marvelous-truth-production-5c3d.up.railway.app).
 - Public Railway API: available at
   [reclaim-production-b5df.up.railway.app](https://reclaim-production-b5df.up.railway.app/docs).
 - Live refunds, cancellations, payments, and other merchant effects remain
@@ -113,13 +115,12 @@ operator UI. It uses the Compose project name `reclaim-demo` by default.
 
 The public Railway deployment is available at:
 
+- [Open the RECLAIM operator UI](https://marvelous-truth-production-5c3d.up.railway.app)
 - [Open the RECLAIM API documentation](https://reclaim-production-b5df.up.railway.app/docs)
-- [Check Railway readiness](https://reclaim-production-b5df.up.railway.app/health/ready)
+- [Check API readiness](https://reclaim-production-b5df.up.railway.app/health/ready)
 
-The deployed service is the FastAPI backend and its Swagger documentation. The
-operator UI is not served at the API root; use the local Compose instructions
-above for the full operator interface. Hosted live financial actions remain
-disabled.
+The operator UI is deployed as the public Railway web service and is connected
+to the Railway API service. Hosted live financial actions remain disabled.
 
 Useful commands:
 

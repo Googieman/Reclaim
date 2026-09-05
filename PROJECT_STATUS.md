@@ -8,6 +8,17 @@ Complete the hosted Razorpay final-round system through the documented completio
 plan, preserving authoritative state, advisory-only inference, isolated actions,
 and truthful simulator/Test Mode labeling. The next runtime gate remains T153.
 
+## Railway public-service smoke verification — 2026-09-05
+
+Computer Use verified the existing Railway `marvelous-truth` web service at
+`https://marvelous-truth-production-5c3d.up.railway.app`. The public Next.js
+operator UI loaded successfully and displayed its incident workspace. The
+separate `Reclaim` API service is available at
+`https://reclaim-production-b5df.up.railway.app`; its readiness endpoint
+reported `status: ready`, with live financial actions disabled. This is a
+deployment smoke observation only and does not qualify the full hosted
+final-round system or its remaining production gates.
+
 ## Hosted final-round completion planning — 2026-09-05
 
 The user-supplied final-round chat has been reconciled with the repository in

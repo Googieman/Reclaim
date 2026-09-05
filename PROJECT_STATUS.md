@@ -23,14 +23,62 @@ bootstrap identities. Root `secrets/` now contains only invalid example JSON and
 an API-key acquisition guide. Populated files in that folder are Git-ignored;
 the entire folder is excluded from Docker builds.
 
-This is planning and placeholder scaffolding only: the broker, runtime loaders,
-provisioning command and Render Blueprint are not implemented or deployed. No
-provider credentials were generated, collected or used, and no billable resource
-was provisioned. T153/T154 remain open; the current specialist remains unpromoted.
+This remains a non-deployed completion effort: the Render Blueprint and hosted
+runtime are not implemented or deployed. CP03's migration runner/role foundation
+and CP04's private broker contract, client/loader, provisioning validation and
+transport artifacts are now implemented locally, but have not been qualified
+against hosted dependencies. No provider credentials were generated, collected
+or used, and no billable resource was provisioned. T153/T154 remain open; the
+current specialist remains unpromoted.
 Historical test counts below have not been rerun as part of this planning change.
 Planning checks: all four JSON examples parse and retain `template_only: true`;
 runtime bundle/consumer references agree with the example access policy, the
 agent/BFF have no broker grants, and Git ignores populated/nested secret files.
+
+## CP01/T153 resumed qualification check — 2026-09-05
+
+The clean hosted-final-round worktree reran the CP01 static/contract gate:
+`python -m pytest tests/unit/test_t153_acceptance_contract.py
+tests/unit/test_t153_playwright_contract.py
+tests/unit/test_t153_restart_recovery_contract.py
+tests/unit/test_t153_validation_harness.py
+tests/integration/test_n8n_workflow_artifacts.py
+tests/security/test_n8n_orchestrator_identity.py -q` passed with `66 passed`.
+
+The live gate remains blocked, not passed: the host has no preserved
+`reclaim-t153-*` containers, volumes, or harness record, and no operator-owned
+n8n bootstrap/API key, Kafka credential JSON, or tenant-scoped n8n service token
+was available. The fail-closed resume command
+`pwsh -NoProfile -File scripts/validate-t153.ps1 -Run
+-ProjectName reclaim-t153-20260904i` returned exit code `1` with
+`No prepared T153 project record exists`. No project or volume was created or
+removed, and no credentials or external service were contacted. T153 remains
+unchecked; T154 remains unchecked. A prepared project and operator-provided
+bootstrap inputs are required before CP01 can produce live evidence.
+
+## CP03/CP04 local implementation gate — 2026-09-05
+
+The independent hosted foundation slice is implemented in the isolated worktree:
+
+- `db.migrate` discovers numbered SQL migrations, uses a fixed PostgreSQL
+  advisory transaction lock, records content checksums in an append-only ledger,
+  rejects modified applied migrations, and keeps `--check` read-only.
+- Migration `014_hosted_service_roles.sql` adds NOLOGIN service group roles and
+  an append-only `secret_access_events` table with insert-only broker-audit
+  access; it stores no secret payload or value.
+- `secret_broker` exposes strict request/bundle contracts, exact identity/tenant
+  and Vault-path policy, audit-before-release, bounded in-memory caching, a
+  private FastAPI endpoint, and a client/runtime loader. The provisioning CLI
+  rejects templates, sentinel values and path overrides and prints metadata only.
+- Envoy and entrypoint artifacts require mutual TLS on `8443`, keep the broker
+  application on loopback, expose only a separate boolean health listener, and
+  do not publish a Docker secret port.
+
+Focused validation: `18 passed, 3 skipped`; Ruff and Python compilation passed.
+The skips are the live migration database, live broker/mTLS endpoint, and Vault
+credential gates. No Vault write, provider call, deployment, or secret delivery
+was performed. CP04's hosted review gate remains open until actual mTLS transport,
+Vault audit/rotation/outage, and access-matrix checks pass.
 
 ## Current milestone: n8n-backed incident intake and operator inbox — 2026-09-04
 

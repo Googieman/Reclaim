@@ -1,8 +1,10 @@
 # RECLAIM secret setup
 
-These files are **examples for a planned integration**, not active credentials or
-a working secret loader. The private broker and provisioning commands still need
-implementation according to the [completion plan](../docs/superpowers/plans/2026-09-05-hosted-final-round-completion.md).
+These files are **invalid examples**, not active credentials. The private broker
+contract, runtime client/loader, and operator provisioning command are implemented
+in the CP04 slice, but they do not create Vault, Render, OIDC, or provider resources
+by themselves. Hosted qualification still requires operator-owned certificates,
+Vault policy/authentication, and real deployment inputs.
 
 ## Which file means what
 
@@ -198,7 +200,10 @@ identity/tenant. It uses them in memory or a private runtime file if required.
 Application containers never share this source folder. The agent and browser
 have no secret-reading grant. [Render secret-file mounting](https://render.com/docs/configure-environment-variables)
 
-The loader/provisioning script, access checks, rotation, outage handling and
-no-public-access tests are deliverables in the plan, not implemented behavior
-of these examples. See [ADR-006](../specs/001-incident-intake-containment/decisions/ADR-006-hosted-secret-delivery.md)
-for the API and exact security boundary.
+The loader/provisioning script rejects templates, placeholders and policy path
+overrides; dry-run output contains IDs and paths only. The broker resolves only
+named policy entries, audits intent before release, returns `Cache-Control:
+no-store`, and keeps values in `SecretStr` objects until the authenticated private
+response. Live mTLS/network, Vault rotation, outage, and external canary tests
+remain deployment gates. See [ADR-006](../specs/001-incident-intake-containment/decisions/ADR-006-hosted-secret-delivery.md)
+for the exact security boundary.

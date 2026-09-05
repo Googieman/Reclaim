@@ -44,6 +44,8 @@ dev = [
 package-dir = {"" = ".", "packages" = "../packages"}
 include-package-data = false
 packages = [
+  "db",
+  "secret_broker",
   "api",
   "app",
   "app.audit",

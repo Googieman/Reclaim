@@ -102,7 +102,7 @@ PostgreSQL, Redpanda, Redis, MinIO, the event relay, n8n, the API, and the web
 operator UI. It uses the Compose project name `reclaim-demo` by default.
 
 Open:
-
+- Hosted Link: https://marvelous-truth-production-5c3d.up.railway.app/cases
 - Operator UI: <http://127.0.0.1:3000>
 - Case inbox: <http://127.0.0.1:3000/cases>
 - API liveness: <http://127.0.0.1:8000/health/live>

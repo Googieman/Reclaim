@@ -538,11 +538,14 @@ select { min-height: 31px; padding: 0 8px; color: var(--color-ink); background: 
 .selection-drawer__footer { display: flex; justify-content: flex-end; margin-top: 18px; }
 .inbox-layout:has(.intake-panel, .selection-drawer)::before { position: fixed; z-index: 50; inset: 0; background: oklch(0.11 0.02 258 / 0.34); content: ""; }
 
-.help-chat { position: relative; margin-bottom: 12px; }
+.help-chat { position: fixed; z-index: 70; inset: 0; margin: 0; pointer-events: none; }
 .help-chat__trigger { display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; width: 100%; padding: 9px 10px; color: var(--color-ink); background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); cursor: pointer; text-align: left; }
+.help-chat__trigger, .help-chat__panel { pointer-events: auto; }
 .help-chat__trigger:hover { background: var(--color-surface-3); }
 .help-chat__trigger > span:first-child { grid-row: span 2; display: grid; place-items: center; width: 20px; height: 20px; color: var(--color-reclaim-strong); border: 1px solid var(--color-reclaim); border-radius: 50%; font-family: var(--font-mono); }
 .help-chat__advisory { color: var(--color-dim); font-size: 10px; }
+.help-chat__trigger--floating { position: fixed; z-index: 70; right: 20px; bottom: 20px; display: grid; grid-template-columns: 1fr; place-items: center; width: 48px; height: 48px; padding: 0; border-radius: 50%; box-shadow: 0 8px 20px oklch(0.12 0.02 258 / 0.2); }
+.help-chat__trigger--floating > span:first-child { grid-row: auto; width: 24px; height: 24px; }
 .help-chat__panel { position: fixed; z-index: 80; right: 20px; bottom: 20px; display: grid; gap: 12px; width: min(410px, calc(100vw - 32px)); max-height: min(720px, calc(100vh - 40px)); overflow-y: auto; padding: 16px; color: var(--color-ink); background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-panel); box-shadow: 0 12px 28px oklch(0.12 0.02 258 / 0.22); }
 .help-chat__heading, .help-chat__form-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .help-chat__heading h2 { font-size: 15px; }
@@ -599,6 +602,7 @@ select { min-height: 31px; padding: 0 8px; color: var(--color-ink); background: 
   .selection-drawer, .intake-panel { width: 100%; }
   .route-surface { padding: 24px 14px 40px; }
   .route-surface__panel { padding: 16px; }
+  .help-chat__trigger--floating { right: 10px; bottom: 10px; }
   .help-chat__panel { right: 10px; bottom: 10px; width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
 }
 

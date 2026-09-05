@@ -22,6 +22,8 @@ export function HelpChatPanel({
   useEffect(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
+    // Tenant changes must clear the prior tenant's local conversation state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional tenant-scope reset
     setQuestion("");
     setLastQuestion("");
     setResult(null);
@@ -70,15 +72,14 @@ export function HelpChatPanel({
     <div className="help-chat">
       <button
         type="button"
-        className="help-chat__trigger"
+        className="help-chat__trigger help-chat__trigger--floating"
         aria-label={open ? "Close documentation help" : "Open documentation help"}
         aria-expanded={open}
         aria-controls="documentation-help"
         onClick={() => setOpen((value) => !value)}
       >
         <span aria-hidden="true">?</span>
-        <span>Documentation help</span>
-        <span className="help-chat__advisory">Advisory only</span>
+        <span className="sr-only">Documentation help</span>
       </button>
 
       {open ? (

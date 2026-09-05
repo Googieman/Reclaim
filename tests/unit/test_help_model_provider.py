@@ -7,6 +7,8 @@ import pytest
 
 from agent.providers import ModelProviderResponseError, ModelProviderUnavailable
 from model_gateway.help_provider import (
+    HELP_SYSTEM_PROMPT,
+    MAX_HELP_FULL_PROMPT_BYTES,
     MAX_HELP_PASSAGE_BYTES,
     MAX_HELP_PASSAGES_BYTES,
     HelpModelProvider,
@@ -178,6 +180,31 @@ def test_provider_rejects_oversized_aggregate_passages_before_transport() -> Non
 
     with pytest.raises(ModelProviderResponseError, match="passages") as error:
         provider.complete(_request(passages=passages))
+
+    assert calls == []
+    assert secret not in str(error.value)
+
+
+def test_provider_rejects_token_dense_full_prompt_before_transport() -> None:
+    calls: list[dict[str, Any]] = []
+    secret = "token-dense-secret-value"
+    provider = HelpModelProvider(
+        model="deepseek-test",
+        api_base="http://model-help.test/v1",
+        api_key="model-secret",
+        completion=lambda **payload: calls.append(payload),
+    )
+    system_bytes = len(HELP_SYSTEM_PROMPT.encode("utf-8"))
+    dense_characters = "界" * (
+        (MAX_HELP_FULL_PROMPT_BYTES - system_bytes) // len("界".encode("utf-8")) + 32
+    )
+    passage = "[dense] " + secret + dense_characters
+
+    assert len(passage.encode("utf-8")) < MAX_HELP_PASSAGE_BYTES
+    assert len(passage.encode("utf-8")) < MAX_HELP_PASSAGES_BYTES
+
+    with pytest.raises(ModelProviderResponseError, match="prompt") as error:
+        provider.complete(_request(passages=(passage,)))
 
     assert calls == []
     assert secret not in str(error.value)

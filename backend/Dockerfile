@@ -18,6 +18,7 @@ RUN python -m pip install \
       litellm==1.55.8 \
       minio==7.2.12 \
       PyJWT==2.10.1 \
+      prometheus-client==0.21.1 \
       pydantic==2.10.4 \
       pydantic-settings==2.7.1 \
       "psycopg[binary]==3.2.3" \

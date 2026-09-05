@@ -12,8 +12,9 @@ ARG NEXT_PUBLIC_LIVE_ACTIONS_ENABLED=false
 ARG NEXT_PUBLIC_DEMO_REVIEWER_TOKEN=demo-reviewer
 ARG NEXT_PUBLIC_DEMO_APPROVER_TOKEN=demo-approver
 ARG NEXT_PUBLIC_DEMO_ESCALATION_OWNER_TOKEN=demo-escalation-owner
+ARG RECLAIM_API_INTERNAL_BASE_URL=http://api:8000
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    RECLAIM_API_INTERNAL_BASE_URL=http://api:8000 \
+    RECLAIM_API_INTERNAL_BASE_URL=$RECLAIM_API_INTERNAL_BASE_URL \
     NEXT_PUBLIC_API_BASE_URL="" \
     NEXT_PUBLIC_TENANT_ID=$NEXT_PUBLIC_TENANT_ID \
     NEXT_PUBLIC_RUN_MODE=$NEXT_PUBLIC_RUN_MODE \
@@ -28,14 +29,15 @@ RUN npm run build
 
 FROM node:22.14.0-alpine3.21 AS runtime
 WORKDIR /app
+ARG RECLAIM_API_INTERNAL_BASE_URL=http://api:8000
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    RECLAIM_API_INTERNAL_BASE_URL=http://api:8000
+    RECLAIM_API_INTERNAL_BASE_URL=$RECLAIM_API_INTERNAL_BASE_URL
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=6 \
-  CMD wget -q -O /dev/null http://127.0.0.1:3000/
-CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
+  CMD-SHELL wget -q -O /dev/null "http://127.0.0.1:$${PORT:-3000}/"
+CMD ["sh", "-c", "exec npm run start -- -H 0.0.0.0 -p \"${PORT:-3000}\""]

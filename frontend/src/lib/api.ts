@@ -828,7 +828,7 @@ async function readErrorMessage(response: Response): Promise<string> {
     // The status class remains authoritative when the body is not JSON.
   }
   if (response.status >= 500) {
-    return "The authoritative API is unavailable. Verify that it is running on 127.0.0.1:8000 or that Docker is running.";
+    return "The authoritative API is unavailable. Verify the API service and deployment health check.";
   }
   return `Authoritative API request failed with status ${response.status}.`;
 }

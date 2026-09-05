@@ -69,6 +69,7 @@ packages = [
   "connectors.simulators",
   "attribution",
   "agent",
+  "model_gateway",
   "finance",
   "analysis",
   "replay",

@@ -46,6 +46,12 @@ def test_web_and_api_are_locally_buildable_and_health_checked() -> None:
     assert "NODE_VERSION=22.14.0" in versions
 
 
+def test_railway_api_dockerfile_avoids_unsupported_buildkit_cache_mounts() -> None:
+    api_dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "--mount=type=cache" not in api_dockerfile
+
+
 def test_default_demo_is_low_ram_same_origin_and_authoritative_fresh() -> None:
     compose = yaml.safe_load(
         (ROOT / "infra" / "docker-compose.yml").read_text(encoding="utf-8")

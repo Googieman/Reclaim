@@ -1,0 +1,1 @@
+{"variant":"inconclusive_verification","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-inconclusive-verification","expected_outcome":"escalated_unresolved","deviation":{"stage":"verification","field":"result","change":"merchant state cannot be determined"},"provenance":"deterministic-local-replay"}

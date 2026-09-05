@@ -15,9 +15,13 @@ from temporalio.worker import Worker
 from timeline.reconstruct import TimelineReconstructor
 
 from workflows.activities import (
+    AgentAnalysisActivityDependencies,
+    ContainmentActivityDependencies,
     EvidenceActivityDependencies,
     IntakeActivityDependencies,
     TimelineActivityDependencies,
+    make_agent_analysis_activities,
+    make_containment_activities,
     make_evidence_activities,
     make_intake_activities,
     make_timeline_activities,
@@ -39,6 +43,8 @@ class CaseWorkerDependencies:
     evidence_storage: EvidenceStorage
     timeline_reconstructor: TimelineReconstructor
     evidence_request_factory: Callable[[Any], tuple[Any, ...]] | None = None
+    containment_runner: Callable[[Any], Any] | None = None
+    agent_runner: Callable[[Any], Any] | None = None
 
 
 def make_case_workflow_activities(
@@ -67,13 +73,30 @@ def make_case_workflow_activities(
             authorization_context_factory=dependencies.authorization_context_factory,
         )
     )
-    return (
+    activities = [
         intake.read_authoritative_state,
         intake.start_intake,
         intake.recover_authoritative_state,
         evidence.collect_evidence,
         timeline.rebuild_timeline,
-    )
+    ]
+    if dependencies.containment_runner is not None:
+        containment = make_containment_activities(
+            ContainmentActivityDependencies(
+                authorization_context_factory=dependencies.authorization_context_factory,
+                runner=dependencies.containment_runner,
+            )
+        )
+        activities.append(containment.run_containment_activity)
+    if dependencies.agent_runner is not None:
+        agent = make_agent_analysis_activities(
+            AgentAnalysisActivityDependencies(
+                authorization_context_factory=dependencies.authorization_context_factory,
+                runner=dependencies.agent_runner,
+            )
+        )
+        activities.append(agent.analyze_case)
+    return tuple(activities)
 
 
 def create_case_worker(

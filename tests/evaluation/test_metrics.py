@@ -5,8 +5,6 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-import pytest
-
 
 def _require_symbol(module_name: str, symbol_name: str, *, task: str) -> Any:
     try:
@@ -77,10 +75,6 @@ PROVENANCE = {
 }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T108 is expected-red until T117 implements metrics and confidence intervals",
-)
 def test_metrics_report_required_safety_measures_actual_count_and_provenance() -> None:
     calculate_metrics = _require_symbol(
         "evaluation.metrics", "calculate_metrics", task="T117"

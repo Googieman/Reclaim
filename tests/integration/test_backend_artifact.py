@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 REQUIRED_MODULES = {
@@ -42,6 +41,8 @@ def _run(*args: str, cwd: Path) -> str:
 
 
 def _installed_artifact_smoke(artifact: Path, target: Path, clean_cwd: Path) -> None:
+    """Install the artifact, then import it with the test runner's runtime dependencies."""
+
     _run(
         sys.executable,
         "-m",
@@ -54,26 +55,26 @@ def _installed_artifact_smoke(artifact: Path, target: Path, clean_cwd: Path) -> 
         str(artifact),
         cwd=clean_cwd,
     )
-    smoke_code = (
-        """
+    smoke_code = f"""
 import importlib
 import pathlib
 import sys
 
 target = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(target))
-required = %r
+required = {REQUIRED_MODULES!r}
 for module_name, attribute in required.items():
     module = importlib.import_module(module_name)
     assert getattr(module, attribute)
     module_path = pathlib.Path(module.__file__).resolve()
     assert target == module_path or target in module_path.parents, module_path
 """
-        % REQUIRED_MODULES
-    )
     _run(
         sys.executable,
-        "-I",
+        # Ignore ambient environment variables, but retain the interpreter's
+        # declared runtime dependencies.  ``-I`` also disables user site-packages,
+        # making an installed Temporal SDK appear unavailable under system Python.
+        "-E",
         "-c",
         smoke_code,
         str(target),
@@ -122,7 +123,8 @@ def test_clean_wheel_and_sdist_contain_production_runtime_and_import_cleanly(
             _run(
                 sys.executable,
                 "-c",
-                "from setuptools.build_meta import build_sdist; import sys; print(build_sdist(sys.argv[1]))",
+                "from setuptools.build_meta import build_sdist; import sys; "
+                "print(build_sdist(sys.argv[1]))",
                 str(sdist_dir),
                 cwd=BACKEND,
             )
@@ -147,27 +149,18 @@ def test_clean_wheel_and_sdist_contain_production_runtime_and_import_cleanly(
             "projections/",
             "packages/",
         ):
-            assert any(
-                name.startswith(package) and name.endswith(".py")
-                for name in wheel_files
-            )
-            assert any(
-                f"/{package}" in name and name.endswith(".py") for name in sdist_files
-            )
-        assert not any(
-            "tests/" in name or name.startswith("tests/") for name in wheel_files
-        )
+            assert any(name.startswith(package) and name.endswith(".py") for name in wheel_files)
+            assert any(f"/{package}" in name and name.endswith(".py") for name in sdist_files)
+        assert not any("tests/" in name or name.startswith("tests/") for name in wheel_files)
         assert not any("tests/" in name for name in sdist_files)
         assert not any(name.endswith((".env", ".key")) for name in wheel_files)
         assert not any(name.endswith((".env", ".key")) for name in sdist_files)
         assert not any("security-audits/" in name for name in sdist_files)
         assert not any(
-            "__pycache__/" in name or name.endswith((".pyc", ".pyo"))
-            for name in wheel_files
+            "__pycache__/" in name or name.endswith((".pyc", ".pyo")) for name in wheel_files
         )
         assert not any(
-            "__pycache__/" in name or name.endswith((".pyc", ".pyo"))
-            for name in sdist_files
+            "__pycache__/" in name or name.endswith((".pyc", ".pyo")) for name in sdist_files
         )
 
         _installed_artifact_smoke(wheel, wheel_target, clean_cwd)

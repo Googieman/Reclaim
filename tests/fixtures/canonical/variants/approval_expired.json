@@ -1,0 +1,1 @@
+{"variant":"approval_expired","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-approval-expired","expected_outcome":"expired","deviation":{"stage":"approval","field":"status","change":"approval is past its expiry"},"provenance":"deterministic-local-replay"}

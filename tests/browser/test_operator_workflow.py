@@ -1,16 +1,13 @@
 """T110 operator workflow acceptance boundary.
 
 The browser-visible route and typed read-model/API seams are owned by T122-T124.
-This source-level acceptance contract stays importable until the frontend and
-mode-selection implementation exist; it never edits underlying records.
+This source-level acceptance contract verifies the operator workflow without
+editing underlying records.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 UI_FILES = (
@@ -56,10 +53,6 @@ REQUIRED_REVIEW_TERMS = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T110 is expected-red until T122/T123/T124 implement the operator workflow",
-)
 def test_operator_workflow_exposes_review_trace_without_record_mutation() -> None:
     missing_files = [
         str(path.relative_to(REPOSITORY_ROOT)) for path in UI_FILES if not path.exists()

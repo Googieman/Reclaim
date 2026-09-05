@@ -334,23 +334,23 @@ focused closure review.
 
 ### Replay and benchmark/evaluation harness
 
-- [ ] T111 [US4] Implement the labeled live/replay runner in `backend/replay/runner.py` and `backend/api/replay.py` using the same connector/action contracts and versioned policy/model inputs.
-- [ ] T112 [US4] Create the canonical end-to-end mixed legitimate/attacker fixture in `tests/fixtures/canonical/incident.json`, including expected stage outcomes, evidence references, policy decisions, action outcomes, audit links, and terminal result.
-- [ ] T113 [US4] Create deterministic replay variants in `tests/fixtures/canonical/variants/` and `backend/replay/variants.py` for every required invalid, duplicate, ordering, evidence, policy, approval, forbidden, unknown-result, verification, escalation, and provider-unavailability scenario.
-- [ ] T114 [US4] Define benchmark provenance, labels, class-balance fields, and corpus manifest in `evaluation/manifest.schema.json`, `evaluation/manifest.yaml`, and `evaluation/README.md`; target at least 500 cases when feasible and never fabricate or pad cases.
-- [ ] T115 [US4] Implement leakage-safe grouped entity/customer and temporal split validation before synthetic overlay generation in `evaluation/splitting.py` and `evaluation/tests/test_split_order.py`.
-- [ ] T116 [US4] Implement sealed held-out seed/scenario access controls in `evaluation/sealed_store.py`, `evaluation/held_out_policy.py`, and `evaluation/tests/test_holdout_sealing.py`; prompts, tuning, and model selection cannot read held-out inputs.
-- [ ] T117 [US4] Implement the benchmark/evaluation harness in `evaluation/runner.py`, `evaluation/metrics.py`, `evaluation/confidence_intervals.py`, and `evaluation/report.py`; target at least 150 labeled incidents with 60/20/20 split metadata, target at least 100 held-out cases and preferably 150 or more, enforce at least 25% no-compromise/false-alert cases and mixed legitimate/malicious activity in at least 30% of compromised cases, and report shortfalls/statistical limitations honestly.
-- [ ] T118 [US4] Implement measured-baseline capture and classification in `evaluation/performance.py` and `docs/validation/performance-baseline.md` for actual p50/p95 latency, throughput, recovery time, and failure rates; compare provisional p95 intake <=2 seconds and replay <=5 minutes targets without calling them release SLOs.
-- [ ] T119 [US4] Integrate redacted model traces, evaluation metadata, dashboards, logs, and trace correlation in `backend/observability/evaluation.py`, `infra/observability/grafana/dashboards/fs001.json`, `infra/langfuse/config.yaml`, and `infra/mlflow/config.yaml`.
+- [X] T111 [US4] Implement the labeled live/replay runner in `backend/replay/runner.py` and `backend/api/replay.py` using the same connector/action contracts and versioned policy/model inputs.
+- [X] T112 [US4] Create the canonical end-to-end mixed legitimate/attacker fixture in `tests/fixtures/canonical/incident.json`, including expected stage outcomes, evidence references, policy decisions, action outcomes, audit links, and terminal result.
+- [X] T113 [US4] Create deterministic replay variants in `tests/fixtures/canonical/variants/` and `backend/replay/variants.py` for every required invalid, duplicate, ordering, evidence, policy, approval, forbidden, unknown-result, verification, escalation, and provider-unavailability scenario.
+- [X] T114 [US4] Define benchmark provenance, labels, class-balance fields, and corpus manifest in `evaluation/manifest.schema.json`, `evaluation/manifest.yaml`, and `evaluation/README.md`; target at least 500 cases when feasible and never fabricate or pad cases.
+- [X] T115 [US4] Implement leakage-safe grouped entity/customer and temporal split validation before synthetic overlay generation in `evaluation/splitting.py` and `evaluation/tests/test_split_order.py`.
+- [X] T116 [US4] Implement sealed held-out seed/scenario access controls in `evaluation/sealed_store.py`, `evaluation/held_out_policy.py`, and `evaluation/tests/test_holdout_sealing.py`; prompts, tuning, and model selection cannot read held-out inputs.
+- [X] T117 [US4] Implement the benchmark/evaluation harness in `evaluation/runner.py`, `evaluation/metrics.py`, `evaluation/confidence_intervals.py`, and `evaluation/report.py`; target at least 150 labeled incidents with 60/20/20 split metadata, target at least 100 held-out cases and preferably 150 or more, enforce at least 25% no-compromise/false-alert cases and mixed legitimate/malicious activity in at least 30% of compromised cases, and report shortfalls/statistical limitations honestly.
+- [X] T118 [US4] Implement measured-baseline capture and classification in `evaluation/performance.py` and `docs/validation/performance-baseline.md` for actual p50/p95 latency, throughput, recovery time, and failure rates; compare provisional p95 intake <=2 seconds and replay <=5 minutes targets without calling them release SLOs.
+- [X] T119 [US4] Integrate redacted model traces, evaluation metadata, dashboards, logs, and trace correlation in `backend/observability/evaluation.py`, `infra/observability/grafana/dashboards/fs001.json`, `infra/langfuse/config.yaml`, and `infra/mlflow/config.yaml`.
 
 ### Docker Compose, CI, and operator UI
 
-- [ ] T120 [US4] Define the authoritative Docker Compose topology in `infra/docker-compose.yml`, `infra/docker-compose.test.yml`, and `infra/networks.yml` for web, API, workflow worker, model gateway, attribution, evidence connectors, Action Gateway, PostgreSQL, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault, OpenTelemetry, Prometheus, Grafana, Loki, Langfuse, and MLflow; expose only UI/API ingress and keep live financial actions disabled.
-- [ ] T121 [US4] Implement GitHub Actions validation in `.github/workflows/ci.yml`, `.github/workflows/security.yml`, and `.github/workflows/evaluation.yml` for lint, type checks, unit/property/contract/integration/security/acceptance tests, Compose smoke, migration checks, sealed-evaluation controls, and artifact provenance.
-- [ ] T122 [US4] Implement the Next.js operator case-review workflow in `frontend/src/app/cases/[caseId]/page.tsx`, `frontend/src/components/case/CaseTimeline.tsx`, `frontend/src/components/case/ExposureSummary.tsx`, and `frontend/src/components/case/ActionDecisionPanel.tsx`; show tenant, provenance, uncertainty, policy result, approval state, remaining exposure, terminal outcome, and next human decision.
-- [ ] T123 [US4] Implement typed intake, approval, escalation, replay, audit, and evaluation UI commands/read models in `frontend/src/lib/api.ts`, `frontend/src/components/case/ApprovalPanel.tsx`, `frontend/src/components/case/EscalationPanel.tsx`, `frontend/src/components/replay/ReplayPanel.tsx`, and `frontend/src/components/audit/AuditTrace.tsx`; UI cannot write underlying records or bypass APIs.
-- [ ] T124 [US4] Implement live/replay availability detection and honest labeling in `backend/replay/mode_selection.py`, `backend/api/demo.py`, and `frontend/src/components/replay/ModeBadge.tsx`; provider/connector unavailability must select replay or escalation and never fabricate live results.
+- [X] T120 [US4] Define the authoritative Docker Compose topology in `infra/docker-compose.yml`, `infra/docker-compose.test.yml`, and `infra/networks.yml` for web, API, workflow worker, model gateway, attribution, evidence connectors, Action Gateway, PostgreSQL, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault, OpenTelemetry, Prometheus, Grafana, Loki, Langfuse, and MLflow; expose only UI/API ingress and keep live financial actions disabled.
+- [X] T121 [US4] Implement GitHub Actions validation in `.github/workflows/ci.yml`, `.github/workflows/security.yml`, and `.github/workflows/evaluation.yml` for lint, type checks, unit/property/contract/integration/security/acceptance tests, Compose smoke, migration checks, sealed-evaluation controls, and artifact provenance.
+- [X] T122 [US4] Implement the Next.js operator case-review workflow in `frontend/src/app/cases/[caseId]/page.tsx`, `frontend/src/components/case/CaseTimeline.tsx`, `frontend/src/components/case/ExposureSummary.tsx`, and `frontend/src/components/case/ActionDecisionPanel.tsx`; show tenant, provenance, uncertainty, policy result, approval state, remaining exposure, terminal outcome, and next human decision.
+- [X] T123 [US4] Implement typed intake, approval, escalation, replay, audit, and evaluation UI commands/read models in `frontend/src/lib/api.ts`, `frontend/src/components/case/ApprovalPanel.tsx`, `frontend/src/components/case/EscalationPanel.tsx`, `frontend/src/components/replay/ReplayPanel.tsx`, and `frontend/src/components/audit/AuditTrace.tsx`; UI cannot write underlying records or bypass APIs.
+- [X] T124 [US4] Implement live/replay availability detection and honest labeling in `backend/replay/mode_selection.py`, `backend/api/demo.py`, and `frontend/src/components/replay/ModeBadge.tsx`; provider/connector unavailability must select replay or escalation and never fabricate live results.
 - [X] T125 [US4] Execute the quickstart validation flow in `tests/acceptance/test_quickstart_flow.py` and record only actual evidence in `docs/validation/fs001-quickstart.md`, covering Compose health, canonical flow, variants, projection rebuild, evaluation metadata, dashboards, and reviewer traceability.
 
 **Checkpoint**: US4 demonstrates the complete feature in live/replay mode with reproducible artifacts, honest metrics, complete operator views, and the full approved topology.
@@ -361,14 +361,14 @@ focused closure review.
 
 **Purpose**: Close the feature with explicit fault/chaos, security, observability, performance, documentation, and release-readiness checks. These tasks do not replace slice-specific tests.
 
-- [ ] T126 [P] Add fault/chaos scenarios and recovery assertions in `tests/chaos/test_fault_matrix.py` for PostgreSQL, Temporal worker, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault, model provider, evidence connector, Action Gateway timeout, and verification ambiguity.
-- [ ] T127 [P] Run the cross-tenant, least-privilege, untrusted-evidence, PII, approval self-dealing, audit-tampering, arbitrary-network, and forbidden-action hardening suite in `tests/security/test_fs001_hardening.py`.
-- [ ] T128 [P] Verify service credential and network egress policies in `infra/security/network-policies.yml`, `infra/security/service-accounts.yml`, `infra/security/credential-audit.yml`, and `tests/security/test_credential_network_boundaries.py`; agent/model identities must have no action credentials.
-- [ ] T129 [P] Run the documented simulator intake/replay performance baseline in `tests/performance/test_fs001_baseline.py` and update `docs/validation/performance-baseline.md` with environment, p50/p95, throughput, recovery time, failure rates, and limitations.
-- [ ] T130 Run the full mixed legitimate/attacker end-to-end acceptance suite in `tests/acceptance/test_fs001_complete_flow.py`; require 100% explicit stage outcomes, zero forbidden executions, no duplicate non-idempotent effects, valid approvals, verified/escalated terminal state, and traceable audit.
-- [ ] T131 Update implementation traceability and operator documentation in `docs/architecture/fs001-traceability.md`, `docs/operator/reviewer-workflow.md`, and `docs/operator/replay-and-escalation.md` with links to actual tests and measured artifacts only.
-- [ ] T132 Reconcile the milestone status from actual artifacts and checks in `PROJECT_STATUS.md`; record tasks complete, implementation status, test/evaluation status, and any environment shortfalls without inventing metrics or completion percentages.
-- [ ] T133 Run final diff/checklist validation in `scripts/validate_fs001_artifacts.ps1`, including contract version consistency, migration coverage, task-to-FR traceability, no generic `closed` state, live-action-disabled defaults, no unsealed holdout access, and clean formatting.
+- [X] T126 [P] Add fault/chaos scenarios and recovery assertions in `tests/chaos/test_fault_matrix.py` for PostgreSQL, Temporal worker, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault, model provider, evidence connector, Action Gateway timeout, and verification ambiguity.
+- [X] T127 [P] Run the cross-tenant, least-privilege, untrusted-evidence, PII, approval self-dealing, audit-tampering, arbitrary-network, and forbidden-action hardening suite in `tests/security/test_fs001_hardening.py`.
+- [X] T128 [P] Verify service credential and network egress policies in `infra/security/network-policies.yml`, `infra/security/service-accounts.yml`, `infra/security/credential-audit.yml`, and `tests/security/test_credential_network_boundaries.py`; agent/model identities must have no action credentials.
+- [X] T129 [P] Run the documented simulator intake/replay performance baseline in `tests/performance/test_fs001_baseline.py` and update `docs/validation/performance-baseline.md` with environment, p50/p95, throughput, recovery time, failure rates, and limitations.
+- [X] T130 Run the full mixed legitimate/attacker end-to-end acceptance suite in `tests/acceptance/test_fs001_complete_flow.py`; require 100% explicit stage outcomes, zero forbidden executions, no duplicate non-idempotent effects, valid approvals, verified/escalated terminal state, and traceable audit.
+- [X] T131 Update implementation traceability and operator documentation in `docs/architecture/fs001-traceability.md`, `docs/operator/reviewer-workflow.md`, and `docs/operator/replay-and-escalation.md` with links to actual tests and measured artifacts only.
+- [X] T132 Reconcile the milestone status from actual artifacts and checks in `PROJECT_STATUS.md`; record tasks complete, implementation status, test/evaluation status, and any environment shortfalls without inventing metrics or completion percentages.
+- [X] T133 Run final diff/checklist validation in `scripts/validate_fs001_artifacts.ps1`, including contract version consistency, migration coverage, task-to-FR traceability, no generic `closed` state, live-action-disabled defaults, no unsealed holdout access, and clean formatting.
 
 ---
 
@@ -403,16 +403,24 @@ The task IDs below explicitly cover every functional requirement in `spec.md`; t
 | FR-023 | T034, T063, T064, T073, T076, T127, T128, T130 | `spec.md`; ADR-002; constitution I/II |
 | FR-024 | T021, T053, T069, T076, T091, T099, T102, T122–T123 | `spec.md`; `data-model.md`; quickstart.md |
 | FR-025 | T104, T107, T108, T114–T118 | `spec.md`; `contracts/audit-replay.md`; ADR-003 |
+| FR-026 | T143, T145, T150 | `spec.md`; `packages/contracts/intake.py`; ADR-004 |
+| FR-027 | T144–T145, T152–T153 | `spec.md`; `quickstart.md`; ADR-004 |
+| FR-028 | T146–T147, T150, T152 | `spec.md`; `packages/contracts/case_inbox.py` |
+| FR-029 | T148–T149, T152–T153 | `spec.md`; ADR-004; `infra/n8n/README.md` |
+| FR-030 | T143–T147, T152 | `spec.md`; `packages/contracts/orchestration.py`; ADR-004 |
+| FR-031 | T148, T152–T154 | `spec.md`; ADR-004; n8n recovery workflow |
+| FR-032 | T150–T153 | `spec.md`; `quickstart.md`; DESIGN.md |
 
 ## Safety-critical acceptance criteria
 
-- PostgreSQL remains authoritative for business, policy, approval, action, verification, escalation, audit, replay, and evaluation state; Temporal recovery never substitutes workflow history for business truth (T018–T025, T100, T130).
+- PostgreSQL remains authoritative for business, policy, approval, action, verification, escalation, audit, replay, evaluation, and orchestration-run state; n8n recovery never substitutes execution history for business truth, and Temporal receives no new incidents (T018–T025, T100, T142–T154).
 - No forbidden action is executed; every forbidden attempt is rejected/quarantined and audited; the model has no side-effect credentials or unrestricted tools (T034, T063–T064, T073, T076, T127–T128, T130).
 - Refunds require captured payment, positive unreimbursed amount, explicit currency, and the original payment source; live financial execution remains disabled by default (T061, T068, T083–T084, T094).
 - Approval-required cancellation, refund, and identity restoration cannot execute without a valid non-self approval under the applicable immutable policy version (T080–T091, T099–T101).
 - Unknown remote results reconcile before retry, duplicate idempotency keys do not issue duplicate non-idempotent requests, and inconclusive verification escalates (T082–T087, T095–T102, T126).
 - Terminal outcomes are only `verified_contained`, `verified_failed`, or `escalated_unresolved`; generic `closed` is forbidden (T086, T098, T102, T130, T133).
 - Replay is labeled, uses the same versioned contracts, and cannot be represented as live production fraud performance; evaluation reports provenance, actual counts, confidence intervals, and shortfalls (T104–T119, T124–T125).
+- n8n has only tenant-scoped API/Kafka/queue credentials, no direct RECLAIM database/object/model/approval/Action Gateway credentials, and all workflow failure outcomes are explicit `requires_attention` records (T144, T148–T154).
 
 ## Dependencies and execution order
 
@@ -425,6 +433,7 @@ The task IDs below explicitly cover every functional requirement in `spec.md`; t
 5. **Phase 5 US3** depends on Phase 4's validated proposals and Phase 2's policy/audit foundations; it produces verified/escalated terminal outcomes.
 6. **Phase 6 US4** depends on the complete US1–US3 flow and produces replay/evaluation/demo/UI evidence.
 7. **Phase 7 Polish** depends on the slices selected for delivery and must pass before FS-001 implementation is declared release-ready.
+8. **Phase 9 n8n amendment** depends on the existing FS-001 contracts and persistence layer; T153 fresh-volume/recovery evidence is required before release-readiness, and T154 gates Temporal removal.
 
 ### Within-slice ordering
 
@@ -462,3 +471,41 @@ Add Phase 6 for canonical replay, deterministic variants, honest evaluation, obs
 ## Implementation handoff
 
 Implementation must start with T001 and proceed through the dependency structure above. No task in this file authorizes production financial execution, attacker interaction, arbitrary network access, credential probing, direct model side effects, or replacing the approved architecture.
+
+---
+
+## Phase 8: Convergence
+
+**Purpose**: Close the observed gap between the validated library/test seams and a runnable, source-built, safely deployable REPLAY operator product. This phase does not authorize live financial execution or weaken tenant, approval, Action Gateway, verification, or audit boundaries.
+
+- [X] T134 [P] Add runtime contract and acceptance tests for an assembled FastAPI application with liveness/readiness, server-qualified mode, canonical replay, and tenant/case-scoped operator read-model routes per FR-024 and SC-008.
+- [X] T135 [P] Add deployment tests that require pinned local Docker builds for the web and API, browser-reachable same-origin API routing, safe REPLAY defaults, application health checks, and a low-RAM demo topology per plan: Docker Compose target and T120.
+- [X] T136 Make every deterministic replay variant update its nested stage data, stage outcome, terminal state, differences, provenance, and checksum coherently while retaining zero remote side effects per FR-021 and SC-007.
+- [X] T137 Implement the assembled FastAPI runtime, replay-backed operator read-model adapter, liveness/readiness endpoints, and fail-closed demo configuration in `backend/api/main.py`, `backend/api/operator_view.py`, and supporting runtime modules per FR-024, SC-007, and SC-008.
+- [X] T138 Implement browser-safe same-origin API routing, canonical demo navigation, and explicit read-only gating for approval/escalation controls in REPLAY in `frontend/next.config.mjs`, `frontend/src/app/`, and `frontend/src/components/` per FR-022, FR-023, and T123.
+- [X] T139 Add pinned source-build Dockerfiles, safe demo/full Compose profiles, application health checks, and PowerShell start/stop/status helpers without enabling live actions per plan: Docker Compose target and SC-007.
+- [X] T140 Extend CI and acceptance coverage to build the images and smoke a fresh source-built API/UI/Compose deployment, including fresh migrations and non-owner RLS where configured, per T109, T121, and SC-007.
+- [X] T141 Run focused and full validation, then update `README.md`, operator quickstart/troubleshooting/shutdown documentation, traceability, and `PROJECT_STATUS.md` with only observed deployment evidence and explicit production qualifications per quickstart and SC-008.
+
+---
+
+## Phase 9: n8n orchestration, structured intake, and Case Inbox amendment
+
+**Purpose**: Apply the constitution v2.0.0 orchestration amendment as a complete
+vertical slice. New incidents use n8n through typed RECLAIM APIs; PostgreSQL remains
+business authority; Temporal is drain-only until its explicit removal gate passes.
+
+- [X] T142 Record the n8n ownership amendment in `.specify/memory/constitution.md`, `AGENTS.md`, ADR-001, ADR-004, `docs/architecture/fs001-boundaries.md`, and the feature plan/spec.
+- [X] T143 Extend typed intake contracts and deterministic minor-unit conversion in `packages/contracts/intake.py`, `packages/contracts/money.py`, and `packages/contracts/case_inbox.py`; reject incomplete required fields and amount/currency mismatches.
+- [X] T144 Add typed incident columns, authoritative orchestration runs/stage attempts, forced tenant RLS, and the isolated n8n role/schema in `backend/db/migrations/013_incident_intake_n8n.sql` and `infra/postgres/900-n8n-role.sql`.
+- [X] T145 Wire immutable MinIO capture, metadata-only `incident.accepted` events, request-size enforcement, and initial evidence-linked intake timeline creation through `backend/app/intake/service.py` and `backend/api/main.py`.
+- [X] T146 Implement cursor-paginated, identifier-only Case Inbox reads and the allowlisted orchestration application services/repositories in `backend/app/cases/`, `backend/app/orchestration/`, and `backend/app/db/repositories/`.
+- [X] T147 Expose the authenticated Case Inbox, start/claim/normalize/stage/recovery orchestration APIs, and service-identity role boundary in `backend/api/case_inbox.py`, `backend/api/orchestration.py`, and `backend/app/auth/`.
+- [X] T148 Add versioned n8n Kafka Trigger handoff/recovery workflows, idempotent workflow/Kafka credential bootstrap, and API-only service credentials in `infra/n8n/`.
+- [X] T149 Update Compose, versions, security matrices, and start/status/stop helpers for Redpanda, MinIO, Redis, n8n main/worker, and the legacy Temporal drain profile.
+- [X] T150 Make `/cases` the default route with responsive accessible intake, identifier search, filters, cursor pagination, bounded queued/running polling, post-submit highlight/announce, and links to the existing case view.
+- [X] T151 Extend the existing case view with typed reported-incident metadata, merchant display name from the tenant record, and orchestration/failure status without raw narrative or hardcoded severity.
+- [X] T152 Add contract, unit, integration/static workflow, and security tests for typed intake, money conversion, cursor ordering, duplicate delivery, n8n credential/network limits, failure recovery, and raw-content absence.
+- [ ] T153 Run fresh-volume PostgreSQL/MinIO/Redpanda/Redis/n8n acceptance, duplicate-delivery, worker/API/Redis restart-recovery, and browser tests; record only observed evidence.
+- [ ] T154 Keep Temporal removal gated on empty run inventory, parity, recovery, and fresh-volume evidence; remove SDK/workflow services only in a later explicit cleanup decision.
+- [X] T155 Update traceability, quickstart, security boundaries, artifact validation, and `PROJECT_STATUS.md` with amended architecture and actual environment qualifications.

@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import pytest
 
 from analysis.proposal_validator import AuthoritativeResource, canonical_action_identity
 from finance.exposure import FinancialExposure
@@ -181,13 +180,6 @@ def _prepared_case() -> PreparedContainmentCase:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Expected-red T087: canonical US3 path is prepared; missing production seams are "
-        "owned by T088-T100 and listed in the assertion"
-    ),
-)
 def test_canonical_us3_safe_containment_flow() -> None:
     case = _prepared_case()
     duplicate = _proposal(

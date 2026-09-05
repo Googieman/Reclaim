@@ -1,0 +1,31 @@
+{
+  "status": "observed_started_and_stopped",
+  "command": "training/.venv/Scripts/soup.exe serve --model training/reclaim/artifacts/reclaim-specialist --base HuggingFaceTB/SmolLM2-135M-Instruct --host 127.0.0.1 --port 8003 --device cpu --max-tokens 256",
+  "soup_version": "0.73.3",
+  "endpoint": "http://127.0.0.1:8003",
+  "host_binding": "loopback_only",
+  "model": "reclaim-specialist",
+  "device": "cpu",
+  "health_probe": {"status": "ok", "model": "reclaim-specialist", "device": "cpu"},
+  "models_probe": "reclaim-specialist",
+  "completion_probe": {
+    "status": "served",
+    "response_schema_validation": "failed",
+    "reason": "The one-case 135M adapter returned truncated/duplicated JSON-like text under a 64-token generation cap; it is not promoted as a RECLAIM specialist."
+  },
+  "reclaim_api_probe": {
+    "status_code": 200,
+    "execution_mode": "fresh_agent",
+    "provider_mode": "live",
+    "run_status": "failed",
+    "fresh_execution_observed": true,
+    "reason": "The real local provider call completed, then the existing bounded runtime rejected the non-JSON model output."
+  },
+  "integration": "The RECLAIM profile uses the existing LiteLLM adapter with an OpenAI-compatible transport model prefix and must still pass the strict parser before a run is completed.",
+  "remote_side_effects": [],
+  "limitations": [
+    "The server was stopped after loopback health/models/completion probes.",
+    "No public interface was exposed; Soup's code-exec endpoints were not enabled beyond its local default surface.",
+    "A strict RECLAIM response was not observed from this tiny one-case adapter."
+  ]
+}

@@ -1,0 +1,17 @@
+# Compose network fragment.  Keep this file aligned with docker-compose.yml so
+# topology inspection and deployment wiring can use the same named boundaries.
+networks:
+  public-ingress:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-public-ingress
+  app-services:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-app-services
+    internal: true
+  data-services:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-data-services
+    internal: true
+  action-boundary:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-action-boundary
+    internal: true
+  observability:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-observability
+    internal: true

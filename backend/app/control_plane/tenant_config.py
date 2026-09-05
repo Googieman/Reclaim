@@ -24,8 +24,8 @@ class TenantConfiguration:
             raise ValueError("tenant configuration requires tenant and policy version")
         if self.max_model_budget_tokens < 1 or self.max_model_budget_tokens > 100_000:
             raise ValueError("model budget exceeds central safety bound")
-        if self.live_financial_actions_enabled and not self.live_actions_enabled:
-            raise ValueError("financial actions cannot be enabled while live actions are disabled")
+        if self.live_actions_enabled or self.live_financial_actions_enabled:
+            raise ValueError("live actions are not qualified and must remain disabled")
 
 
 class TenantConfigurationBoundary:

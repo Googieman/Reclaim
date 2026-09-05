@@ -1,12 +1,16 @@
 <!--
 Sync Impact Report
 ==================
-Version change: placeholder constitution -> 1.0.0
-Modified principles: all placeholder principles replaced with RECLAIM governance
+Version change: 1.0.0 -> 2.0.0
+Modified principles: IV and architecture constraints now make n8n the durable
+project-wide orchestrator and explicitly bound its access to RECLAIM APIs.
 principles I-X.
 Added sections: Additional Constraints; Development Workflow.
 Removed sections: none; placeholder content was replaced because it contained no
 project-specific policy.
+Migration impact: Temporal remains available only as a legacy drain profile while
+existing runs finish; new incidents are routed to n8n. The application services
+behind the old activities are reused through allowlisted APIs.
 Follow-up TODOs: Staff Review and Project Status extensions are cataloged but not
 installed; their commands remain unavailable until explicitly installed.
 -->
@@ -41,13 +45,16 @@ computed by trusted application code rather than accepted from model prose. Refu
 reference an existing captured payment, MUST be bounded by the unreimbursed amount, and
 MUST return funds only to the original payment source.
 
-### IV. Authoritative State and Durable Workflows
+### IV. Authoritative State and Durable Orchestration
 
 PostgreSQL MUST remain the authoritative source for business state, policy decisions,
-approvals, action executions, and audit records. Temporal MUST own durable workflow
-orchestration, retries, signals, timers, and recovery across process restarts. Redis MAY
-provide bounded caching, locks, rate limiting, and coordination, but MUST never be the
-sole source of correctness or financial state.
+approvals, action executions, and audit records. n8n MUST own project-wide durable
+orchestration, retries, recovery, and execution history for new work. n8n MUST interact
+with RECLAIM through versioned, allowlisted, idempotent APIs and MUST NOT access
+PostgreSQL, MinIO, model-provider, approval, or Action Gateway credentials directly.
+Temporal is a legacy drain path only and MUST NOT receive new incidents. Redis MAY
+provide n8n queue coordination and bounded caching, locks, or rate limiting, but MUST
+never be the sole source of correctness or financial state.
 
 ### V. Event and Projection Ownership
 
@@ -106,15 +113,16 @@ NOT be introduced silently.
 
 ## Additional Constraints
 
-- The selected initial architecture is Next.js/TypeScript, FastAPI/Pydantic, Temporal
-  Python SDK, LangGraph, LiteLLM, LightGBM, PostgreSQL, Redis, Redpanda, Neo4j, MinIO,
+- The selected initial architecture is Next.js/TypeScript, FastAPI/Pydantic, n8n,
+  LangGraph, LiteLLM, LightGBM, PostgreSQL, Redis, Redpanda, Neo4j, MinIO,
   Keycloak/OIDC, Vault, OpenTelemetry, Prometheus/Grafana/Loki, Langfuse, MLflow,
   Docker Compose, and GitHub Actions.
 - Docker Compose is the authoritative initial deployment. Kubernetes and KServe-compatible
   artifacts are scale-out paths and MUST preserve the same contracts and safety gates.
 - The initial system MUST support a tenant-ready schema with one demo merchant. It MUST
   provide live model execution with deterministic replay when provider availability or
-  network conditions prevent a live run.
+  network conditions prevent a live run; n8n failures MUST surface requires_attention
+  and MUST NOT silently substitute replay.
 - Automated actions are limited to the explicitly allowlisted defensive operations. Live
   financial execution is disabled by default and requires separately configured policy,
   credentials, approvals, and verification.
@@ -142,4 +150,4 @@ clarification increments the patch version. Compliance MUST be reviewed during p
 task analysis, implementation, convergence, and staff review. No implementation task may
 override this constitution without a separately approved amendment.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-30 | **Last Amended**: 2026-08-30
+**Version**: 2.0.0 | **Ratified**: 2026-08-30 | **Last Amended**: 2026-09-03

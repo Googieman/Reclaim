@@ -1,0 +1,22 @@
+version: "1.0.0"
+# Applied by the production broker operator with rpk after TLS/SASL is enabled.
+# The file contains principal names and permissions only; no credentials.
+principals:
+  - name: reclaim-event-relay
+    operations: [write]
+    topics: [reclaim.domain.v1]
+  - name: reclaim-n8n-orchestrator
+    operations: [read]
+    topics: [reclaim.domain.v1]
+  - name: reclaim-timeline-consumer
+    operations: [read]
+    topics: [reclaim.domain.v1]
+  - name: reclaim-neo4j-projection
+    operations: [read]
+    topics: [reclaim.domain.v1]
+  - name: reclaim-domain-dlq-writer
+    operations: [write]
+    topics: [reclaim.domain.dlq.v1]
+  - name: reclaim-domain-dlq-reader
+    operations: [read]
+    topics: [reclaim.domain.dlq.v1]

@@ -1,0 +1,1 @@
+{"variant":"policy_denial","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-policy-denial","expected_outcome":"denied","deviation":{"stage":"policy","field":"result","change":"policy denies proposed operation"},"provenance":"deterministic-local-replay"}

@@ -1,0 +1,34 @@
+# RECLAIM production backup policy. Values are operational objectives, not proof
+# of a completed live backup or restore rehearsal.
+version: backup-policy-v1.0.0
+authority: postgresql
+rpo_minutes: 15
+rto_minutes: 60
+schedule:
+  postgresql: every-15-minutes-or-after-authoritative-migration
+  minio: continuous-versioned-replication-or-daily-snapshot
+retention:
+  days: 35
+  destination: encrypted-operator-managed-object-store
+postgresql:
+  format: custom
+  compression: zstd
+  integrity: sha256-manifest-and-pg_restore-check
+  include_roles: false
+  include_credentials: false
+minio:
+  immutable_source_required: true
+  versioning_required: true
+  object_lock_required: true
+  integrity: sha256-manifest-and-object-checksum
+  preserve_metadata: true
+restore:
+  requires_isolated_target: true
+  requires_explicit_confirmation: true
+  authoritative_database_overwrite: forbidden
+  minio_target_must_be_empty: true
+  post_restore_checks:
+    - migration_version_and_schema_integrity
+    - tenant_rls_and_n8n_schema_boundary
+    - raw_object_checksum_manifest
+    - application_readiness_and_replay_smoke

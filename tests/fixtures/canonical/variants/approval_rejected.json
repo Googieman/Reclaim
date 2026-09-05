@@ -1,0 +1,1 @@
+{"variant":"approval_rejected","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-approval-rejected","expected_outcome":"rejected","deviation":{"stage":"approval","field":"status","change":"approver rejects request"},"provenance":"deterministic-local-replay"}

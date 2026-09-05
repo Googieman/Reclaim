@@ -244,10 +244,17 @@ class ImmutableEvidenceStore:
 
     def get_verified(self, *, tenant_id: str, object_name: str) -> tuple[StoredObject, bytes]:
         key = self._tenant_key(tenant_id, object_name)
-        response = self.client.get_object(self.bucket, key)
+        try:
+            response = self.client.get_object(self.bucket, key)
+        except Exception as exc:
+            raise ObjectIntegrityError("stored evidence object is unavailable") from exc
         try:
             content = response.read()
             metadata_checksum = _metadata_checksum(response)
+        except ObjectIntegrityError:
+            raise
+        except Exception as exc:
+            raise ObjectIntegrityError("stored evidence object could not be read") from exc
         finally:
             response.close()
             release = getattr(response, "release_conn", None)

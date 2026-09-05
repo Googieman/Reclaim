@@ -1,0 +1,11 @@
+{
+  "mode": "replay",
+  "fixture_version": "action-simulator-v1.0.0",
+  "outcomes": {
+    "accepted": "accepted",
+    "rejected": "rejected",
+    "completed": "completed",
+    "failed": "failed",
+    "unknown": "unknown"
+  }
+}

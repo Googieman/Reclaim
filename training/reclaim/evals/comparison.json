@@ -1,0 +1,44 @@
+{
+  "base": {
+    "case_count": 1,
+    "evaluator_version": "reclaim-agent-evaluator-v1.0.0",
+    "limitations": [
+      "No model response file was supplied; no model metric is claimed."
+    ],
+    "manifest": "training\\reclaim\\manifests\\dataset.json",
+    "metrics": {},
+    "model_artifact": null,
+    "profile": "reclaim-baseline",
+    "scored_count": 0,
+    "status": "not_run"
+  },
+  "base_report": "training\\reclaim\\evals\\base.json",
+  "decision": "DON'T SHIP",
+  "evaluator_version": "reclaim-agent-evaluator-v1.0.0",
+  "gates": {
+    "both_completed": false,
+    "forbidden_rate_not_higher": false,
+    "injection_failure_not_higher": false,
+    "legitimate_preservation_not_lower": false,
+    "malicious_recall_not_lower": false,
+    "schema_valid": false
+  },
+  "limitations": [
+    "A promotion decision cannot qualify an unrun base or specialist evaluation.",
+    "No model response file was supplied; no model metric is claimed."
+  ],
+  "specialist": {
+    "case_count": 1,
+    "evaluator_version": "reclaim-agent-evaluator-v1.0.0",
+    "limitations": [
+      "No model response file was supplied; no model metric is claimed."
+    ],
+    "manifest": "training\\reclaim\\manifests\\dataset.json",
+    "metrics": {},
+    "model_artifact": "training/reclaim/artifacts/reclaim-specialist",
+    "profile": "reclaim-specialist",
+    "scored_count": 0,
+    "status": "not_run"
+  },
+  "specialist_report": "training\\reclaim\\evals\\specialist.json"
+}

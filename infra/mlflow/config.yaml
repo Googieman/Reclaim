@@ -1,0 +1,21 @@
+# Redacted, non-authoritative evaluation metadata configuration.
+version: mlflow-config-v1.0.0
+enabled: false
+deployment: internal-only
+tracking:
+  record_model_provider_version: true
+  record_policy_fixture_corpus_versions: true
+  record_split_and_evaluation_run_identity: true
+  record_metrics_and_confidence_intervals: true
+  record_latency_tool_counts_and_cost: true
+  record_forbidden_attempts_executions: true
+  record_raw_evidence: false
+  record_held_out_payloads: false
+  record_unnecessary_pii: false
+  non_authoritative: true
+redaction:
+  implementation: backend.observability.evaluation
+  fail_closed: true
+export:
+  endpoint: http://mlflow:5000
+  credentials_from_environment: false

@@ -8,9 +8,10 @@ maintained by the RECLAIM project.
 
 - Preserve the approved production-oriented architecture and implement it through
   end-to-end vertical slices.
-- PostgreSQL is authoritative for business state; Temporal owns durable workflow
-  orchestration; Redpanda carries asynchronous events; Neo4j is a rebuildable
-  relationship projection; Redis is never a sole source of correctness.
+- PostgreSQL is authoritative for business state; n8n owns durable orchestration for
+  new work; Redpanda carries asynchronous events; Neo4j is a rebuildable relationship
+  projection; Redis is n8n queue coordination only and never a sole source of
+  correctness.
 - Record any material architectural change in an explicit decision before coding it.
 
 ## Defense-only safety

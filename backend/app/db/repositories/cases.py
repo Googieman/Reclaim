@@ -127,6 +127,87 @@ class CaseRepository(TenantScopedRepository):
             raise RuntimeError("case state transition returned no row")
         return row
 
+    def transition_terminal(
+        self,
+        *,
+        case_id: str,
+        new_state: str,
+        escalation_owner: str | None = None,
+    ) -> object:
+        """Atomically persist one of the three explicit terminal outcomes."""
+
+        if new_state not in {"verified_contained", "verified_failed", "escalated_unresolved"}:
+            raise ValueError("case terminal state is unsupported")
+        row = self.fetch_one(
+            """
+            UPDATE public.cases
+            SET current_state = %s, escalation_owner = COALESCE(%s, escalation_owner),
+                terminal_at = now(), updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+              AND current_state IN ('action_pending', 'containing')
+            RETURNING tenant_id, case_id, incident_id, current_state, escalation_owner,
+                      workflow_id, created_at, updated_at, terminal_at
+            """,
+            (new_state, escalation_owner, self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            raise ValueError("case is missing, already terminal, or not in containment")
+        return row
+
+    def mark_analyzed(self, *, case_id: str) -> object:
+        """Advance a timeline-ready case to the deterministic analysis boundary."""
+
+        row = self.fetch_one(
+            """
+            UPDATE public.cases
+            SET current_state = 'analyzed', updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+              AND current_state IN ('timeline_ready', 'analyzed')
+            RETURNING tenant_id, case_id, incident_id, current_state, escalation_owner,
+                      workflow_id, created_at, updated_at, terminal_at
+            """,
+            (self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            raise ValueError("case is not ready for analysis")
+        return row
+
+    def mark_containing(self, *, case_id: str) -> object:
+        """Enter containment only after policy/approval and gateway validation."""
+
+        row = self.fetch_one(
+            """
+            UPDATE public.cases
+            SET current_state = 'containing', updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+              AND current_state IN ('analyzed', 'action_pending', 'containing')
+            RETURNING tenant_id, case_id, incident_id, current_state, escalation_owner,
+                      workflow_id, created_at, updated_at, terminal_at
+            """,
+            (self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            raise ValueError("case is not ready for containment")
+        return row
+
+    def mark_action_pending(self, *, case_id: str) -> object:
+        """Record that an approved action is awaiting gateway submission."""
+
+        row = self.fetch_one(
+            """
+            UPDATE public.cases
+            SET current_state = 'action_pending', updated_at = now()
+            WHERE tenant_id = %s AND case_id = %s
+              AND current_state IN ('analyzed', 'action_pending')
+            RETURNING tenant_id, case_id, incident_id, current_state, escalation_owner,
+                      workflow_id, created_at, updated_at, terminal_at
+            """,
+            (self.tenant_context.tenant_id, case_id),
+        )
+        if row is None:
+            raise ValueError("case is not ready for an action")
+        return row
+
     def set_timeline_uncertainty(self, *, case_id: str, uncertainty: Sequence[str]) -> object:
         """Persist the canonical case-level uncertainty for the current timeline."""
 

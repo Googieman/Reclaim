@@ -1,0 +1,1 @@
+{"variant":"unknown_remote_result","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-unknown-remote","expected_outcome":"reconciled","deviation":{"stage":"reconciliation","field":"remote_result","change":"remote result is UNKNOWN"},"provenance":"deterministic-local-replay"}

@@ -1,0 +1,125 @@
+{
+  "trace_version": "us3-audit-trace-v1.0.0",
+  "mode": "replay",
+  "label": "replay",
+  "tenant_id": "tenant-replay-us3",
+  "case_id": "case-replay-us3-001",
+  "correlation_ids": ["corr-replay-us3-001"],
+  "fixture_provenance": "deterministic-local-replay; action execution omitted",
+  "chain": [
+    {
+      "stage": "incident",
+      "id": "incident-replay-us3-001",
+      "version": "intake-v1.0.0",
+      "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "stage": "evidence",
+      "id": "evidence-replay-us3-session-001",
+      "provider": "session-simulator-v1.0.0",
+      "mode": "replay",
+      "version": "evidence-v1.0.0",
+      "checksum": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "stage": "attribution",
+      "id": "attribution-replay-us3-001",
+      "version": "attribution-v1.0.0",
+      "checksum": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "stage": "exposure",
+      "id": "exposure-replay-us3-001",
+      "currency": "INR",
+      "remaining_exposure_minor": 30000,
+      "version": "exposure-v1.0.0",
+      "checksum": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "stage": "proposal",
+      "id": "proposal-replay-us3-001",
+      "analysis_id": "analysis-replay-us3-001",
+      "version": "proposal-v1.0.0",
+      "checksum": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "stage": "policy",
+      "id": "policy-decision-replay-us3-001",
+      "policy_version": "policy-us3-v1.0.0",
+      "version": "policy-decision-v1.0.0",
+      "checksum": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "stage": "approval",
+      "id": "approval-replay-us3-001",
+      "version": "approval-v1.0.0",
+      "checksum": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "stage": "canonical_action",
+      "id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "version": "action-identity-v1.0.0",
+      "checksum": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "stage": "execution",
+      "id": "execution-replay-us3-001",
+      "connector": "session-simulator-v1.0.0",
+      "provider_idempotency_key": "provider-replay-us3-001",
+      "result": "completed",
+      "version": "action-idempotency-v1.0.0",
+      "checksum": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "stage": "verification",
+      "id": "verification-replay-us3-001",
+      "execution_id": "execution-replay-us3-001",
+      "method": "merchant_state_read",
+      "result": "verified_success",
+      "version": "verification-v1.0.0",
+      "checksum": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "stage": "terminal",
+      "id": "case-replay-us3-001",
+      "outcome": "verified_contained",
+      "version": "case-terminal-v1.0.0",
+      "checksum": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "stage": "execution",
+      "id": "execution-replay-us3-002",
+      "connector": "session-simulator-v1.0.0",
+      "provider_idempotency_key": "provider-replay-us3-002",
+      "result": "unknown",
+      "reconciliation": "reconciled-before-retry",
+      "version": "action-idempotency-v1.0.0",
+      "checksum": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "stage": "verification",
+      "id": "verification-replay-us3-002",
+      "execution_id": "execution-replay-us3-002",
+      "method": "merchant_state_read",
+      "result": "inconclusive",
+      "version": "verification-v1.0.0",
+      "checksum": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "stage": "escalation",
+      "id": "escalation-replay-us3-002",
+      "owner": "merchant-ops-us3",
+      "currency": "INR",
+      "remaining_exposure_minor": 30000,
+      "version": "escalation-v1.0.0",
+      "checksum": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+      "stage": "terminal",
+      "id": "case-replay-us3-001",
+      "outcome": "escalated_unresolved",
+      "version": "case-terminal-v1.0.0",
+      "checksum": "abababababababababababababababababababababababababababababababab"
+    }
+  ]
+}

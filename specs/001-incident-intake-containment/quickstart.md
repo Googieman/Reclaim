@@ -1,6 +1,69 @@
 # FS-001 Validation Quickstart
 
-This guide describes the planned validation flow. It is not an implementation script and does not claim that the current repository can execute it yet.
+This guide covers the localhost n8n-backed intake and Case Inbox path as well as the
+legacy replay qualification path. Both remain simulation-only and do not authorize
+live merchant or financial actions.
+
+## Runnable n8n-backed localhost flow
+
+From PowerShell at the repository root:
+
+```powershell
+.\scripts\start-demo.ps1
+```
+
+The command builds the API and web images locally, starts PostgreSQL, Redpanda, Redis,
+MinIO, and the n8n main/worker pair, initializes the isolated n8n schema, and waits for
+the ingress services to become healthy. Open `http://127.0.0.1:3000/cases` and use
+**New incident intake**. Run `.\scripts\status-demo.ps1` for readiness and
+`.\scripts\stop-demo.ps1` to stop containers without deleting the database volume.
+
+After creating the local n8n owner and API key in the n8n UI, set `N8N_API_KEY`,
+`N8N_KAFKA_CREDENTIAL_DATA_JSON`, and `RECLAIM_N8N_SERVICE_TOKEN` from the
+current-process secret source only. Then import and activate the versioned
+workflows with:
+
+```powershell
+.\infra\n8n\bootstrap.ps1 -N8nBaseUrl http://127.0.0.1:5678 -Activate
+```
+
+The bootstrap is idempotent and fails closed when the operator key or activation
+credentials are absent; it never scrapes or invents credentials.
+
+For the isolated T153 gate, use the two phases below instead of the shared
+`reclaim-demo` project:
+
+```powershell
+.\scripts\validate-t153.ps1 -Prepare -ProjectName reclaim-t153-<unique-suffix>
+# Complete the printed n8n owner/API-key setup if requested.
+.\scripts\validate-t153.ps1 -Run -ProjectName reclaim-t153-<same-suffix>
+```
+
+The T153 harness uses only its validated project and preserves the project and
+volumes on failure. It does not modify or clean up `reclaim-demo`.
+
+Expected visible behavior:
+
+- `/cases` is the primary tenant-scoped inbox, with state and automation filters,
+  identifier-only search, cursor pagination, and no narrative search.
+- The intake panel requires source, incident type, occurred time, and narrative;
+  optional amount/currency is stored as integer minor units and marked unverified.
+- An accepted intake creates one PostgreSQL incident/case, one immutable MinIO raw
+  report, and one `incident.accepted` outbox record. Repeating the idempotency identity
+  returns the original incident and case.
+- n8n claims the event with its execution ID, calls only the RECLAIM APIs, and stops at
+  `awaiting_human`. A model/API failure becomes `requires_attention`; replay is never
+  silently substituted.
+- The new case row is highlighted and links to the existing case view, which shows
+  typed intake metadata and orchestration state. Approval and execution remain explicit
+  operator actions, and no live merchant side effects occur.
+
+## Legacy replay flow
+
+Use `docker compose --profile legacy-temporal` only to drain or inspect pre-existing
+Temporal runs. New incident intake is not routed to that profile. The replay fixture
+continues to provide the deterministic, explicitly labeled case workspace when provider
+or connector qualification is unavailable.
 
 ## Prerequisites
 
@@ -10,9 +73,9 @@ This guide describes the planned validation flow. It is not an implementation sc
 - Provider credentials only for an explicitly enabled live model run; replay must work without them.
 - The canonical fixture package and labeled evaluation metadata.
 
-## Planned validation flow
+## Production qualification flow
 
-1. Start the complete Compose topology and verify health for PostgreSQL, Temporal, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault, observability, Langfuse, and MLflow.
+1. Start the complete Compose topology and verify health for PostgreSQL, Redpanda, Redis, MinIO, n8n main/worker, Neo4j, Keycloak, Vault, observability, Langfuse, and MLflow. Start the `legacy-temporal` profile only when validating the drain path.
 2. Create or load the one demo merchant tenant, approved connector manifests, and
    trusted provider-correlation mappings from merchant order/payment context. Confirm
    live financial actions are disabled by default.
@@ -21,7 +84,7 @@ This guide describes the planned validation flow. It is not an implementation sc
    v2.0.0 provider-correlation derivation, authoritative mapping resolution,
    assertion-only case/incident IDs, unresolved/cross-tenant quarantine, duplicate
    acknowledgement, and audit records.
-5. Run evidence collection with simulator variants for partial/stale and out-of-order data. Confirm deterministic timeline output and no duplicate facts.
+5. Verify the `incident.accepted` Redpanda delivery, n8n execution claim, duplicate delivery behavior, API-only credentials, and authoritative orchestration run. Run evidence collection with simulator variants for partial/stale and out-of-order data. Confirm deterministic timeline output and no duplicate facts.
 6. Run rules/LightGBM advisory attribution and bounded provider-neutral analysis. Confirm malicious/legitimate/uncertain labels, redaction, typed proposals, and zero model side effects.
 7. Evaluate proposals against a pinned policy. Confirm reversible actions may be automatic only when permitted; cancellation/refund/identity restoration remain approval-gated and separation-of-duties is enforced.
 8. Execute a permitted reversible action through the Action Gateway. Repeat the request, force an unknown result, reconcile, and verify that no duplicate remote side effect occurs.

@@ -1,0 +1,104 @@
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    ports: !override
+      - "127.0.0.1:${RECLAIM_WEB_PORT:-13000}:3000"
+    environment:
+      NEXT_PUBLIC_RUN_MODE: live
+      NEXT_PUBLIC_REPLAY_LABEL: live
+      NEXT_PUBLIC_LIVE_ACTIONS_ENABLED: "false"
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports: !override
+      - "127.0.0.1:${RECLAIM_API_PORT:-18000}:8000"
+    environment:
+      RECLAIM_RUN_MODE: live
+      RECLAIM_REPLAY_LABEL: live
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_ACTION_ENABLED: "false"
+      RECLAIM_ORCHESTRATION_PROVIDER: n8n
+
+  event-relay:
+    profiles: [t153]
+    # The relay runs no HTTP server; disable the API image's inherited probe.
+    healthcheck:
+      disable: true
+
+  postgres:
+    ports: !override
+      - "127.0.0.1:${RECLAIM_POSTGRES_PORT:-15432}:5432"
+    networks: [t153-published]
+    volumes:
+      - ./postgres/902-t153-canonical-tenant.sql:/docker-entrypoint-initdb.d/902-t153-canonical-tenant.sql:ro
+
+  redpanda:
+    profiles: [t153]
+    networks: [t153-published]
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:${RECLAIM_REDPANDA_PORT:-19092}
+      - --advertise-kafka-addr=internal://redpanda:9092,external://127.0.0.1:${RECLAIM_REDPANDA_PORT:-19092}
+    ports: !override
+      - "127.0.0.1:${RECLAIM_REDPANDA_PORT:-19092}:${RECLAIM_REDPANDA_PORT:-19092}"
+
+  redis:
+    profiles: [t153]
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+      - --loglevel
+      - warning
+
+  minio:
+    profiles: [t153]
+    networks: [t153-published]
+    ports: !override
+      - "127.0.0.1:${RECLAIM_MINIO_PORT:-19000}:9000"
+
+  n8n-main:
+    profiles: [t153]
+    networks: [t153-published]
+    ports: !override
+      - "127.0.0.1:${RECLAIM_N8N_PORT:-15678}:5678"
+
+  n8n-worker:
+    profiles: [t153]
+
+networks:
+  public-ingress:
+    ipam:
+      config:
+        - subnet: "${RECLAIM_T153_PUBLIC_SUBNET:-10.153.0.0/24}"
+  app-services:
+    ipam:
+      config:
+        - subnet: "${RECLAIM_T153_APP_SUBNET:-10.153.1.0/24}"
+  data-services:
+    ipam:
+      config:
+        - subnet: "${RECLAIM_T153_DATA_SUBNET:-10.153.2.0/24}"
+  observability:
+    ipam:
+      config:
+        - subnet: "${RECLAIM_T153_OBSERVABILITY_SUBNET:-10.153.3.0/24}"
+  t153-published:
+    ipam:
+      config:
+        - subnet: "${RECLAIM_T153_PUBLISHED_SUBNET:-10.153.4.0/24}"

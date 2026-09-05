@@ -47,6 +47,39 @@ class AuditRecordRepository(TenantScopedRepository):
         )
         return None if row is None else str(row[0])
 
+    def list_for_tenant(self, *, tenant_id: str) -> list[object]:
+        """Read the append-only chain; this method has no mutation path."""
+
+        self.assert_tenant(tenant_id)
+        return self.fetch_all(
+            """
+            SELECT tenant_id, chain_sequence, audit_id, case_id, actor, action,
+                   input_references, output_references, evidence_references,
+                   policy_version_id, model_version, provider_version, approval_id,
+                   execution_id, correlation_ids, outcome, recorded_at,
+                   previous_record_checksum, record_checksum
+            FROM public.audit_records
+            WHERE tenant_id = %s
+            ORDER BY chain_sequence
+            """,
+            (tenant_id,),
+        )
+
+    def for_case(self, *, case_id: str) -> list[object]:
+        return self.fetch_all(
+            """
+            SELECT tenant_id, chain_sequence, audit_id, case_id, actor, action,
+                   input_references, output_references, evidence_references,
+                   policy_version_id, model_version, provider_version, approval_id,
+                   execution_id, correlation_ids, outcome, recorded_at,
+                   previous_record_checksum, record_checksum
+            FROM public.audit_records
+            WHERE tenant_id = %s AND case_id = %s
+            ORDER BY chain_sequence
+            """,
+            (self.tenant_context.tenant_id, case_id),
+        )
+
     def append(self, record: AuditRecord) -> object:
         """Insert exactly the contract fields; no raw payload or secret is accepted."""
 

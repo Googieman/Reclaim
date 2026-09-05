@@ -1,0 +1,297 @@
+{
+  "schema_version": "canonical-incident-v1.0.0",
+  "fixture_version": "canonical-v1.0.0",
+  "tenant_id": "tenant-canonical-demo",
+  "case_id": "case-canonical-demo-001",
+  "incident_id": "incident-canonical-demo-001",
+  "correlation_id": "correlation-canonical-demo-001",
+  "mode": "replay",
+  "label": "replay",
+  "deterministic_seed": "canonical-seed-001",
+  "connector_simulator_version": "evidence-simulator-v1.0.0",
+  "action_simulator_version": "action-simulator-v1.0.0",
+  "model_provider_mode": "replay-fixture/provider-v1.0.0",
+  "policy_version_id": "policy-v1.0.0",
+  "environment_metadata": {
+    "executor": "deterministic-replay",
+    "provider_available": false,
+    "live_action_enabled": false,
+    "build_provenance": "local-fixture"
+  },
+  "provenance": {
+    "source": "merchant-controlled deterministic fixture",
+    "source_reference": "fs001-canonical-demo",
+    "created_by": "RECLAIM test fixture",
+    "production_data": false
+  },
+  "incident": {
+    "stage": "incident",
+    "status": "accepted",
+    "source": "merchant_report",
+    "version": "intake-v1.0.0",
+    "evidence_references": ["evidence-session-001", "evidence-payments-001"]
+  },
+  "evidence": [
+    {
+      "evidence_id": "evidence-session-001",
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "connector_id": "session-simulator-v1.0.0",
+      "provider_identifier": "session-canonical-001",
+      "source_identity": "session-simulator",
+      "mode": "replay",
+      "version": "evidence-v1.0.0",
+      "raw_checksum": "sha256:canonical-session-001",
+      "completeness": "complete",
+      "integrity_status": "verified",
+      "normalization_status": "normalized",
+      "provenance": "merchant-controlled simulator"
+    },
+    {
+      "evidence_id": "evidence-payments-001",
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "connector_id": "payment-simulator-v1.0.0",
+      "provider_identifier": "payment-canonical-batch-001",
+      "source_identity": "payment-simulator",
+      "mode": "replay",
+      "version": "evidence-v1.0.0",
+      "raw_checksum": "sha256:canonical-payments-001",
+      "completeness": "complete",
+      "integrity_status": "verified",
+      "normalization_status": "normalized",
+      "provenance": "merchant-controlled simulator"
+    },
+    {
+      "evidence_id": "evidence-partial-001",
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "connector_id": "profile-simulator-v1.0.0",
+      "provider_identifier": "profile-canonical-001",
+      "source_identity": "profile-simulator",
+      "mode": "replay",
+      "version": "evidence-v1.0.0",
+      "raw_checksum": "sha256:canonical-partial-001",
+      "completeness": "partial",
+      "integrity_status": "verified",
+      "normalization_status": "normalized",
+      "provenance": "merchant-controlled simulator; partial by design"
+    }
+  ],
+  "timeline_events": [
+    {
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "timeline_event_id": "timeline-session-malicious-001",
+      "event_id": "event-session-malicious-001",
+      "canonical_event_type": "session.opened",
+      "source_event_ids": ["provider-session-malicious-001"],
+      "source_event_id": "provider-session-malicious-001",
+      "source_identity": "session-simulator",
+      "effective_at": "2026-09-01T09:00:00Z",
+      "observed_at": "2026-09-01T09:00:01Z",
+      "received_at": "2026-09-01T09:00:02Z",
+      "ordering_key": "2026-09-01T09:00:00Z|session.opened|provider-session-malicious-001",
+      "dedupe_key": "session:canonical-malicious-001",
+      "evidence_references": ["evidence-session-001"],
+      "event_payload": {
+        "new_device": 1,
+        "session_velocity_5m": 6,
+        "successful_customer_orders": 0,
+        "state": "active"
+      }
+    },
+    {
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "timeline_event_id": "timeline-payment-legitimate-001",
+      "event_id": "event-payment-legitimate-001",
+      "canonical_event_type": "payment.captured",
+      "source_event_ids": ["provider-payment-legitimate-001"],
+      "source_event_id": "provider-payment-legitimate-001",
+      "source_identity": "payment-simulator",
+      "effective_at": "2026-09-01T09:01:00Z",
+      "observed_at": "2026-09-01T09:01:01Z",
+      "received_at": "2026-09-01T09:01:02Z",
+      "ordering_key": "2026-09-01T09:01:00Z|payment.captured|provider-payment-legitimate-001",
+      "dedupe_key": "payment:canonical-legitimate-001",
+      "evidence_references": ["evidence-payments-001"],
+      "provider_identifiers": {"payment_id": "pay_canonical_legitimate_001"},
+      "event_payload": {
+        "payment_id": "pay_canonical_legitimate_001",
+        "amount_minor": 12000,
+        "currency": "INR",
+        "payment_source": "card",
+        "state": "captured",
+        "new_device": 0,
+        "profile_change_24h": 0,
+        "session_velocity_5m": 1,
+        "successful_customer_orders": 12,
+        "contained_minor": 0,
+        "reimbursed_minor": 0
+      }
+    },
+    {
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "timeline_event_id": "timeline-payment-malicious-001",
+      "event_id": "event-payment-malicious-001",
+      "canonical_event_type": "payment.captured",
+      "source_event_ids": ["provider-payment-malicious-001"],
+      "source_event_id": "provider-payment-malicious-001",
+      "source_identity": "payment-simulator",
+      "effective_at": "2026-09-01T09:02:00Z",
+      "observed_at": "2026-09-01T09:02:01Z",
+      "received_at": "2026-09-01T09:02:02Z",
+      "ordering_key": "2026-09-01T09:02:00Z|payment.captured|provider-payment-malicious-001",
+      "dedupe_key": "payment:canonical-malicious-001",
+      "evidence_references": ["evidence-payments-001"],
+      "provider_identifiers": {"payment_id": "pay_canonical_malicious_001"},
+      "event_payload": {
+        "payment_id": "pay_canonical_malicious_001",
+        "amount_minor": 30000,
+        "currency": "INR",
+        "payment_source": "card",
+        "state": "captured",
+        "new_device": 1,
+        "profile_change_24h": 1,
+        "session_velocity_5m": 6,
+        "successful_customer_orders": 0,
+        "contained_minor": 30000,
+        "reimbursed_minor": 0
+      }
+    },
+    {
+      "tenant_id": "tenant-canonical-demo",
+      "case_id": "case-canonical-demo-001",
+      "timeline_event_id": "timeline-payment-uncertain-001",
+      "event_id": "event-payment-uncertain-001",
+      "canonical_event_type": "payment.captured",
+      "source_event_ids": ["provider-payment-uncertain-001"],
+      "source_event_id": "provider-payment-uncertain-001",
+      "source_identity": "payment-simulator",
+      "effective_at": "2026-09-01T09:03:00Z",
+      "observed_at": "2026-09-01T09:03:01Z",
+      "received_at": "2026-09-01T09:03:02Z",
+      "ordering_key": "2026-09-01T09:03:00Z|payment.captured|provider-payment-uncertain-001",
+      "dedupe_key": "payment:canonical-uncertain-001",
+      "evidence_references": ["evidence-partial-001"],
+      "uncertainty_reasons": ["partial_evidence"],
+      "provider_identifiers": {"payment_id": "pay_canonical_uncertain_001"},
+      "event_payload": {
+        "payment_id": "pay_canonical_uncertain_001",
+        "amount_minor": 8000,
+        "currency": "INR",
+        "payment_source": "card",
+        "state": "captured",
+        "new_device": 1,
+        "profile_change_24h": 0,
+        "session_velocity_5m": 2,
+        "successful_customer_orders": 4,
+        "contained_minor": 0,
+        "reimbursed_minor": 0
+      }
+    }
+  ],
+  "expected_stage_outcomes": {
+    "incident": "accepted",
+    "evidence": "collected",
+    "timeline": "converged",
+    "attribution": "mixed_legitimate_malicious_uncertain",
+    "exposure": "calculated",
+    "proposal": "validated",
+    "policy": "approval_required",
+    "approval": "approval_required",
+    "action": "simulated_no_side_effect",
+    "reconciliation": "reconciled_before_retry",
+    "verification": "inconclusive_for_gated_action",
+    "escalation": "required",
+    "terminal": "escalated_unresolved",
+    "audit": "linked"
+  },
+  "policy_decision": {
+    "decision_id": "decision-canonical-demo-001",
+    "policy_version_id": "policy-v1.0.0",
+    "result": "approval_required",
+    "evaluated_conditions": {
+      "automatic_reversible_action": "hold_fulfillment",
+      "approval_gated_action": "refund_payment",
+      "uncertainty_preserved": true
+    },
+    "evaluator_version": "deterministic-policy-evaluator-v1.0.0"
+  },
+  "approval": {
+    "approval_id": "approval-canonical-demo-001",
+    "status": "approved",
+    "required_for": "refund_payment:pay_canonical_malicious_001",
+    "proposer_id": "analysis-canonical-demo-001",
+    "approver_id": "merchant-approver-canonical-001",
+    "separation_of_duties": true,
+    "policy_version_id": "policy-v1.0.0"
+  },
+  "action": {
+    "automatic_reversible": {
+      "proposal_id": "proposal-canonical-hold-001",
+      "action_type": "hold_fulfillment",
+      "target_resource": "order_canonical_001",
+      "policy_result": "allow",
+      "execution": "simulated_completed_no_side_effect"
+    },
+    "approval_gated": {
+      "proposal_id": "proposal-canonical-refund-001",
+      "action_type": "refund_payment",
+      "target_resource": "pay_canonical_malicious_001",
+      "policy_result": "approval_required",
+      "execution": "simulated_not_executed_without_live_gateway"
+    },
+    "remote_side_effects": []
+  },
+  "reconciliation": {
+    "status": "reconciled_before_retry",
+    "unknown_result": true,
+    "retry_before_reconciliation": false
+  },
+  "verification": {
+    "automatic_action": "verified_success",
+    "approval_gated_action": "inconclusive",
+    "verification_version": "verification-v1.0.0"
+  },
+  "escalation": {
+    "escalation_id": "escalation-canonical-demo-001",
+    "owner": "merchant-ops-canonical",
+    "reason": "approval-gated action remains unresolved after inconclusive verification",
+    "recommended_human_decision": "review merchant state and decide containment",
+    "remaining_exposure_minor": 0,
+    "currency": "INR"
+  },
+  "expected_results": {
+    "attribution_labels": {
+      "timeline-session-malicious-001": "malicious",
+      "timeline-payment-legitimate-001": "legitimate",
+      "timeline-payment-malicious-001": "malicious",
+      "timeline-payment-uncertain-001": "uncertain"
+    },
+    "gross_exposure_minor": 30000,
+    "recoverable_value_minor": 30000,
+    "contained_value_minor": 30000,
+    "legitimate_value_disrupted_minor": 0,
+    "remaining_exposure_minor": 0,
+    "currency": "INR",
+    "terminal_state": "escalated_unresolved"
+  },
+  "audit_links": [
+    {"stage": "incident", "reference": "incident-canonical-demo-001"},
+    {"stage": "evidence", "reference": "evidence-session-001"},
+    {"stage": "timeline", "reference": "timeline-payment-malicious-001"},
+    {"stage": "attribution", "reference": "attribution-canonical-demo-001"},
+    {"stage": "exposure", "reference": "exposure-canonical-demo-001"},
+    {"stage": "proposal", "reference": "proposal-canonical-hold-001"},
+    {"stage": "policy", "reference": "decision-canonical-demo-001"},
+    {"stage": "approval", "reference": "approval-canonical-demo-001"},
+    {"stage": "action", "reference": "execution-canonical-hold-001"},
+    {"stage": "reconciliation", "reference": "execution-canonical-unknown-001"},
+    {"stage": "verification", "reference": "verification-canonical-demo-001"},
+    {"stage": "escalation", "reference": "escalation-canonical-demo-001"},
+    {"stage": "terminal", "reference": "case-canonical-demo-001"}
+  ]
+}

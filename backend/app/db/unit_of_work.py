@@ -13,7 +13,9 @@ from app.db.repositories import (
     ApprovalRepository,
     AttributionRepository,
     AuditRecordRepository,
+    CanonicalActionRepository,
     CaseRepository,
+    CaseInboxRepository,
     ConnectorConfigurationRepository,
     EscalationRepository,
     EvaluationCaseRepository,
@@ -21,6 +23,7 @@ from app.db.repositories import (
     FinancialExposureRepository,
     IncidentRepository,
     ModelRunRepository,
+    OrchestrationRepository,
     PolicyDecisionRepository,
     PolicyVersionRepository,
     ProviderCorrelationRepository,
@@ -55,6 +58,7 @@ class PostgresUnitOfWork:
         self.tenants: TenantRepository
         self.incidents: IncidentRepository
         self.cases: CaseRepository
+        self.case_inbox: CaseInboxRepository
         self.audit: AuditRecordRepository
         self.connectors: ConnectorConfigurationRepository
         self.evidence: EvidenceItemRepository
@@ -66,11 +70,13 @@ class PostgresUnitOfWork:
         self.proposals: ActionProposalRepository
         self.approvals: ApprovalRepository
         self.actions: ActionExecutionRepository
+        self.canonical_actions: CanonicalActionRepository
         self.verifications: VerificationRepository
         self.escalations: EscalationRepository
         self.replay_runs: ReplayRunRepository
         self.evaluation_cases: EvaluationCaseRepository
         self.model_runs: ModelRunRepository
+        self.orchestration: OrchestrationRepository
         self.outbox: OutboxEventRepository
         self.inbox: InboxMessageRepository
         self.webhooks: WebhookDeliveryRepository
@@ -83,6 +89,7 @@ class PostgresUnitOfWork:
         self.tenants = TenantRepository(self.connection, self.tenant_context)
         self.incidents = IncidentRepository(self.connection, self.tenant_context)
         self.cases = CaseRepository(self.connection, self.tenant_context)
+        self.case_inbox = CaseInboxRepository(self.connection, self.tenant_context)
         self.audit = AuditRecordRepository(self.connection, self.tenant_context)
         self.connectors = ConnectorConfigurationRepository(self.connection, self.tenant_context)
         self.evidence = EvidenceItemRepository(self.connection, self.tenant_context)
@@ -94,11 +101,13 @@ class PostgresUnitOfWork:
         self.proposals = ActionProposalRepository(self.connection, self.tenant_context)
         self.approvals = ApprovalRepository(self.connection, self.tenant_context)
         self.actions = ActionExecutionRepository(self.connection, self.tenant_context)
+        self.canonical_actions = CanonicalActionRepository(self.connection, self.tenant_context)
         self.verifications = VerificationRepository(self.connection, self.tenant_context)
         self.escalations = EscalationRepository(self.connection, self.tenant_context)
         self.replay_runs = ReplayRunRepository(self.connection, self.tenant_context)
         self.evaluation_cases = EvaluationCaseRepository(self.connection, self.tenant_context)
         self.model_runs = ModelRunRepository(self.connection, self.tenant_context)
+        self.orchestration = OrchestrationRepository(self.connection, self.tenant_context)
         self.outbox = OutboxEventRepository(self.connection, self.tenant_context)
         self.inbox = InboxMessageRepository(self.connection, self.tenant_context)
         self.webhooks = WebhookDeliveryRepository(self.connection, self.tenant_context)

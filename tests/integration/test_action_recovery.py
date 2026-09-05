@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-import pytest
 
 from packages.contracts.action_gateway import ActionExecutionState, ActionGatewayRequest
 from us3_test_seams import require_symbol
@@ -80,10 +79,6 @@ def test_recovery_fixture_contains_restart_timeout_late_response_and_duplicate_d
     assert len(set(failure_events)) == len(failure_events)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owner T095/T101: durable idempotency and recovery implementation is absent",
-)
 def test_gateway_recovery_reconciles_before_retry_after_restart_and_timeout() -> None:
     recover = require_symbol(
         "action_gateway.reconciliation",

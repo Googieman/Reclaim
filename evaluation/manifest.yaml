@@ -1,0 +1,52 @@
+manifest_version: evaluation-manifest-v1.0.0
+corpus_version: fs001-local-empty-v1.0.0
+case_count: 0
+target_case_count: 500
+provenance_categories:
+  - REAL_DISTRIBUTION
+  - RAZORPAY_TEST
+  - SYNTHETIC_OVERLAY
+label_schema:
+  attribution_labels:
+    - malicious
+    - legitimate
+    - uncertain
+  terminal_outcomes:
+    - verified_contained
+    - verified_failed
+    - escalated_unresolved
+class_balance:
+  malicious: 0
+  legitimate: 0
+  uncertain: 0
+  no_compromise_false_alert: 0
+  mixed_legitimate_malicious: 0
+split_metadata:
+  target_ratios:
+    development: 0.6
+    validation: 0.2
+    held_out: 0.2
+  actual_counts:
+    development: 0
+    validation: 0
+    held_out: 0
+  assignments_frozen_before_overlay: true
+  held_out_sealed: true
+source_dataset:
+  name: none-configured
+  available_case_count: 0
+  source_references: []
+synthetic_overlay:
+  generated_after_split: true
+  available_case_count: 0
+  generated_case_count: 0
+seed_version:
+  seed: fs001-evaluation-seed-v1
+  version: evaluation-splitting-v1.0.0
+environment_version: local-unqualified
+limitations:
+  - No benchmark corpus is configured in this checkout; no cases are fabricated or padded.
+  - Target sample sizes, class-balance targets, and confidence intervals cannot be qualified until labeled data is supplied.
+  - Model selection requires at least 100 sealed held-out cases, 25% no-compromise/false-alert cases, and 30% mixed legitimate/malicious compromised cases.
+  - Missing or invalid outputs, absent drift evidence, mismatched manifests, and unverified checkpoints fail closed to DON'T SHIP.
+cases: []

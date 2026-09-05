@@ -5,13 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from app.config import Settings
-from finance.exposure import ExposureValidationError, calculate_exposure
-from packages.contracts.analysis_policy import ActionType, TypedActionProposal
 from app.control_plane.tenant_config import TenantConfiguration
+from finance.exposure import ExposureValidationError, calculate_exposure
 from us3_test_seams import require_symbol
 
+from packages.contracts.analysis_policy import ActionType, TypedActionProposal
 
 TENANT_ID = "tenant-us3-finance"
 CASE_ID = "case-us3-finance-001"
@@ -154,10 +153,6 @@ def test_live_financial_execution_is_disabled_by_default_in_both_boundaries() ->
     assert tenant_config.live_financial_actions_enabled is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owner T094: Razorpay refund authority and adapter are not implemented",
-)
 def test_refund_authority_rejects_untrusted_destination_and_model_metadata() -> None:
     validate_refund = require_symbol(
         "connectors.razorpay.actions",

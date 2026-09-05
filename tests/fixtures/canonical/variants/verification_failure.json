@@ -1,0 +1,1 @@
+{"variant":"verification_failure","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-verification-failure","expected_outcome":"verified_failed","deviation":{"stage":"verification","field":"result","change":"merchant state proves action failed"},"provenance":"deterministic-local-replay"}

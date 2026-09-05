@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 pytestmark = pytest.mark.integration
 
@@ -19,6 +20,7 @@ COMPOSE_FILES = (
 SERVICES = (
     "web",
     "api",
+    "event-relay",
     "workflow-worker",
     "model-gateway",
     "attribution",
@@ -30,6 +32,8 @@ SERVICES = (
     "neo4j",
     "minio",
     "redis",
+    "n8n-main",
+    "n8n-worker",
     "keycloak",
     "vault",
     "otel-collector",
@@ -41,10 +45,6 @@ SERVICES = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T109 is expected-red until T120 defines the authoritative Compose topology",
-)
 def test_compose_topology_has_all_services_and_safe_defaults() -> None:
     missing_files = [
         str(path.relative_to(REPOSITORY_ROOT))
@@ -65,3 +65,19 @@ def test_compose_topology_has_all_services_and_safe_defaults() -> None:
     assert "live_action_enabled" in compose and "false" in compose
     assert "provider_unavailability" in compose or "provider-unavailability" in compose
     assert "replay" in compose
+
+
+def test_event_relay_topology_stays_on_data_services_with_no_extra_credentials() -> None:
+    compose = yaml.safe_load(
+        (REPOSITORY_ROOT / "infra" / "docker-compose.yml").read_text(encoding="utf-8")
+    )
+    relay = compose["services"]["event-relay"]
+
+    assert relay["networks"] == ["data-services"]
+    assert set(relay["environment"]) == {
+        "RECLAIM_TENANT_ID",
+        "RECLAIM_DATABASE_URL",
+        "RECLAIM_REDPANDA_BROKERS",
+    }
+    assert relay["depends_on"]["postgres"]["condition"] == "service_healthy"
+    assert relay["depends_on"]["redpanda"]["condition"] == "service_healthy"

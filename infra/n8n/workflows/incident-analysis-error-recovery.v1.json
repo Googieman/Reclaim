@@ -1,0 +1,56 @@
+{
+  "name": "incident-analysis-error-recovery.v1",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$json.execution.data.tenant_id}}/cases/{{$json.execution.data.case_id}}/orchestration/recovery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"run_id\":\"{{$json.execution.data.run_id}}\",\"external_execution_id\":\"{{$json.execution.id}}\",\"expected_state\":\"intake_received\",\"idempotency_key\":\"recovery:{{$json.execution.id}}\",\"failure_code\":\"upstream_unavailable\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "record-attention",
+      "name": "Record requires_attention",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [280, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{"node": "Record requires_attention", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false
+  },
+  "staticData": null,
+  "tags": ["reclaim", "incident-intake", "recovery-v1"],
+  "pinData": {}
+}

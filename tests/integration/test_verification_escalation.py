@@ -53,10 +53,6 @@ def test_verification_contract_requires_tenant_execution_and_evidence_provenance
     assert verification.evidence_references
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owners T096/T097: inconclusive verification must escalate with evidence",
-)
 def test_inconclusive_verification_routes_to_tenant_escalation() -> None:
     route = require_symbol(
         "action_gateway.verification",

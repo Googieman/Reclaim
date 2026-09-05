@@ -1,8 +1,8 @@
 {
   "realm": "reclaim",
   "enabled": true,
-  "displayName": "RECLAIM Development Realm",
-  "sslRequired": "external",
+  "displayName": "RECLAIM Realm",
+  "sslRequired": "all",
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "roles": {
@@ -18,7 +18,8 @@
     {
       "clientId": "reclaim-api",
       "name": "RECLAIM API",
-      "publicClient": true,
+      "publicClient": false,
+      "bearerOnly": true,
       "directAccessGrantsEnabled": false,
       "standardFlowEnabled": true,
       "serviceAccountsEnabled": false,

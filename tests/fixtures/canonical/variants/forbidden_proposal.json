@@ -1,0 +1,1 @@
+{"variant":"forbidden_proposal","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-forbidden-proposal","expected_outcome":"rejected","deviation":{"stage":"proposal","field":"capability","change":"proposal requests a forbidden operation"},"provenance":"deterministic-local-replay"}

@@ -103,18 +103,18 @@ def _require_stage_runtime(stage: Any | None, stage_name: str) -> Any:
 
 
 def test_canonical_us1_runtime_is_available(
-    evidence_orchestrator: Any | None,
+    t043_evidence_orchestrator: Any | None,
     timeline_reconstructor: Any | None,
 ) -> None:
     """The canonical target must expose both future US1 runtime boundaries."""
 
-    _require_stage_runtime(evidence_orchestrator, "evidence orchestrator")
+    _require_stage_runtime(t043_evidence_orchestrator, "evidence orchestrator")
     _require_stage_runtime(timeline_reconstructor, "timeline reconstruction")
 
 
 def test_canonical_authenticated_intake_to_deterministic_timeline(
     postgres_intake_service: IncidentIntakeService,
-    evidence_orchestrator: Any | None,
+    t043_evidence_orchestrator: Any | None,
     timeline_reconstructor: Any | None,
 ) -> None:
     """One mixed case converges without granting evidence or event authority."""
@@ -122,7 +122,7 @@ def test_canonical_authenticated_intake_to_deterministic_timeline(
     from fastapi.testclient import TestClient
 
     evidence_orchestrator = _require_stage_runtime(
-        evidence_orchestrator, "evidence orchestrator"
+        t043_evidence_orchestrator, "evidence orchestrator"
     )
     timeline_reconstructor = _require_stage_runtime(
         timeline_reconstructor, "timeline reconstruction"
@@ -232,7 +232,7 @@ def test_canonical_authenticated_intake_to_deterministic_timeline(
 
 def test_canonical_untrusted_evidence_cannot_change_tenant_or_authority(
     postgres_intake_service: IncidentIntakeService,
-    evidence_orchestrator: Any | None,
+    t043_evidence_orchestrator: Any | None,
     timeline_reconstructor: Any | None,
 ) -> None:
     """Prompt-like report content and mismatched evidence are rejected as data."""
@@ -240,7 +240,7 @@ def test_canonical_untrusted_evidence_cannot_change_tenant_or_authority(
     from fastapi.testclient import TestClient
 
     evidence_orchestrator = _require_stage_runtime(
-        evidence_orchestrator, "evidence orchestrator"
+        t043_evidence_orchestrator, "evidence orchestrator"
     )
     timeline_reconstructor = _require_stage_runtime(
         timeline_reconstructor, "timeline reconstruction"

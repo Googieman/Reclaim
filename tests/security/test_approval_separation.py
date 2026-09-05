@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from us3_test_seams import require_symbol
 
 from packages.contracts.analysis_policy import Approval, ApprovalStatus
-from us3_test_seams import require_symbol
 
 
 def _approval(**overrides: Any) -> Approval:
@@ -49,10 +49,6 @@ def test_nonapproved_approval_status_is_not_execution_authority(
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owner T090: approval service must enforce scope, freshness, and separation",
-)
 def test_adversarial_approval_cannot_authorize_a_mutation() -> None:
     authorize = require_symbol(
         "approvals.service",
@@ -74,7 +70,10 @@ def test_adversarial_approval_cannot_authorize_a_mutation() -> None:
             "proposer_id": "proposer-us3-001",
         },
         _approval(approval_id="forged-approval"),
-        _approval(expires_at=datetime(2026, 9, 1, 11, 59, tzinfo=UTC)),
+        _approval(
+            approved_at=datetime(2026, 9, 1, 11, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 9, 1, 11, 59, tzinfo=UTC),
+        ),
         _approval(status=ApprovalStatus.REVOKED),
         _approval(policy_version_id="policy-us3-old"),
         _approval(tenant_id="tenant-other"),

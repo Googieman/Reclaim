@@ -1,5 +1,19 @@
 """Repository-backed Temporal activities."""
 
+from .agent_analysis import (
+    AgentAnalysisActivities,
+    AgentAnalysisActivityDependencies,
+    AgentAnalysisActivityError,
+    make_agent_analysis_activities,
+    run_agent_analysis,
+)
+from .containment import (
+    ContainmentActivities,
+    ContainmentActivityDependencies,
+    ContainmentPipeline,
+    make_containment_activities,
+    run_containment,
+)
 from .evidence import (
     EvidenceActivities,
     EvidenceActivityDependencies,
@@ -17,6 +31,11 @@ from .timeline import (
 )
 
 __all__ = [
+    "AgentAnalysisActivities",
+    "AgentAnalysisActivityDependencies",
+    "AgentAnalysisActivityError",
+    "make_agent_analysis_activities",
+    "run_agent_analysis",
     "EvidenceActivities",
     "EvidenceActivityDependencies",
     "IntakeActivities",
@@ -26,4 +45,9 @@ __all__ = [
     "TimelineActivities",
     "TimelineActivityDependencies",
     "make_timeline_activities",
+    "ContainmentActivities",
+    "ContainmentActivityDependencies",
+    "ContainmentPipeline",
+    "make_containment_activities",
+    "run_containment",
 ]

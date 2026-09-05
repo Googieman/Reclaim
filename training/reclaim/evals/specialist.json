@@ -1,0 +1,13 @@
+{
+  "case_count": 1,
+  "evaluator_version": "reclaim-agent-evaluator-v1.0.0",
+  "limitations": [
+    "No model response file was supplied; no model metric is claimed."
+  ],
+  "manifest": "training\\reclaim\\manifests\\dataset.json",
+  "metrics": {},
+  "model_artifact": "training/reclaim/artifacts/reclaim-specialist",
+  "profile": "reclaim-specialist",
+  "scored_count": 0,
+  "status": "not_run"
+}

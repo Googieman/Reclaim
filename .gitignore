@@ -32,6 +32,7 @@ coverage/
 dist/
 build/
 tmp/
+tmp/t153/
 
 # Editors and operating systems
 .DS_Store

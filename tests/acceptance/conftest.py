@@ -11,6 +11,15 @@ from app.storage.minio_evidence import ImmutableEvidenceStore
 
 
 @pytest.fixture
+def t153_config() -> Any:
+    """Require the explicit prepared T153 stack; never substitute a fake runtime."""
+
+    from support.t153_runtime import require_t153_config
+
+    return require_t153_config()
+
+
+@pytest.fixture
 def postgres_intake_service() -> IncidentIntakeService:
     """Build the real PostgreSQL intake service when a live URL is configured."""
 
@@ -31,10 +40,10 @@ def postgres_intake_service() -> IncidentIntakeService:
     )
 
 
-def _unit_of_work_factory() -> Any | None:
+def _unit_of_work_factory() -> Any:
     database_url = os.getenv("RECLAIM_DATABASE_URL")
     if not database_url:
-        return None
+        pytest.skip("RECLAIM_DATABASE_URL is required for acceptance")
     import psycopg
     from app.db.unit_of_work import PostgresUnitOfWork
 
@@ -45,51 +54,65 @@ def _unit_of_work_factory() -> Any | None:
 
 
 def _evidence_storage() -> Any:
-    from evidence.storage import EvidenceStorage, InMemoryObjectStorage
+    from evidence.storage import EvidenceStorage
 
     endpoint = os.getenv("RECLAIM_MINIO_ENDPOINT")
     access_key = os.getenv("RECLAIM_MINIO_ACCESS_KEY")
     secret_key = os.getenv("RECLAIM_MINIO_SECRET_KEY")
-    if endpoint and access_key and secret_key:
-        store = ImmutableEvidenceStore.from_endpoint(
-            endpoint,
-            access_key=access_key,
-            secret_key=secret_key,
+    if not (endpoint and access_key and secret_key):
+        pytest.skip(
+            "live MinIO endpoint, access key, and secret key are required for acceptance"
         )
-    else:
-        store = ImmutableEvidenceStore(InMemoryObjectStorage())
+    store = ImmutableEvidenceStore.from_endpoint(
+        endpoint,
+        access_key=access_key,
+        secret_key=secret_key,
+    )
     return EvidenceStorage(store)
 
 
 def _raw_report_store() -> ImmutableEvidenceStore:
-    """Use live MinIO when configured and a deterministic object store otherwise."""
-
-    from evidence.storage import InMemoryObjectStorage
+    """Require the live immutable evidence store for acceptance tests."""
 
     endpoint = os.getenv("RECLAIM_MINIO_ENDPOINT")
     access_key = os.getenv("RECLAIM_MINIO_ACCESS_KEY")
     secret_key = os.getenv("RECLAIM_MINIO_SECRET_KEY")
-    if endpoint and access_key and secret_key:
-        return ImmutableEvidenceStore.from_endpoint(
-            endpoint,
-            access_key=access_key,
-            secret_key=secret_key,
+    if not (endpoint and access_key and secret_key):
+        pytest.skip(
+            "live MinIO endpoint, access key, and secret key are required for acceptance"
         )
-    return ImmutableEvidenceStore(InMemoryObjectStorage())
+    return ImmutableEvidenceStore.from_endpoint(
+        endpoint,
+        access_key=access_key,
+        secret_key=secret_key,
+    )
 
 
-@pytest.fixture
-def evidence_orchestrator() -> Any:
-    """Build the production orchestrator with a test/replay object store when needed."""
+def _evidence_orchestrator(tenant_id: str) -> Any:
+    """Build the production orchestrator against the live evidence store."""
 
     from connectors.simulators.evidence import build_default_evidence_simulators
     from evidence.orchestrator import EvidenceOrchestrator
 
     return EvidenceOrchestrator(
-        build_default_evidence_simulators("tenant-a"),
+        build_default_evidence_simulators(tenant_id),
         storage=_evidence_storage(),
         unit_of_work_factory=_unit_of_work_factory(),
     )
+
+
+@pytest.fixture
+def t043_evidence_orchestrator() -> Any:
+    """Build the legacy US1 fixture with its historical tenant scope."""
+
+    return _evidence_orchestrator("tenant-a")
+
+
+@pytest.fixture
+def t153_evidence_orchestrator() -> Any:
+    """Build the T153 fixture with the canonical tenant scope."""
+
+    return _evidence_orchestrator("tenant-canonical-demo")
 
 
 @pytest.fixture

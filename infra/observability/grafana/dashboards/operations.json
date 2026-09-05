@@ -1,0 +1,18 @@
+{
+  "uid": "reclaim-operations",
+  "title": "RECLAIM Operations",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["reclaim", "operations", "redacted"],
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "editable": false,
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Backup verification failures", "targets": [{"expr": "increase(reclaim_backup_verification_total{status=\"failed\"}[6h])", "refId": "A"}]},
+    {"id": 2, "type": "stat", "title": "Last verified backup", "targets": [{"expr": "reclaim_backup_last_success_timestamp_seconds", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "dateTimeAsIso"}}},
+    {"id": 3, "type": "timeseries", "title": "Orchestration stage duration", "targets": [{"expr": "reclaim_orchestration_stage_duration_seconds", "refId": "A"}]},
+    {"id": 4, "type": "stat", "title": "Recovery escalations", "targets": [{"expr": "increase(reclaim_recovery_events_total{outcome=\"escalated\"}[6h])", "refId": "A"}]},
+    {"id": 5, "type": "stat", "title": "PostgreSQL readiness", "targets": [{"expr": "reclaim_postgres_health{status=\"ready\"}", "refId": "A"}]},
+    {"id": 6, "type": "timeseries", "title": "Action outcomes", "targets": [{"expr": "increase(reclaim_action_outcome_total[1h])", "refId": "A"}]}
+  ]
+}

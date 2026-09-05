@@ -49,10 +49,6 @@ VARIANTS = (
 
 
 @pytest.mark.parametrize("variant, expected_outcome", VARIANTS)
-@pytest.mark.xfail(
-    strict=True,
-    reason="T106 is expected-red until T113 implements the deterministic variants",
-)
 def test_required_variant_is_replay_labeled_and_side_effect_free(
     variant: str, expected_outcome: str
 ) -> None:

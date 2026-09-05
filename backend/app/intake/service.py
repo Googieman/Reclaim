@@ -95,6 +95,22 @@ class IncidentIntakeService:
                 raw_input_reference=raw_input_reference,
                 intake_status=IntakeStatus.ACCEPTED.value,
                 deduplication_identity=request.idempotency_key,
+                incident_type=(
+                    request.incident_type.value
+                    if hasattr(request.incident_type, "value")
+                    else request.incident_type
+                ),
+                occurred_at=request.occurred_at,
+                narrative_checksum=checksum_for_bytes(
+                    (request.narrative or request.report_content or "").encode("utf-8")
+                ),
+                customer_reference=request.customer_reference,
+                account_reference=request.account_reference,
+                order_reference=request.order_reference,
+                payment_reference=request.payment_reference,
+                reported_amount_minor=request.reported_amount_minor,
+                reported_currency=request.reported_currency,
+                external_reference=request.external_reference,
             )
             incident_id = str(result.row[1])
 
@@ -103,6 +119,29 @@ class IncidentIntakeService:
                     unit_of_work, incident_id=incident_id, created_at=request.received_at
                 )
                 case_id = str(case_row[1])
+                timeline = getattr(unit_of_work, "timeline", None)
+                if timeline is not None:
+                    timeline.upsert(
+                        timeline_event_id=self.id_factory("timeline"),
+                        case_id=case_id,
+                        canonical_event_type="incident.reported",
+                        source_event_ids=(incident_id,),
+                        effective_at=request.occurred_at,
+                        ordering_key=f"intake:{incident_id}",
+                        dedupe_key=f"incident-report:{request.idempotency_key}",
+                        event_payload={
+                            "source": request.source,
+                            "incident_type": (
+                                request.incident_type.value
+                                if hasattr(request.incident_type, "value")
+                                else request.incident_type
+                            ),
+                            "reported_amount_minor": request.reported_amount_minor,
+                            "reported_currency": request.reported_currency,
+                            "external_reference": request.external_reference,
+                        },
+                        evidence_references=(raw_input_reference,),
+                    )
                 event = build_incident_accepted_event(
                     tenant_id=request.tenant_id,
                     correlation_id=request.correlation_id,
@@ -111,7 +150,23 @@ class IncidentIntakeService:
                     source=request.source,
                     received_at=request.received_at,
                     report_reference=raw_input_reference,
-                    report_content_present=bool(request.report_content),
+                    report_content_present=bool(request.narrative or request.report_content),
+                    incident_type=(
+                        request.incident_type.value
+                        if hasattr(request.incident_type, "value")
+                        else request.incident_type
+                    ),
+                    occurred_at=request.occurred_at,
+                    narrative_checksum=checksum_for_bytes(
+                        (request.narrative or request.report_content or "").encode("utf-8")
+                    ),
+                    customer_reference=request.customer_reference,
+                    account_reference=request.account_reference,
+                    order_reference=request.order_reference,
+                    payment_reference=request.payment_reference,
+                    reported_amount_minor=request.reported_amount_minor,
+                    reported_currency=request.reported_currency,
+                    external_reference=request.external_reference,
                     causation_id=f"intake:{request.idempotency_key}",
                     producer=self.producer,
                 )
@@ -163,6 +218,12 @@ class IncidentIntakeService:
                     label="incident report reference",
                     max_bytes=self.max_report_bytes,
                 )
+            if request.narrative is not None:
+                utf8_size(
+                    request.narrative,
+                    label="incident narrative",
+                    max_bytes=self.max_report_bytes,
+                )
         except PayloadLimitError as exc:
             raise IntakePayloadTooLarge("incident report exceeds configured size limit") from exc
 
@@ -177,6 +238,20 @@ class IncidentIntakeService:
         content = report_capture_payload(
             report_content=request.report_content,
             report_reference=request.report_reference,
+            incident_type=(
+                request.incident_type.value
+                if hasattr(request.incident_type, "value")
+                else request.incident_type
+            ),
+            occurred_at=request.occurred_at.isoformat() if request.occurred_at else None,
+            narrative=request.narrative,
+            customer_reference=request.customer_reference,
+            account_reference=request.account_reference,
+            order_reference=request.order_reference,
+            payment_reference=request.payment_reference,
+            reported_amount_minor=request.reported_amount_minor,
+            reported_currency=request.reported_currency,
+            external_reference=request.external_reference,
         )
         checksum = checksum_for_bytes(content)
         try:

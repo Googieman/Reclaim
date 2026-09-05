@@ -1,0 +1,287 @@
+[
+  {
+    "verdict": "confirmed",
+    "title": "Concurrent first audit writes can create multiple tenant-chain roots",
+    "description": "AuditChain reads the latest tenant checksum before append, but the read and insert are not serialized. The database uniqueness index on (tenant_id, previous_record_checksum) is partial and excludes NULL, so two overlapping first records for one tenant can both be built with previous_record_checksum=None and commit. A read-only harness reproduced two records with null predecessors. The result is a forked audit history and loss of complete append-only traceability for that tenant.",
+    "root_cause": "AuditChain.build_record in backend/app/audit/chain.py does not serialize the latest-checksum read with the append or establish a single tenant root, allowing concurrent first audit writes to create multiple null-predecessor roots.",
+    "intended_behavior": "Every tenant audit record should extend one authoritative append-only checksum chain, including the first record, so reviewers can traverse all historical intake and later decision records in order.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/intake/service.py",
+        "line": 74,
+        "scope": "accept",
+        "description": "An authenticated tenant-scoped incident intake begins and later appends its audit record in the same unit of work."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/intake/service.py",
+        "line": 130,
+        "scope": "_append_intake_audit",
+        "description": "The intake path invokes the audit append helper for each accepted or duplicate request."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/audit/chain.py",
+        "line": 64,
+        "scope": "build_record",
+        "description": "The latest tenant checksum is read and stored as the candidate predecessor."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/audit/chain.py",
+        "line": 90,
+        "scope": "append",
+        "description": "The candidate predecessor is compared with another non-locking latest read before repository insertion."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/db/migrations/001_authoritative_entities.sql",
+        "line": 403,
+        "scope": "audit_tenant_predecessor_idx",
+        "description": "The uniqueness index covers tenant predecessors only when previous_record_checksum is non-null, permitting more than one root."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "The caller must be an authenticated reviewer or another trusted service that can create audit records."
+      },
+      {
+        "kind": "timing_dependency",
+        "description": "Two first audit appends for the same tenant must overlap so both latest-checksum reads observe no predecessor before either insert commits."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A tenant-authorized reviewer submits two different new incident intakes concurrently; no cross-tenant privilege is required.",
+      "payloads": [
+        "Two valid POST /tenants/{tenant_id}/incidents requests for different idempotency keys in the same tenant, scheduled concurrently."
+      ],
+      "instructions": [
+        "Authenticate as a reviewer for tenant-a.",
+        "Submit two distinct new incident intakes for tenant-a concurrently.",
+        "Arrange the two audit latest-checksum reads before either transaction commits.",
+        "Observe both committed audit rows have previous_record_checksum = NULL."
+      ],
+      "expected_result": "The tenant has two audit roots instead of one linked chain, so the audit history cannot be traversed as a single complete sequence."
+    },
+    "remediation": {
+      "strategy": "Serialize audit-chain append per tenant with a locked anchor row or transaction-scoped advisory lock, and retry/recompute after any predecessor uniqueness conflict. Add a real concurrent PostgreSQL test.",
+      "code_changes": [
+        {
+          "file_name": "backend/app/audit/chain.py and backend/app/db/repositories/audit.py",
+          "fixed_code": "Acquire a per-tenant serialization primitive covering latest_checksum and INSERT; do not accept a second NULL predecessor for the same tenant."
+        },
+        {
+          "file_name": "backend/db/migrations/001_authoritative_entities.sql or a follow-up migration",
+          "fixed_code": "Add an explicit tenant-chain anchor/invariant if the selected serialization design requires schema support."
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "Concurrent intake is a normal service condition, although the exploit requires timing overlap and tenant-authorized access."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "The append-only audit trace for a tenant can fork, undermining required reproducibility and reviewer traceability across intake and future action records."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The source path, schema predicate, and null-predecessor interleaving were directly verified; live PostgreSQL concurrency was unavailable in this review."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Production timeline persistence drops case-level uncertainty",
+    "description": "TimelineReconstructor correctly computes an uncertainty marker for conflicting normalized facts, but its production _persist path constructs a second TimelineRebuildResult without that uncertainty and does not persist the event-level conflict fields in the timeline repository call. build_timeline_rebuilt_event serializes the second result, so the authoritative outbox payload has an empty uncertainty list. A direct read-only harness with two conflicting facts observed a non-empty returned result and an empty outbox uncertainty list.",
+    "root_cause": "TimelineReconstructor._persist in backend/timeline/reconstruct.py does not carry the computed uncertainty into the persisted TimelineRebuildResult or timeline row, allowing the authoritative persistence/outbox handoff to lose conflict state.",
+    "intended_behavior": "Conflicting or insufficient evidence must remain explicitly uncertain in PostgreSQL, emitted events, projection inputs, and subsequent attribution/policy/escalation processing.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/timeline/reconstruct.py",
+        "line": 37,
+        "scope": "rebuild",
+        "description": "The deterministic timeline service receives normalized evidence facts and prepares the canonical result."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/timeline/reconstruct.py",
+        "line": 76,
+        "scope": "rebuild",
+        "description": "A differing candidate payload for one dedupe key adds a conflicting-sources uncertainty marker."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/timeline/reconstruct.py",
+        "line": 105,
+        "scope": "rebuild",
+        "description": "When configured for production persistence, reconstruction invokes _persist after computing the canonical events."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/timeline/reconstruct.py",
+        "line": 163,
+        "scope": "_persist",
+        "description": "The persistence path creates a new TimelineRebuildResult without supplying the uncertainty from the original rebuild."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/events/timeline_events.py",
+        "line": 100,
+        "scope": "build_timeline_rebuilt_event",
+        "description": "The event payload serializes the second result's uncertainty, which is empty, into the authoritative outbox event."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "data_state",
+        "description": "Two accepted normalized facts share a dedupe key but have conflicting payload or event-type values."
+      },
+      {
+        "kind": "system_configuration",
+        "description": "The TimelineReconstructor is configured with a PostgreSQL-backed unit_of_work_factory, as in the production activity path."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "An untrusted or inconsistent connector response introduces two same-key facts with different values; no direct database write is needed.",
+      "payloads": [
+        "Two NormalizedFact values for tenant-a/case-a with dedupe_key=payment-1 and payload amounts 100 and 200."
+      ],
+      "instructions": [
+        "Submit or replay evidence that produces the two conflicting facts.",
+        "Run the production-configured timeline rebuild.",
+        "Compare the returned result with the persisted timeline and timeline.rebuilt outbox payload.",
+        "Observe the returned uncertainty marker while the outbox uncertainty list is empty."
+      ],
+      "expected_result": "A downstream attribution or policy consumer receives the authoritative timeline handoff without the conflict marker and may process the event as certain."
+    },
+    "remediation": {
+      "strategy": "Carry the original uncertainty and complete event conflict representation into PostgreSQL and the outbox event, then test the end-to-end readback before allowing US2 attribution/policy consumers to rely on the handoff.",
+      "code_changes": [
+        {
+          "file_name": "backend/timeline/reconstruct.py",
+          "fixed_code": "Pass the computed uncertainty into the persisted result and persist event conflict/uncertainty fields required by the authoritative timeline model."
+        },
+        {
+          "file_name": "backend/db/migrations/001_authoritative_entities.sql and packages/contracts/events.py if needed",
+          "fixed_code": "Extend the authoritative timeline representation only if the existing columns/event contract cannot represent the required uncertainty without loss."
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "Conflicting source facts are an explicitly supported US1 edge case and can occur through ordinary connector inconsistency."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "Silently losing uncertainty at the US1-to-US2 boundary can cause attribution and policy inputs to treat ambiguous activity as certain, violating the safety requirement."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The production source path and event builder were inspected, and a direct harness observed the exact returned-versus-outbox mismatch; no live database readback was available."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Same-tenant case-only webhook association is not proven authoritative",
+    "description": "The webhook processor accepts caller-supplied case_id and, when present, resolves that case by tenant-scoped existence before storing the verified provider delivery. It does not prove that the provider event or request correlation belongs to the selected case. The current unit test explicitly accepts case-only association. A same-tenant caller can therefore attach a valid webhook to another existing case; cross-tenant and mismatched incident/case checks do not cover this single-ID path.",
+    "root_cause": "_resolve_association in backend/app/intake/webhook_processing.py does not require an authoritative provider-event or correlation mapping for a caller-supplied same-tenant case, allowing arbitrary same-tenant case substitution.",
+    "intended_behavior": "A verified webhook should be stored only against the case proven by authoritative provider-event or incident/correlation state; if the association cannot be proven it should remain unassociated or be quarantined.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/intake/webhook_processing.py",
+        "line": 73,
+        "scope": "process",
+        "description": "The webhook service receives an authenticated context, a verified provider request, and optional caller-supplied incident/case identities."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/intake/webhook_processing.py",
+        "line": 161,
+        "scope": "process",
+        "description": "The caller-supplied identities are passed to authoritative association resolution before delivery persistence."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/intake/webhook_processing.py",
+        "line": 260,
+        "scope": "_resolve_association",
+        "description": "A supplied case ID selects a case by existence and tenant-scoped repository lookup."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/intake/webhook_processing.py",
+        "line": 277,
+        "scope": "_resolve_association",
+        "description": "The selected case and its incident are returned without provider-event or correlation ownership validation."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/intake/webhook_processing.py",
+        "line": 168,
+        "scope": "process",
+        "description": "The verified webhook delivery is created with the selected incident and case identities."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "The caller must reach the webhook processing service with a valid reviewer/service authorization context."
+      },
+      {
+        "kind": "data_state",
+        "description": "The tenant contains at least two cases and the provider/request data does not itself carry a checked case correlation."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A tenant-authorized integration caller or compromised reviewer-facing route submits a valid signed provider webhook while selecting another existing same-tenant case.",
+      "payloads": [
+        "A valid Razorpay webhook request for tenant-a with case_id=case-2 supplied to process(), when the event is intended for case-1."
+      ],
+      "instructions": [
+        "Authenticate for tenant-a with the required reviewer role.",
+        "Submit a validly signed provider webhook to the processing boundary.",
+        "Supply an existing same-tenant case_id that is not the event's actual case.",
+        "Observe the delivery is accepted and stored against the selected case."
+      ],
+      "expected_result": "The provider evidence is durably attached to the wrong same-tenant case even though tenant RLS and pair-consistency checks pass."
+    },
+    "remediation": {
+      "strategy": "Require a durable provider-event or incident/correlation mapping before associating a webhook; reject or quarantine when the association is not proven, and add a regression test for arbitrary same-tenant case substitution.",
+      "code_changes": [
+        {
+          "file_name": "backend/app/intake/webhook_processing.py",
+          "fixed_code": "Remove case existence as the sole proof for case-only association and resolve only through an authoritative event/correlation mapping."
+        },
+        {
+          "file_name": "packages/contracts/intake.py and the webhook processing contract if needed",
+          "fixed_code": "Add an explicit, validated association identity only if the provider/correlation contract can authoritatively establish it."
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "The caller must reach an internal authenticated processing boundary and choose a case, but case IDs are accepted as ordinary inputs."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "Evidence provenance and downstream case decisions can be corrupted across cases within one tenant, violating the required correct-case association invariant."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The association function and storage call were directly inspected, and the existing case-only acceptance test confirms the behavior; no public route is currently wired, so deployment reachability remains a condition."
+    }
+  }
+]

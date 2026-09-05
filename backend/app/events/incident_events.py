@@ -34,6 +34,16 @@ def build_incident_accepted_event(
     report_content_present: bool,
     causation_id: str,
     producer: str,
+    incident_type: str | None = None,
+    occurred_at: datetime | None = None,
+    narrative_checksum: str | None = None,
+    customer_reference: str | None = None,
+    account_reference: str | None = None,
+    order_reference: str | None = None,
+    payment_reference: str | None = None,
+    reported_amount_minor: int | None = None,
+    reported_currency: str | None = None,
+    external_reference: str | None = None,
 ) -> EventEnvelope:
     """Build the metadata-only event emitted with an accepted incident."""
 
@@ -44,6 +54,16 @@ def build_incident_accepted_event(
         "received_at": received_at.isoformat(),
         "report_reference": report_reference,
         "report_content_present": report_content_present,
+        "incident_type": incident_type,
+        "occurred_at": occurred_at.isoformat() if occurred_at is not None else None,
+        "narrative_checksum": narrative_checksum,
+        "customer_reference": customer_reference,
+        "account_reference": account_reference,
+        "order_reference": order_reference,
+        "payment_reference": payment_reference,
+        "reported_amount_minor": reported_amount_minor,
+        "reported_currency": reported_currency,
+        "external_reference": external_reference,
     }
     return EventEnvelope(
         tenant_id=tenant_id,

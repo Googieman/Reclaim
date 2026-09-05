@@ -5,14 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
+from app.config import Settings
 from app.control_plane.registry import PolicyOwnerRegistry
 from app.control_plane.tenant_config import (
     StaticTenantConfigurationSource,
     TenantConfiguration,
     TenantConfigurationBoundary,
 )
-from app.config import Settings
 from us3_test_seams import require_symbol
 
 
@@ -80,10 +79,6 @@ def test_settings_keep_live_financial_execution_disabled_by_default() -> None:
     assert settings.run_mode == "replay"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owner T089: bounded tenant policy configuration/change control",
-)
 def test_tenant_policy_thresholds_and_denied_changes_are_bounded_and_auditable() -> (
     None
 ):

@@ -1,0 +1,1 @@
+{"variant":"partial_unavailable_evidence","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-partial-evidence","expected_outcome":"escalated_unresolved","deviation":{"stage":"evidence","field":"availability","change":"mark connector response partial and unavailable"},"provenance":"deterministic-local-replay"}

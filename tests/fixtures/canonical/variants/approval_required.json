@@ -1,0 +1,1 @@
+{"variant":"approval_required","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-approval-required","expected_outcome":"approval_required","deviation":{"stage":"policy","field":"approval","change":"require separate approval"},"provenance":"deterministic-local-replay"}

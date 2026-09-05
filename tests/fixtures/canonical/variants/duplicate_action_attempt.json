@@ -1,0 +1,1 @@
+{"variant":"duplicate_action_attempt","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-duplicate-action","expected_outcome":"duplicate","deviation":{"stage":"action","field":"attempt","change":"repeat canonical action identity"},"provenance":"deterministic-local-replay"}

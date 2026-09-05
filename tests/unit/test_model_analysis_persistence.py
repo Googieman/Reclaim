@@ -20,6 +20,7 @@ from app.audit.model_analysis import (
     ModelAnalysisAudit,
     ModelAnalysisPersistenceError,
     PersistedProposal,
+    agent_run_to_model_analysis_audit,
 )
 from app.db.repositories.model_runs import ModelRunRepository
 from app.auth.oidc import IdentityType, TenantAuthorizationContext
@@ -40,6 +41,7 @@ from packages.contracts.connectors import (
     ConnectorType,
 )
 from agent.output_parser import TenantBoundAnalysisResponse
+from agent.fresh_run import AgentRun, AgentRunStatus
 
 
 TENANT_ID = "tenant-t076"
@@ -228,6 +230,75 @@ def _audit() -> ModelAnalysisAudit:
         proposal_validations={"proposal-t076": validation},
         created_at=datetime(2026, 9, 1, 10, 0, tzinfo=UTC),
     )
+
+
+def test_agent_run_adapter_persists_typed_response_and_provenance() -> None:
+    result, validation = _validated_result()
+    live_request = _request().model_copy(
+        update={"provider_mode": ProviderMode.LIVE, "replay_label": ProviderMode.LIVE}
+    )
+    run = AgentRun(
+        run_id="agent-run-t076",
+        request=live_request,
+        status=AgentRunStatus.COMPLETED,
+        provider="test-provider",
+        model="test-model",
+        analysis_response=result.analysis_response,
+        request_checksum="request-checksum-t076",
+        attempted_providers=(
+            {
+                "profile": "reclaim-specialist",
+                "provider": "test-provider",
+                "model": "test-model",
+            },
+        ),
+    )
+
+    audit = agent_run_to_model_analysis_audit(
+        run,
+        result,
+        proposal_validations={"proposal-t076": validation},
+    )
+
+    assert audit.mode == ProviderMode.LIVE.value
+    assert audit.analysis_id == ANALYSIS_ID
+    assert audit.provenance["agent_run_id"] == "agent-run-t076"
+    assert audit.provenance["typed_response"]["analysis_id"] == ANALYSIS_ID
+    assert audit.as_dict()["provenance"]["side_effects"] is False
+
+
+def test_agent_run_adapter_records_explicit_model_unavailable_fallback() -> None:
+    result = replace(
+        _result(),
+        analysis_request=_request().model_copy(
+            update={
+                "provider_mode": ProviderMode.LIVE,
+                "replay_label": ProviderMode.LIVE,
+            }
+        ),
+        analysis_response=None,
+    )
+    run = AgentRun(
+        run_id="agent-run-unavailable-t076",
+        request=result.analysis_request,
+        status=AgentRunStatus.UNAVAILABLE,
+        error="MODEL_UNAVAILABLE",
+        request_checksum="request-checksum-t076-unavailable",
+        attempted_providers=(
+            {
+                "profile": "reclaim-specialist",
+                "provider": "unconfigured",
+                "model": "unconfigured",
+            },
+        ),
+    )
+
+    audit = agent_run_to_model_analysis_audit(run, result)
+
+    assert audit.mode == "deterministic_only"
+    assert audit.terminal_outcome == "deterministic_only"
+    assert audit.fallback_reason == "MODEL_UNAVAILABLE"
+    assert audit.proposals == ()
 
 
 class _Cursor:

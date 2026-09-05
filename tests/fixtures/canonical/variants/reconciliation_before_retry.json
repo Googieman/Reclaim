@@ -1,0 +1,1 @@
+{"variant":"reconciliation_before_retry","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-reconciliation-before-retry","expected_outcome":"reconciled","deviation":{"stage":"reconciliation","field":"retry_order","change":"reconcile before considering retry"},"provenance":"deterministic-local-replay"}

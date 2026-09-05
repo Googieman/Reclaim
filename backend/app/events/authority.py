@@ -49,6 +49,7 @@ AUTHORIZED_EVENT_SERVICE_IDENTITIES: frozenset[str] = frozenset(
         "service-account-reclaim-workflow",
         "service-account-reclaim-model-gateway",
         "service-account-reclaim-action-gateway",
+        "reclaim-n8n-orchestrator",
     }
 )
 

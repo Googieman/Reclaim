@@ -1,0 +1,87 @@
+# FS-001 explicit service egress matrix for the Compose deployment.
+#
+# This is a reviewable Compose/static-policy declaration. It is not a claim
+# that Docker Compose enforces broker-native identity or production firewall
+# semantics. A production deployment still needs network-policy enforcement
+# plus Redpanda mTLS, SASL, ACL, and principal binding.
+version: network-policy-v1.0.0
+enforcement:
+  deployment: docker-compose
+  mode: compose-network-declarations-plus-broker-native-production-profile
+  broker_security_policy: redpanda/production-security.yaml
+  default_deny_egress: true
+  unrestricted_egress: false
+  external_destinations_are_symbolic_allowlist_entries: true
+  residual_deployment_debt:
+    - "Certificate issuance, rotation, and production firewall enforcement remain deployment responsibilities."
+    - "The production profile must load the broker-native Redpanda mTLS, SASL, ACL, and principal-binding policy before activation."
+services:
+  web:
+    ingress: [public-ingress]
+    egress: [api]
+  api:
+    ingress: [public-ingress, app-services]
+    egress: [postgres, temporal, redpanda, redis, minio, keycloak, vault, otel-collector]
+  workflow-worker:
+    ingress: [app-services]
+    egress: [postgres, temporal, redpanda, otel-collector]
+  n8n-main:
+    ingress: [app-services]
+    egress: [api, redpanda, redis]
+  n8n-worker:
+    ingress: [app-services]
+    egress: [api, redis]
+  model-gateway:
+    ingress: [app-services]
+    egress: [model-provider-allowlist, otel-collector]
+  attribution:
+    ingress: [app-services]
+    egress: [postgres, otel-collector]
+  evidence-connectors:
+    ingress: [app-services]
+    egress: [postgres, evidence-provider-allowlist, otel-collector]
+  action-gateway:
+    ingress: [app-services, action-boundary]
+    egress: [postgres, merchant-controlled-action-allowlist, otel-collector]
+  postgres:
+    ingress: [data-services]
+    egress: []
+  temporal:
+    ingress: [app-services, data-services]
+    egress: [postgres]
+  redpanda:
+    ingress: [app-services, data-services]
+    egress: []
+  neo4j:
+    ingress: [data-services]
+    egress: []
+  minio:
+    ingress: [data-services]
+    egress: []
+  redis:
+    ingress: [data-services]
+    egress: []
+  keycloak:
+    ingress: [data-services]
+    egress: []
+  vault:
+    ingress: [data-services]
+    egress: []
+  otel-collector:
+    ingress: [app-services, observability]
+    egress: [prometheus, loki, langfuse, mlflow]
+  prometheus:
+    ingress: [observability]
+    egress: [api, workflow-worker, model-gateway, action-gateway, otel-collector]
+  grafana:
+    ingress: [observability]
+    egress: [prometheus, loki]
+  loki:
+    ingress: [observability]
+    egress: []
+  langfuse:
+    ingress: [data-services, observability]
+    egress: [postgres]
+  mlflow:
+    ingress: [data-services, observability]
+    egress: [postgres]

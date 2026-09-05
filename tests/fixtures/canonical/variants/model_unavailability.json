@@ -1,0 +1,1 @@
+{"variant":"model_unavailability","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-model-unavailability","expected_outcome":"replay","deviation":{"stage":"model","field":"availability","change":"model unavailable; use replay"},"provenance":"deterministic-local-replay"}

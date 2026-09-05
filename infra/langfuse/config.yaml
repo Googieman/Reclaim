@@ -1,0 +1,24 @@
+# Redacted, non-authoritative model-trace configuration for local deployment.
+version: langfuse-config-v1.0.0
+enabled: false
+deployment: internal-only
+capture:
+  mode: replay-or-live-qualified
+  raw_evidence: false
+  raw_prompts: false
+  raw_outputs: false
+  unnecessary_pii: false
+  held_out_payloads: false
+metadata:
+  include_case_and_correlation_references: true
+  include_model_provider_version: true
+  include_policy_fixture_and_corpus_versions: true
+  include_token_usage_cost_latency: true
+  include_forbidden_attempts_and_resolution_state: true
+  non_authoritative: true
+redaction:
+  implementation: backend.observability.evaluation
+  fail_closed: true
+export:
+  endpoint: http://langfuse:3000
+  credentials_from_environment: false

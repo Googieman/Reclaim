@@ -1,0 +1,1 @@
+{"variant":"escalation","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-escalation","expected_outcome":"escalated_unresolved","deviation":{"stage":"escalation","field":"state","change":"assign unresolved work to merchant owner"},"provenance":"deterministic-local-replay"}

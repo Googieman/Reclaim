@@ -35,6 +35,7 @@ ACTIVITY_NAMES = {
     "verify_case": "case.verify_case",
     "reconcile_action": "case.reconcile_action",
     "escalate_unresolved": "case.escalate_unresolved",
+    "run_containment": "case.run_containment",
 }
 
 ACTIVITY_TIMEOUTS = {

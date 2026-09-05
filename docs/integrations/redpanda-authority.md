@@ -21,8 +21,11 @@ or envelope checksum is not business authority.
 
 The current adapter enforces an application-level allowlist for the authenticated
 OIDC service subject and for the event producer field. The temporary local
-validation setup uses `reclaim-event-relay`; it does not configure or claim
-production mTLS, SASL, or Redpanda ACL enforcement. A production deployment must
-bind the broker-authenticated producer/service principal to these allowlists and
-configure broker ACLs before treating broker identity as an additional trust
-signal. The PostgreSQL outbox reconciliation remains mandatory in production.
+validation setup uses `reclaim-event-relay` with plaintext transport. The
+production overlay supplies broker-native SASL_SSL, mandatory client
+certificates, default-deny authorization, and the explicit principal/topic
+allowlist from `infra/redpanda/production-security.yaml` and
+`production-acl.yaml`. Deployment operators must still verify certificate
+issuance, ACL application, and principal binding before activation; no live
+broker qualification is claimed by static configuration tests. PostgreSQL
+outbox reconciliation remains mandatory in production.

@@ -53,10 +53,6 @@ def test_nonterminal_workflow_result_has_no_terminal_outcome() -> None:
     assert result.terminal_state is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Expected-red owner T098: explicit terminal-state transition implementation is absent",
-)
 def test_terminal_transition_rejects_generic_aliases_and_invalid_order() -> None:
     transition = require_symbol(
         "cases.terminal_states",

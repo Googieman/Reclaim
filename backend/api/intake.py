@@ -1,25 +1,20 @@
 """Authenticated incident intake HTTP routes."""
 
-from __future__ import annotations
-
 from collections.abc import Awaitable, Callable
 from typing import Any
-
-from app.auth.oidc import OIDCVerifier, RequiredRole, TenantAuthorizationError
-from app.config import get_settings
-from app.intake.service import IncidentIntakeService, IntakePayloadTooLarge
-from packages.contracts.intake import IncidentIntakeRequest, IncidentIntakeResponse
 
 
 def create_intake_app(
     *,
-    intake_service: IncidentIntakeService,
-    oidc_verifier: OIDCVerifier,
+    intake_service: Any,
+    oidc_verifier: Any,
     evidence_orchestrator: Any | None = None,
     timeline_reconstructor: Any | None = None,
     max_request_body_bytes: int | None = None,
 ) -> Any:
     """Build the intake API; later US1 stages are explicit, unused dependencies."""
+
+    from app.config import get_settings
 
     try:
         from fastapi import FastAPI
@@ -108,10 +103,14 @@ def _content_length(headers: Any) -> int | None:
 
 def create_intake_router(
     *,
-    intake_service: IncidentIntakeService,
-    oidc_verifier: OIDCVerifier,
+    intake_service: Any,
+    oidc_verifier: Any,
 ) -> Any:
     """Create tenant-path intake routes with bearer-token authorization."""
+
+    from app.auth.oidc import RequiredRole, TenantAuthorizationError
+    from app.intake.service import IntakePayloadTooLarge
+    from packages.contracts.intake import IncidentIntakeRequest, IncidentIntakeResponse
 
     try:
         from fastapi import APIRouter, Header, HTTPException, status

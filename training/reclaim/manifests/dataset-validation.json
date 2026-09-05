@@ -1,0 +1,57 @@
+{
+  "class_balance": {
+    "legitimate": 1,
+    "malicious": 2,
+    "uncertain": 1
+  },
+  "dataset_version": "reclaim-dataset-v1.0.0",
+  "errors": [],
+  "held_out_sealed": true,
+  "leakage": {
+    "assignments_frozen": true,
+    "grouping_checks": {
+      "customer": true,
+      "entity": true
+    },
+    "held_out_access": "sealed",
+    "held_out_access_policy": "sealed",
+    "provenance": {
+      "algorithm_version": "evaluation-splitting-v1.0.0",
+      "case_count": 1,
+      "order": "raw/source cases -> grouped/temporal split -> freeze -> overlays"
+    },
+    "ratios": {
+      "development": 1.0,
+      "held_out": 0.0,
+      "validation": 0.0
+    },
+    "split_counts": {
+      "development": 1,
+      "held_out": 0,
+      "validation": 0
+    },
+    "synthetic_overlay_applied_after_split": true,
+    "target_ratios": {
+      "development": 0.6,
+      "held_out": 0.2,
+      "validation": 0.2
+    },
+    "temporal_separation": true,
+    "valid": true
+  },
+  "limitations": [
+    "No held-out payloads are emitted by the training builder; held-out labels remain sealed metadata only.",
+    "No validation case is present in the supplied source set; no validation result is claimed.",
+    "Only 1 source case(s) supplied; target held-out size is not met and cases are not fabricated or padded."
+  ],
+  "manifest": "training\\reclaim\\manifests\\dataset.json",
+  "rows_checked": {
+    "development": 1
+  },
+  "split_counts": {
+    "development": 1,
+    "held_out": 0,
+    "validation": 0
+  },
+  "status": "valid"
+}

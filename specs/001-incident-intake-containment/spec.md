@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-30
 
-**Status**: Approved
+**Status**: Approved with orchestration amendment 2026-09-03
 
 **Input**: User description: "FS-001 — Incident Intake to Verified Containment. Implement the first complete RECLAIM vertical slice from an account-compromise report through verified merchant loss containment, preserving the approved production-oriented architecture."
 
@@ -14,7 +14,7 @@ This feature delivers one complete, tenant-ready demonstration flow for a mercha
 
 In scope are incident intake, applicable Razorpay Test Mode webhook intake, evidence collection from approved merchant-controlled connectors, deterministic timeline reconstruction, event attribution, exposure calculation, bounded analysis, typed defensive proposals, policy and approval gates, idempotent execution, reconciliation, verification, escalation, append-only audit, and live/replay demonstration support.
 
-Out of scope are production financial execution, actions against systems not controlled by the merchant or explicitly configured connectors, attacker interaction or surveillance, credential probing, arbitrary network access, and any agent-directed side effect. Webhook case association is in scope only through the approved verified provider-correlation and authoritative PostgreSQL mapping described below; a universal correlation framework is out of scope. The approved RECLAIM architecture remains governing context; this specification does not authorize replacing or omitting its components for convenience.
+Out of scope are production financial execution, actions against systems not controlled by the merchant or explicitly configured connectors, attacker interaction or surveillance, credential probing, arbitrary network access, and any agent-directed side effect. Webhook case association is in scope only through the approved verified provider-correlation and authoritative PostgreSQL mapping described below; a universal correlation framework is out of scope. n8n is the project-wide durable orchestrator for new work, while PostgreSQL remains business authority and the legacy Temporal path drains existing runs only. The approved architecture amendment is recorded in ADR-004; this specification does not permit n8n direct access to RECLAIM data stores or side-effect credentials.
 
 ## Clarifications
 
@@ -27,6 +27,12 @@ Out of scope are production financial execution, actions against systems not con
 - Q: Who should own policy thresholds, and how should those thresholds be changed? (FR-013, FR-014, FR-015) -> A: Authorized policy owners define versioned thresholds; tenant configuration is allowed only within centrally enforced bounds; policy changes require approved change control; models cannot change policy at runtime.
 - Q: Should high-impact approvals require separation of duties, with unresolved cases assigned to an owner and closed only through explicit terminal states? (FR-015, FR-018, FR-019) -> A: Keep analysis/proposal, approval, and escalation responsibilities distinct; assign an escalation owner per tenant; and permit only `verified_contained`, `verified_failed`, or `escalated_unresolved` as terminal outcomes.
 - Q: What minimum replay and evaluation package, including dataset split and performance classification, should FS-001 require? -> A: Require one canonical end-to-end replay fixture plus deterministic variants for invalid signatures, duplicates, out-of-order events, missing evidence, policy denial, approval gating, unknown remote results, forbidden proposals, verification failure, escalation, and provider unavailability. Use a minimum target of 150 labeled incidents split 60% development, 20% validation, and 20% sealed held-out evaluation, grouped by incident and merchant and stratified across legitimate, malicious, and uncertain outcomes. Treat provisional targets of p95 simulator intake acknowledgement <=2 seconds and canonical replay completion <=5 minutes as targets only; record actual p50/p95 latency, throughput, recovery time, and failure rates as measured baselines on a documented environment before making operational claims.
+
+### Session 2026-09-03 — n8n orchestration and operator intake amendment
+
+- Q: Which system owns durable orchestration for new cases? → A: n8n owns new durable execution, retry, recovery, and human handoff. It consumes `incident.accepted` from Redpanda and calls only versioned, allowlisted, idempotent RECLAIM APIs. PostgreSQL owns the authoritative run and stage records. Existing Temporal executions drain under a legacy profile and receive no new cases.
+- Q: What is the operator's primary incident workflow? → A: `/cases` is the default cursor-paginated inbox. A keyboard-accessible intake panel requires source, incident type, occurred time, and narrative; optional identifiers and reported amount/currency are stored as typed intake metadata, with reported value explicitly unverified. The raw narrative is retained in immutable MinIO but is not searchable or emitted in events/logs.
+- Q: How do orchestration failures recover? → A: The n8n error workflow calls a bounded recovery API with the run ID, n8n execution ID, expected state, idempotency key, and allowlisted failure code. RECLAIM records `requires_attention`; it never silently substitutes replay or retries a non-idempotent stage without reconciliation.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -100,6 +106,35 @@ As a reviewer, I want to run the same incident live when dependencies are availa
 2. **Given** the same sealed fixture, policy version, and replay inputs, **When** the flow is replayed, **Then** timeline ordering, exposure calculation, policy decisions, and proposal validation are reproducible.
 3. **Given** a completed or escalated flow, **When** a reviewer inspects the case, **Then** the append-only audit history links intake, evidence, attribution, model/provider mode, policy, approvals, proposals, executions, reconciliation, verification, escalation, and outcomes.
 
+### User Story 5 - Intake and monitor from the Case Inbox (Priority: P1)
+
+As a merchant operations reviewer, I want to submit a structured incident and watch its
+bounded n8n handoff from one inbox so that I can move into the existing case view without
+losing tenant, correlation, or failure context.
+
+**Independent Test**: Open `/cases`, validate the required and paired optional fields,
+submit a new incident, confirm exactly one PostgreSQL-backed row appears and is highlighted,
+observe queued/running polling stop at `awaiting_human` or `requires_attention`, then open
+the linked case view.
+
+**Acceptance Scenarios**:
+
+1. **Given** an authorized reviewer on `/cases`, **When** the intake panel is opened,
+   **Then** source, incident type, occurred time, and narrative are required and all
+   controls have keyboard labels, visible focus, and accessible status/error announcements.
+2. **Given** a reported amount or currency is supplied alone, **When** the form is
+   submitted, **Then** the request is rejected before acceptance; valid amounts are
+   converted to deterministic integer minor units and shown as unverified.
+3. **Given** a valid intake, **When** the route accepts it or detects the same idempotency
+   identity, **Then** the original incident/case identity is returned, the inbox refreshes,
+   the new row is highlighted, and the result is announced without exposing narrative.
+4. **Given** cases are listed, **When** an operator uses `state`, `automation_status`, or
+   `q`, **Then** results remain tenant-scoped, ordered by `updated_at DESC, case_id DESC`,
+   and `q` searches identifiers only.
+5. **Given** a row is queued or running, **When** the operator remains on the inbox,
+   **Then** bounded polling refreshes its status; polling stops at `awaiting_human`,
+   `completed`, `failed`, or `requires_attention`.
+
 ### Edge Cases
 
 - A webhook is duplicated, arrives out of order, fails authenticity validation, or references a different tenant; the system must deduplicate, order, quarantine/reject, or isolate it deterministically.
@@ -145,6 +180,13 @@ As a reviewer, I want to run the same incident live when dependencies are availa
 - **FR-023**: The system MUST record forbidden action attempts and MUST execute zero forbidden actions, including attacker interaction, credential probing, arbitrary external-system access, unauthorized network activity, shell commands, or direct financial/account mutations by the agent.
 - **FR-024**: The system MUST expose sufficient case state and audit evidence for a reviewer to understand why an event was attributed, why exposure was calculated, why an action was allowed or denied, and why a flow was verified or escalated.
 - **FR-025**: The system MUST keep evaluation records labeled with dataset provenance, case counts, split membership, grouping identity, and class balance. The initial evaluation target MUST be at least 150 labeled incidents split 60% development, 20% validation, and 20% sealed held-out evaluation, with related records grouped by incident and merchant so they cannot cross splits.
+- **FR-026**: The system MUST accept structured incident intake with required `source`, `incident_type`, `occurred_at`, and `narrative`; optional customer/account/order/payment references and optional reported amount/currency MUST be stored as typed fields, with amount and currency supplied together and reported value marked unverified.
+- **FR-027**: The authenticated intake route MUST persist PostgreSQL incident/case state, immutable MinIO raw capture, audit metadata, and the `incident.accepted` outbox record transactionally, enforce a request-size limit, preserve correlation/idempotency identity across retries, and return the original incident/case identity for duplicates.
+- **FR-028**: The system MUST expose `GET /tenants/{tenant_id}/cases` with tenant-scoped cursor pagination ordered by `updated_at DESC, case_id DESC`, state and automation filters, and identifier-only search; narrative content MUST NOT be searchable or present in the response.
+- **FR-029**: n8n MUST consume the versioned `incident.accepted` event through Kafka Trigger, claim each case using its execution ID, and call only allowlisted RECLAIM APIs for normalization, typed analysis, deterministic proposal/policy validation, and human handoff. n8n MUST NOT receive direct database, MinIO, model-provider, approval, or Action Gateway credentials.
+- **FR-030**: Orchestration stages MUST be limited to `normalize_intake`, `analyze`, and `human_handoff`; each stage MUST require expected-state and idempotency values, persist an authoritative run/stage attempt, and reject arbitrary commands or conflicting retries.
+- **FR-031**: Orchestration failure or model unavailability MUST retain the case and persist `requires_attention` with an allowlisted failure code; replay MUST NOT be silently substituted and approvals/execution MUST remain explicit operator actions.
+- **FR-032**: The operator UI MUST make `/cases` the default route, provide an accessible side-panel intake flow (fullscreen on small screens), refresh/highlight newly accepted cases, announce status changes, poll only queued/running cases, and link each row to `/cases/{caseId}`. The case view MUST show typed intake metadata and orchestration state without presenting a hardcoded merchant or severity.
 
 ## D3 / MAJOR-5 implementation acceptance criteria
 
@@ -212,7 +254,7 @@ is considered runtime-closed:
 
 - The initial demonstration uses one demo merchant but all business state and access paths are tenant-ready.
 - Razorpay access is Test Mode only for this feature; live financial execution remains disabled by default and requires separately configured credentials, policy, approvals, and verification.
-- The approved production-oriented RECLAIM architecture—including PostgreSQL authority, Temporal durability, Redpanda events, Neo4j projection, Redis limitations, merchant evidence storage, LangGraph/LiteLLM bounded analysis, rules/LightGBM support, and the isolated Action Gateway—remains mandatory and will be mapped during planning.
+- The approved production-oriented RECLAIM architecture—including PostgreSQL authority, n8n durability for new work, legacy Temporal drain, Redpanda events, Neo4j projection, Redis queue limitations, MinIO merchant evidence storage, LangGraph/LiteLLM bounded analysis, rules/LightGBM support, and the isolated Action Gateway—is mandatory and mapped in ADR-004 and the implementation plan.
 - Connectors are explicitly configured and merchant-controlled; unsupported, unavailable, or partial evidence is reported rather than inferred.
 - A trusted merchant-side order/payment context or server-side pre-registration populates provider-correlation mappings before an accepted webhook is processed. A webhook, report correlation key, or caller-supplied ID cannot bootstrap its own mapping.
 - Existing case-only webhook callers migrate to the v2.0.0 processing contract by supplying optional case/incident assertions only; they must also provision the corresponding authoritative provider mapping. No compatibility mode retains caller-selected case authority.

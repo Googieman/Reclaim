@@ -1,0 +1,1 @@
+{"variant":"duplicate_events","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-duplicate-events","expected_outcome":"duplicate","deviation":{"stage":"timeline","field":"events","change":"repeat identical source event"},"provenance":"deterministic-local-replay"}

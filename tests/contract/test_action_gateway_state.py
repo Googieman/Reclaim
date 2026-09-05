@@ -101,13 +101,6 @@ def test_inconclusive_verification_is_not_a_terminal_success() -> None:
     assert verification.evidence_references == ("evidence-us3-001",)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Expected-red owners T092/T095/T096/T097: gateway transition, reconciliation, "
-        "verification, and escalation implementations are not started"
-    ),
-)
 def test_state_machine_rejects_invalid_transitions_and_requires_reconciliation_verification() -> (
     None
 ):

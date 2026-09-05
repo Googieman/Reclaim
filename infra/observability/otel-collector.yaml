@@ -8,6 +8,16 @@ receivers:
 
 processors:
   batch: {}
+  # Correlation identifiers are safe bounded attributes for trace/log lookup;
+  # raw narratives, payloads, and credentials are always deleted below.
+  attributes/correlation:
+    actions:
+      - key: reclaim.correlation_id
+        action: update
+        from_attribute: reclaim.correlation_id
+      - key: reclaim.case_id
+        action: update
+        from_attribute: reclaim.case_id
   attributes/redaction:
     actions:
       - key: reclaim.raw_payload
@@ -29,7 +39,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [attributes/redaction, batch]
+      processors: [attributes/correlation, attributes/redaction, batch]
       exporters: [debug]
     metrics:
       receivers: [otlp]
@@ -37,5 +47,5 @@ service:
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-      processors: [attributes/redaction, batch]
+      processors: [attributes/correlation, attributes/redaction, batch]
       exporters: [debug]

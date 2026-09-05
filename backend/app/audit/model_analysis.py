@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, is_dataclass
+from dataclasses import dataclass, field, is_dataclass, replace
 from dataclasses import fields as dataclass_fields
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -645,6 +645,12 @@ class ModelAnalysisAudit:
                 "attempted_providers": _provenance_value(
                     metadata, "attempted_providers", default=()
                 ),
+                "agent_run_id": metadata.get("agent_run_id"),
+                "prompt_version": metadata.get("agent_prompt_version"),
+                "harness_version": metadata.get("agent_harness_version"),
+                "runtime_version": metadata.get("agent_runtime_version"),
+                "started_at": metadata.get("agent_started_at"),
+                "finished_at": metadata.get("agent_finished_at"),
                 "policy_version_id": request.policy_version_id,
                 "deterministic_analysis_version": getattr(result, "outcome_record", {}).get(
                     "analysis_version"
@@ -656,6 +662,9 @@ class ModelAnalysisAudit:
                 "deterministic_exposure_checksum": exposure_checksum,
                 "token_count": token_count,
                 "estimated_cost": estimated_cost,
+                # The parsed contract is safe structured provenance.  Raw
+                # provider text and chain-of-thought are intentionally absent.
+                "typed_response": response_dump,
                 "authoritative_store": "postgresql",
                 "side_effects": False,
             },
@@ -930,6 +939,99 @@ class ModelAnalysisAudit:
         )
 
 
+def agent_run_to_model_analysis_audit(
+    run: object,
+    deterministic_result: object,
+    *,
+    proposal_validations: Mapping[str, object] | Sequence[object] = (),
+    created_at: datetime | None = None,
+) -> ModelAnalysisAudit:
+    """Adapt one bounded :class:`AgentRun` to the existing audit value.
+
+    The adapter is deliberately downstream of the fresh-agent parser and the
+    deterministic analysis stage. It copies only typed response metadata and
+    provenance; provider text, chain-of-thought, tools, and execution handles
+    never cross this boundary. A provider-unavailable run is represented as a
+    deterministic-only terminal outcome instead of being relabelled as replay.
+    """
+
+    from agent.fresh_run import AgentRun, AgentRunStatus
+
+    if not isinstance(run, AgentRun):
+        raise ModelAnalysisPersistenceError("agent run must be a typed AgentRun")
+    if getattr(deterministic_result, "analysis_request", None) is None:
+        raise ModelAnalysisPersistenceError("deterministic analysis request is required")
+    if (
+        getattr(deterministic_result, "tenant_id", None) != run.request.tenant_id
+        or getattr(deterministic_result, "case_id", None) != run.request.case_id
+        or getattr(deterministic_result, "correlation_id", None) != run.request.correlation_id
+    ):
+        raise ModelAnalysisPersistenceError("agent run and deterministic result scope differ")
+
+    response = run.analysis_response
+    metadata = dict(getattr(deterministic_result, "metadata", {}) or {})
+    metadata.update(
+        {
+            "analysis_requested_mode": ProviderMode.LIVE.value,
+            "analysis_request_checksum": run.request_checksum,
+            "attempted_providers": run.attempted_providers,
+            "analysis_side_effects": False,
+            "agent_run_id": run.run_id,
+            "agent_runtime_version": run.runtime_version,
+            "agent_prompt_version": run.prompt_version,
+            "agent_harness_version": run.harness_version,
+            "agent_started_at": run.started_at.isoformat() if run.started_at else None,
+            "agent_finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        }
+    )
+    if response is not None:
+        if run.status is not AgentRunStatus.COMPLETED:
+            raise ModelAnalysisPersistenceError(
+                "only completed AgentRuns may carry a typed response"
+            )
+        metadata.update(
+            {
+                "analysis_mode": ProviderMode.LIVE.value,
+                "analysis_final_mode": ProviderMode.LIVE.value,
+                "analysis_parser_version": run.parser_version,
+                "analysis_adapter_version": run.runtime_version,
+                "analysis_response_checksum": run.response_checksum,
+                "analysis_terminal_outcome": "completed",
+            }
+        )
+        final_mode = ProviderMode.LIVE.value
+    else:
+        metadata.update(
+            {
+                "analysis_mode": DETERMINISTIC_ONLY_MODE,
+                "analysis_final_mode": DETERMINISTIC_ONLY_MODE,
+                "analysis_terminal_outcome": DETERMINISTIC_ONLY_MODE,
+                "analysis_terminal_reason": run.error or "fresh model provider is unavailable",
+                "analysis_fallback_reason": run.error or "fresh model provider is unavailable",
+            }
+        )
+        final_mode = DETERMINISTIC_ONLY_MODE
+
+    try:
+        adapted = replace(
+            deterministic_result,
+            mode=final_mode,
+            analysis_request=run.request,
+            analysis_response=response,
+            metadata=metadata,
+        )
+    except TypeError as exc:
+        raise ModelAnalysisPersistenceError(
+            "deterministic result cannot be adapted to the fresh-agent request"
+        ) from exc
+    return ModelAnalysisAudit.from_result(
+        adapted,
+        proposal_validations=proposal_validations,
+        authoritative_exposure=getattr(deterministic_result, "exposure", None),
+        created_at=created_at,
+    )
+
+
 def build_model_analysis_audit(
     result: object,
     *,
@@ -1195,5 +1297,6 @@ __all__ = [
     "ModelAnalysisAudit",
     "ModelAnalysisPersistenceError",
     "PersistedProposal",
+    "agent_run_to_model_analysis_audit",
     "build_model_analysis_audit",
 ]

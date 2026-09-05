@@ -61,10 +61,6 @@ VALID_CASES = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T107 is expected-red until T114/T115 split validation is implemented",
-)
 def test_split_validation_is_grouped_temporal_and_overlay_ordered() -> None:
     validate_split_order = _require_symbol(
         "evaluation.splitting", "validate_split_order", task="T115"
@@ -89,10 +85,6 @@ def test_split_validation_is_grouped_temporal_and_overlay_ordered() -> None:
     assert result["held_out_access_policy"] == "sealed"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T107 is expected-red until T115/T116 reject leakage and holdout access",
-)
 def test_split_validation_rejects_cross_group_leakage_and_holdout_access() -> None:
     validate_split_order = _require_symbol(
         "evaluation.splitting", "validate_split_order", task="T115"

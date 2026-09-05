@@ -1,0 +1,46 @@
+[
+  {
+    "verdict": "rejected",
+    "reason": "OIDC tenant-role binding is genuinely absent: global roles are flattened and accepted for every tenant in the principal's tenant_ids. Independent validation and a no-write harness reproduced the incorrect decision. It is rejected as a confirmed T001-T035 exploit only because the completed scope has no reachable API, approval consumer, Action Gateway, connector, or other privilege-bearing sink; carry it as a T036 gate blocker."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "The public raw UoW connection and caller-supplied tenant context could be dangerous to a future tenant-reachable handler, but T001-T035 contains no such handler or external entrypoint. No current cross-tenant read/write attack was demonstrated."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Temporal APPROVAL_RECORDED wakes the workflow based on same-tenant/case identity without validating an authoritative approval record, but no production action activity or side-effect consumer exists in T001-T035. The behavior is a future boundary blocker, not a current exploit."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Arbitrary workflow stage names are converted to activity names, but no tenant-controlled workflow start path or production activity registry is present in T001-T035."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Model allowed_tools and ActionGatewayRequest contracts are permissive around unknown tools, arbitrary operation parameters, and optional approval_id, but neither a model gateway nor an Action Gateway is implemented or reachable in T001-T035."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Redpanda envelopes self-declare tenant_id, producer, and payload_checksum and dispatch trusts those fields, but no production broker ingress, authenticated producer boundary, or event handler with consequential behavior is in the completed scope."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "MinIO put has a check-then-put race for concurrent same-key writes, but no current evidence-ingestion endpoint or financial/action decision relies on it."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Redis lock release deletes by key without compare-and-delete token validation, but Redis is not authoritative and no current business operation uses this race to decide a protected action."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Global policy rows and single-column policy references leave future policy ownership and cross-tenant association risks, but no current policy service or consequential consumer provides an attacker-controlled path in T001-T035."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Vault wildcard action paths, development defaults, unauthenticated observability defaults, and absent deployment ACL/TLS configuration are deployment or future-service hardening issues. No production deployment or external ingress is present in the audited tree."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "No reachable injection, unsafe deserialization, SSRF, path traversal, shell execution, arbitrary network access, or leaked production credential sink was found. SQL is parameterized, JSON is contract-validated, and MinIO object names reject traversal-like segments."
+  }
+]

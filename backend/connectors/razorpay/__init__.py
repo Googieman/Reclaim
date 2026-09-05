@@ -1,5 +1,11 @@
 """Razorpay Test Mode inbound webhook connector."""
 
+from .actions import (
+    RazorpayPaymentActionAdapter,
+    RazorpayTestModeActionAdapter,
+    build_razorpay_test_mode_action_manifest,
+    validate_refund_action,
+)
 from .manifest import (
     RAZORPAY_TEST_CONNECTOR_ID,
     RazorpayHeaderConfiguration,
@@ -26,4 +32,8 @@ __all__ = [
     "WebhookVerificationError",
     "build_razorpay_test_mode_manifest",
     "validate_razorpay_manifest",
+    "RazorpayPaymentActionAdapter",
+    "RazorpayTestModeActionAdapter",
+    "build_razorpay_test_mode_action_manifest",
+    "validate_refund_action",
 ]

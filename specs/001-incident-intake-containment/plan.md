@@ -1,28 +1,28 @@
 # Implementation Plan: Incident Intake to Verified Containment
 
-**Branch**: `main` (feature context: `001-incident-intake-containment`) | **Date**: 2026-08-30 | **Spec**: [spec.md](./spec.md)
+**Branch**: `main` (feature context: `001-incident-intake-containment`) | **Date**: 2026-09-03 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Approved and clarified feature specification from `specs/001-incident-intake-containment/spec.md`
 
 ## Summary
 
-FS-001 is a complete tenant-ready incident response vertical slice. The design separates deterministic case, evidence, timeline, financial, policy, gateway, verification, and audit logic from model inference. A Temporal workflow coordinates durable progress and recovery; PostgreSQL owns business state; Redpanda transports versioned domain events; Neo4j is a rebuildable relationship projection; MinIO retains raw evidence and artifacts; Redis is limited to bounded coordination; and all external side effects pass through the isolated Action Gateway.
+FS-001 is a complete tenant-ready incident response vertical slice. The design separates deterministic case, evidence, timeline, financial, policy, gateway, verification, and audit logic from model inference. n8n coordinates durable progress and recovery for new work through typed RECLAIM APIs; PostgreSQL owns business state; Redpanda transports versioned domain events; Neo4j is a rebuildable relationship projection; MinIO retains raw evidence and artifacts; Redis coordinates the n8n queue only; and all external side effects pass through the isolated Action Gateway. Temporal is a legacy drain profile for pre-existing runs.
 
 The implementation sequence is dependency-ordered: establish contracts and tenant/security foundations, ingest and persist incidents, derive verified provider correlations and resolve authoritative webhook mappings, collect and normalize evidence, reconstruct the deterministic timeline, attribute and calculate exposure, generate bounded proposals, evaluate policy and approvals, execute/reconcile/verify actions, then add replay/evaluation and the complete demonstration topology. Every slice is independently testable and preserves the full architecture.
 
 ## Technical Context
 
-**Language/Version**: TypeScript for the Next.js web application and Python for FastAPI services, Temporal workers, deterministic domain services, and model/attribution adapters. Exact patch versions are pinned in implementation lockfiles before coding.
+**Language/Version**: TypeScript for the Next.js web application and Python for FastAPI services, orchestrator-neutral application services, deterministic domain services, and model/attribution adapters. n8n workflow JSON is version-controlled and imported idempotently. Exact patch versions are pinned in implementation lockfiles before coding.
 
-**Primary Dependencies**: Next.js/TypeScript, FastAPI/Pydantic, Temporal Python SDK, LangGraph, LiteLLM, LightGBM, PostgreSQL client/driver, Redis client, Redpanda-compatible Kafka client, Neo4j driver, MinIO client, Keycloak/OIDC, Vault, OpenTelemetry, Prometheus/Grafana/Loki, Langfuse, MLflow, Docker Compose, and GitHub Actions.
+**Primary Dependencies**: Next.js/TypeScript, FastAPI/Pydantic, n8n, LangGraph, LiteLLM, LightGBM, PostgreSQL client/driver, Redis client, Redpanda-compatible Kafka client, Neo4j driver, MinIO client, Keycloak/OIDC, Vault, OpenTelemetry, Prometheus/Grafana/Loki, Langfuse, MLflow, Docker Compose, and GitHub Actions. Temporal SDK/runtime remain only for legacy drain compatibility and are not a dependency of new orchestration behavior.
 
 **Storage**: PostgreSQL is authoritative for tenant, incident, case, evidence metadata, timeline facts, attribution, exposure, policy, approval, action, verification, escalation, audit, outbox, inbox, replay, and evaluation metadata. MinIO stores raw evidence and artifacts with checksums. Neo4j stores a rebuildable relationship projection. Redis stores only bounded cache/lock/rate-limit/coordination data.
 
-**Testing**: Python unit and property tests, TypeScript unit tests, contract tests for every boundary, PostgreSQL/Redpanda/Temporal integration tests, connector simulator tests, failure-recovery tests, security/tenant-isolation tests, browser acceptance tests, and sealed replay/evaluation tests. Test tooling is selected and pinned during implementation without changing the contracts in this plan.
+**Testing**: Python unit and property tests, TypeScript unit tests, contract tests for every boundary, PostgreSQL/Redpanda/n8n integration tests, legacy Temporal drain tests, connector simulator tests, failure-recovery tests, security/tenant-isolation tests, browser acceptance tests, and sealed replay/evaluation tests. Test tooling is selected and pinned during implementation without changing the contracts in this plan.
 
 **Target Platform**: Docker Compose on a developer or CI host, with Docker Desktop or Linux Docker Engine. Kubernetes/KServe are future scale-out paths and are not required for this slice.
 
-**Project Type**: Multi-service web application with a Next.js operator UI, FastAPI APIs, durable Temporal workflows, event consumers/projections, connector adapters/simulators, model/attribution services, and an isolated action boundary.
+**Project Type**: Multi-service web application with a Next.js operator UI, FastAPI APIs, durable n8n workflows, orchestrator-neutral application services, event consumers/projections, connector adapters/simulators, model/attribution services, and an isolated action boundary.
 
 **Performance Goals**: Provisional targets only: p95 deterministic-simulator intake acknowledgement <=2 seconds and canonical replay completion <=5 minutes. Actual p50/p95 latency, throughput, recovery time, and failure rates must be measured on a documented environment before any release threshold or operational claim is adopted.
 
@@ -39,7 +39,7 @@ The implementation sequence is dependency-ordered: establish contracts and tenan
 - **I. Defense-Only Operation**: PASS. Connectors are merchant-controlled and allowlisted; forbidden attacker interaction, probing, arbitrary access, and unauthorized network behavior are out of scope and rejected.
 - **II. Harnessed Agent and Action Gateway**: PASS. The model boundary produces typed analysis/proposals only. The Action Gateway is the sole side-effect boundary.
 - **III. Deterministic Financial Integrity**: PASS. Exposure and refund eligibility are trusted deterministic calculations in integer minor units and explicit currency.
-- **IV. Authoritative State and Durable Workflows**: PASS. PostgreSQL owns business state and Temporal owns durable orchestration; Redis is non-authoritative.
+- **IV. Authoritative State and Durable Orchestration**: PASS. PostgreSQL owns business state and n8n owns new durable orchestration through allowlisted APIs; Temporal is drain-only and Redis is non-authoritative.
 - **V. Event and Projection Ownership**: PASS. Redpanda is transport with outbox/inbox handling; Neo4j is rebuildable; MinIO retains raw evidence.
 - **VI. Policy, Approval, Idempotency, and Verification**: PASS. Versioned policy, approval, stable idempotency, reconciliation-before-retry, and verified terminal outcomes are required.
 - **VII. Tenant Isolation, Least Privilege, and Untrusted Evidence**: PASS. Tenant scope is carried through every contract; evidence is untrusted; secrets are scoped and PII is minimized.
@@ -57,7 +57,8 @@ No constitution violation or complexity exception is required.
 | Intake API | Incident requests, Razorpay Test Mode webhook verification, v1.0.0 provider-correlation derivation, authoritative mapping lookup, assertion validation, and case creation command validation | Tenant/connector configuration and PostgreSQL provider mappings | PostgreSQL incident/case/webhook delivery/quarantine/outbox; no remote merchant mutation |
 | Evidence orchestrator/adapters | Connector invocation and evidence provenance | Case and connector scope | PostgreSQL evidence metadata; MinIO raw objects; emits evidence events |
 | Deterministic domain services | Deduplication, ordering, attribution aggregation, exposure, proposal validation, policy evaluation | PostgreSQL facts and versioned policy/model outputs | PostgreSQL derived facts and audit; no external side effects |
-| Temporal workflow worker | Durable orchestration, retries, timers, signals, recovery, compensation/escalation routing | PostgreSQL state and event status | Workflow state and commands to activities; does not become business state |
+| n8n workflow boundary | Durable orchestration, retries, recovery, stage routing, and human handoff for new incidents | Redpanda envelopes and redacted RECLAIM API responses | n8n execution metadata only; authoritative run/stage state is written by RECLAIM APIs in PostgreSQL |
+| Legacy Temporal worker | Drain pre-existing runs during migration | PostgreSQL state and event status | Legacy workflow metadata; MUST NOT receive new incidents |
 | Model gateway | Provider-neutral structured inference and model/provider metadata | Redacted case representation and approved tools | Typed analysis output and model audit metadata; no action credentials |
 | Action Gateway | Allowlisted side-effect execution, idempotency, reconciliation, verification dispatch | Approved proposals, approvals, connector action scope | Merchant-controlled mutations only through isolated adapters; execution/audit records |
 | Event transport/consumers | Versioned event delivery and inbox/outbox processing | PostgreSQL outbox | Redpanda topics; projection consumers; no authoritative business decisions |
@@ -67,7 +68,7 @@ No constitution violation or complexity exception is required.
 ### State ownership
 
 - PostgreSQL is the source of truth for all business state, policy versions, approvals, action executions, verification, escalation, audit, and replay/evaluation metadata.
-- Temporal owns workflow execution history, durable retries, timers, signals, and recovery state, but workflow activities must read/write authoritative business state through explicit repositories/commands.
+- n8n owns new workflow execution history, durable retries, and recovery; every stage calls explicit allowlisted RECLAIM APIs. Temporal owns no new cases and remains only until the drain exit criteria are satisfied.
 - Redpanda carries versioned asynchronous events from transactional outbox to inbox consumers. Consumer offsets are not business completion.
 - Neo4j is rebuilt from PostgreSQL-backed events and may be deleted/recreated without loss of correctness.
 - Redis is optional coordination/cache/rate limiting only; no financial or terminal-state decision depends solely on it.
@@ -77,9 +78,9 @@ No constitution violation or complexity exception is required.
 
 1. An authenticated merchant/operator or validated Razorpay Test Mode webhook reaches the Intake API.
 2. The API validates connector scope, verifies the original webhook payload where applicable, derives the v1.0.0 provider correlation, resolves exactly one authoritative PostgreSQL mapping without using caller IDs as authority, checks optional case/incident assertions, enforces `(tenant, connector, provider_event_id)` idempotency, and persists the incident/case/webhook outcome and outbox record transactionally.
-3. Temporal starts or signals the case workflow. Evidence activities call only approved connector contracts and persist raw evidence checksums plus normalized metadata.
-4. Deterministic services deduplicate and order timeline events, combine rules/LightGBM attribution evidence, and calculate financial exposure.
-5. The bounded model gateway receives redacted structured case data and returns typed attribution/proposal output. The model has no side-effect credentials or unrestricted tools.
+3. n8n claims the case with its execution ID, asks RECLAIM to normalize the structured intake/redacted report, invokes the typed analysis endpoint, records deterministic validation/policy output, and records `awaiting_human`. No raw narrative is sent through the event envelope or n8n logs.
+4. If the model or a stage fails, the n8n recovery workflow calls the bounded recovery API, which persists `requires_attention`; it never silently substitutes replay.
+5. Deterministic services deduplicate and order timeline events, combine rules/LightGBM attribution evidence, and calculate financial exposure.
 6. Deterministic proposal validation and versioned policy evaluation produce allow, deny, approval-required, or escalate decisions. Every decision is persisted and emitted as a versioned event.
 7. Policy-permitted reversible actions or separately approved high-impact actions are sent to the Action Gateway with stable idempotency keys.
 8. The Action Gateway executes through an allowlisted merchant connector, reconciles unknown results before retry, verifies resulting state, and records verified success, verified failure, or escalation.
@@ -93,7 +94,11 @@ Define versioned schemas, tenant context propagation, Keycloak/OIDC roles, Vault
 
 ### Slice 1 - Incident intake and case creation
 
-Implement authenticated incident intake, stable correlation identity, tenant-aware case creation, idempotent duplicate intake, and Temporal workflow start/signal. Add Razorpay Test Mode webhook verification as a connector-specific implementation of the signed original-payload contract, with raw payload checksum and quarantine behavior.
+Implement authenticated structured incident intake, stable correlation identity, tenant-aware case creation, idempotent duplicate intake, request-size limits, immutable MinIO capture, and the Redpanda `incident.accepted` outbox. Add Razorpay Test Mode webhook verification as a connector-specific implementation of the signed original-payload contract, with raw payload checksum and quarantine behavior.
+
+### Slice 1A - n8n orchestration handoff and Case Inbox
+
+Expose orchestrator-neutral normalization, typed-analysis handoff, deterministic stage/policy validation, recovery, and human-handoff APIs. Persist authoritative `orchestration_runs` and stage attempts. Version and import the n8n Kafka Trigger workflows, constrain credentials and networks, and move the operator default to a cursor-paginated `/cases` inbox with an accessible side-panel intake form. Existing Temporal work drains but receives no new case.
 
 ### Slice 2 - Evidence collection and deterministic timeline
 
@@ -119,7 +124,7 @@ Create the canonical end-to-end fixture and deterministic variants, labeled live
 
 - **Unit/property**: monetary arithmetic, exposure invariants, ordering/tie-breaking, deduplication, tenant scope, policy thresholds, idempotency key derivation, terminal-state transitions, redaction, and proposal schemas.
 - **Contract**: intake/webhook, evidence connector, simulator, event envelope, model gateway, policy decision, approval, Action Gateway, verification, audit, replay, and evaluation metadata contracts.
-- **Integration**: PostgreSQL authority, transactional outbox/inbox, Redpanda delivery, Temporal restart/retry/signal behavior, MinIO checksums, Neo4j rebuild, Redis non-authority, Keycloak/Vault scopes, and OpenTelemetry correlation.
+- **Integration**: PostgreSQL authority, transactional outbox/inbox, Redpanda delivery, n8n duplicate-delivery/restart/worker recovery, legacy Temporal drain behavior, MinIO checksums, Neo4j rebuild, Redis queue non-authority, Keycloak/Vault scopes, and OpenTelemetry correlation.
 - **Failure recovery**: duplicate/out-of-order events, unavailable/partial/stale connectors, invalid signatures, process restart, timeout, unknown remote result, reconciliation-before-retry, stale policy version, verification ambiguity, and escalation.
 - **Security**: cross-tenant access attempts, untrusted prompt/evidence injection, forbidden action proposals, missing/overbroad credentials, arbitrary network/tool access, PII leakage, approval self-dealing, and audit tampering.
 - **D3 association gate**: signed webhook plus arbitrary same-tenant case with no mapping, verified correlation with mapping, matching and conflicting case/incident assertions, cross-tenant substitution, unknown correlation, duplicate provider event, and caller attempts to establish mapping authority. Assert no accepted persistence or case attachment on unresolved/mismatch paths.
@@ -132,13 +137,14 @@ The authoritative initial deployment is one Docker Compose project containing:
 
 - `web`: Next.js operator interface.
 - `api`: FastAPI intake/case/approval/replay API.
-- `workflow-worker`: Temporal Python worker and activities.
+- `n8n-main` and `n8n-worker`: durable new-case orchestration and queue workers using an isolated PostgreSQL schema and Redis queue coordination.
+- `workflow-worker`: legacy Temporal Python worker and activities for drain only; no new incidents.
 - `model-gateway`: provider-neutral LangGraph/LiteLLM adapter with redacted inputs and no side-effect credentials.
 - `attribution`: deterministic rules/LightGBM adapter service.
 - `evidence-connectors`: approved merchant-controlled read adapters and deterministic simulators.
 - `action-gateway`: isolated allowlisted action/reconciliation/verification service with narrowly scoped connector credentials.
 - `postgres`: authoritative business state, policies, approvals, action state, audit, outbox/inbox, replay/evaluation metadata.
-- `temporal`: Temporal server plus its required persistence configuration.
+- `temporal`: legacy Temporal server plus its required persistence configuration; removable after drain exit criteria.
 - `redpanda`: event transport and versioned topic infrastructure.
 - `neo4j`: rebuildable relationship projection.
 - `minio`: raw evidence and artifact storage with checksum verification.
@@ -172,7 +178,7 @@ changed.
 
 ## Constitution Check (Post-design)
 
-- **Architecture ownership**: PASS. PostgreSQL, Temporal, Redpanda, Neo4j, Redis, MinIO, and the complete Compose topology retain their approved roles.
+- **Architecture ownership**: PASS. PostgreSQL, n8n, Redpanda, Neo4j, Redis, MinIO, and the complete Compose topology retain their amended roles; Temporal is explicitly drain-only.
 - **Defense and side effects**: PASS. All connectors are allowlisted and merchant-controlled; the model has typed proposal authority only; the Action Gateway is isolated and idempotent.
 - **Financial safety**: PASS. Trusted integer-minor-unit calculations, captured-payment/refund bounds, approval gates, reconciliation, and verification are explicit.
 - **Tenant/security boundary**: PASS. Tenant scope, OIDC/Vault least privilege, untrusted evidence, redaction, and cross-tenant tests are planned.
@@ -181,12 +187,12 @@ changed.
   handling, duplicate idempotency, and identical replay/simulator semantics are defined;
   runtime implementation and migration remain gated.
 - **Model/evaluation integrity**: PASS. Providers share one interface and sealed grouped evaluation; replay and synthetic/hybrid results are labeled; metrics are not fabricated.
-- **Audit/test/decision governance**: PASS. Append-only audit, required test classes, ADRs, and baseline-before-threshold rules are included.
+- **Audit/test/decision governance**: PASS. Append-only audit, required test classes, ADR-004, n8n workflow versioning, and baseline-before-threshold rules are included.
 
-The D3 specification gate passes with no architecture or constitution violation. The
-implementation queue remains recorded in `tasks.md`, but D3 runtime implementation and
-T059 are intentionally blocked until the versioned contract, PostgreSQL mapping, and
-direct acceptance tests are implemented in a later authorized session.
+The amended orchestration gate passes with no architecture or constitution violation.
+The implementation queue remains recorded in `tasks.md`; the n8n migration is complete
+for the new intake/inbox boundary, while legacy Temporal removal remains gated on
+drain, parity, recovery, and fresh-volume evidence.
 
 ## Complexity Tracking
 

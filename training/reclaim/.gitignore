@@ -1,0 +1,12 @@
+# Generated examples and local model/cache artifacts are not source-of-truth files.
+data/generated/
+data/*.jsonl
+artifacts/*
+!artifacts/.gitkeep
+*.safetensors
+*.bin
+*.gguf
+*.log
+*.pt
+*.pth
+*.ckpt

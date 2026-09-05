@@ -1,0 +1,21 @@
+{
+  "uid": "fs001-evaluation",
+  "title": "RECLAIM FS-001 Evaluation and Replay",
+  "schemaVersion": 39,
+  "tags": ["reclaim", "evaluation", "replay", "redacted"],
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "annotations": {"list": []},
+  "templating": {"list": []},
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Replay runs", "targets": [{"expr": "reclaim_evaluation_runs_total{mode=\"replay\"}", "refId": "A"}]},
+    {"id": 2, "type": "stat", "title": "Resolution success", "targets": [{"expr": "reclaim_evaluation_resolution_success_ratio", "refId": "A"}]},
+    {"id": 3, "type": "stat", "title": "Malicious-action precision", "targets": [{"expr": "reclaim_evaluation_malicious_action_precision", "refId": "A"}]},
+    {"id": 4, "type": "stat", "title": "Malicious-action recall", "targets": [{"expr": "reclaim_evaluation_malicious_action_recall", "refId": "A"}]},
+    {"id": 5, "type": "timeseries", "title": "Latency p50 / p95", "targets": [{"expr": "reclaim_evaluation_latency_p50_ms", "refId": "A"}, {"expr": "reclaim_evaluation_latency_p95_ms", "refId": "B"}]},
+    {"id": 6, "type": "timeseries", "title": "Forbidden attempts and executions", "targets": [{"expr": "reclaim_evaluation_forbidden_attempts_total", "refId": "A"}, {"expr": "reclaim_evaluation_forbidden_executions_total", "refId": "B"}]},
+    {"id": 7, "type": "table", "title": "Evaluation provenance", "targets": [{"expr": "reclaim_evaluation_sample_size", "refId": "A", "format": "table"}]}
+  ],
+  "links": [],
+  "editable": false
+}

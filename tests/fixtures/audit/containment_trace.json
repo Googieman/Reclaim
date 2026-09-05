@@ -1,0 +1,26 @@
+{
+  "trace_version": "us3-audit-trace-v1.0.0",
+  "mode": "replay",
+  "label": "replay",
+  "tenant_id": "tenant-replay-us3",
+  "case_id": "case-replay-us3-001",
+  "correlation_ids": ["corr-replay-us3-001"],
+  "redaction": "typed references only; no raw payloads, credentials, secrets, or PII",
+  "chain": [
+    {"stage": "incident", "id": "incident-001", "version": "intake-v1", "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    {"stage": "evidence", "id": "evidence-001", "provider": "session-replay-v1", "version": "evidence-v1", "checksum": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    {"stage": "attribution", "id": "attribution-001", "version": "attribution-v1", "checksum": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+    {"stage": "exposure", "id": "exposure-001", "currency": "INR", "remaining_exposure_minor": 30000, "version": "exposure-v1", "checksum": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"},
+    {"stage": "proposal", "id": "proposal-001", "analysis_id": "analysis-001", "version": "proposal-v1", "checksum": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
+    {"stage": "policy", "id": "policy-decision-001", "policy_version": "policy-v1", "version": "policy-decision-v1", "checksum": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+    {"stage": "approval", "id": "approval-001", "version": "approval-v1", "checksum": "1111111111111111111111111111111111111111111111111111111111111111"},
+    {"stage": "canonical_action", "id": "2222222222222222222222222222222222222222222222222222222222222222", "version": "action-identity-v1", "checksum": "3333333333333333333333333333333333333333333333333333333333333333"},
+    {"stage": "execution", "id": "execution-001", "provider_idempotency_key": "provider-001", "result": "completed", "version": "action-idempotency-v1", "checksum": "4444444444444444444444444444444444444444444444444444444444444444"},
+    {"stage": "verification", "id": "verification-001", "execution_id": "execution-001", "method": "merchant_state_read", "result": "verified_success", "version": "verification-v1", "checksum": "5555555555555555555555555555555555555555555555555555555555555555"},
+    {"stage": "terminal", "id": "case-replay-us3-001", "execution_id": "execution-001", "outcome": "verified_contained", "version": "case-terminal-v1", "checksum": "6666666666666666666666666666666666666666666666666666666666666666"},
+    {"stage": "execution", "id": "execution-002", "provider_idempotency_key": "provider-002", "result": "unknown", "reconciliation": "reconciled-before-retry", "version": "action-idempotency-v1", "checksum": "7777777777777777777777777777777777777777777777777777777777777777"},
+    {"stage": "verification", "id": "verification-002", "execution_id": "execution-002", "method": "merchant_state_read", "result": "inconclusive", "version": "verification-v1", "checksum": "8888888888888888888888888888888888888888888888888888888888888888"},
+    {"stage": "escalation", "id": "escalation-002", "owner": "merchant-ops", "currency": "INR", "remaining_exposure_minor": 30000, "version": "escalation-v1", "checksum": "9999999999999999999999999999999999999999999999999999999999999999"},
+    {"stage": "terminal", "id": "case-replay-us3-001", "execution_id": "execution-002", "outcome": "escalated_unresolved", "version": "case-terminal-v1", "checksum": "abababababababababababababababababababababababababababababababab"}
+  ]
+}

@@ -1,0 +1,78 @@
+name: reclaim-test
+
+services:
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_RUN_MODE: replay
+        NEXT_PUBLIC_REPLAY_LABEL: replay
+        NEXT_PUBLIC_LIVE_ACTIONS_ENABLED: "false"
+    environment:
+      NEXT_PUBLIC_RUN_MODE: replay
+      NEXT_PUBLIC_REPLAY_LABEL: replay
+      NEXT_PUBLIC_LIVE_ACTIONS_ENABLED: "false"
+
+  api:
+    environment:
+      RECLAIM_ENVIRONMENT: test
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_REPLAY_LABEL: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_MODE_FALLBACK: replay
+      RECLAIM_PROVIDER_UNAVAILABILITY_POLICY: replay
+      RECLAIM_PROVIDER_AVAILABLE: "false"
+      RECLAIM_CONNECTOR_AVAILABLE: "false"
+      RECLAIM_PROVIDER_QUALIFIED: "false"
+      RECLAIM_CONNECTOR_QUALIFIED: "false"
+      RECLAIM_LIVE_EXECUTION_OCCURRED: "false"
+
+  workflow-worker:
+    environment:
+      RECLAIM_ENVIRONMENT: test
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+
+  model-gateway:
+    environment:
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_PROVIDER_AVAILABLE: "false"
+      RECLAIM_PROVIDER_QUALIFIED: "false"
+      RECLAIM_PROVIDER_UNAVAILABILITY_POLICY: replay
+
+  attribution:
+    environment:
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+
+  evidence-connectors:
+    environment:
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_CONNECTOR_AVAILABLE: "false"
+      RECLAIM_CONNECTOR_QUALIFIED: "false"
+
+  action-gateway:
+    environment:
+      RECLAIM_ENVIRONMENT: test
+      RECLAIM_RUN_MODE: replay
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_ACTION_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+
+  n8n-main:
+    environment:
+      N8N_ENCRYPTION_KEY: reclaim-n8n-test-key
+      DB_POSTGRESDB_PASSWORD: reclaim-n8n-development
+      EXECUTIONS_MODE: queue
+
+  n8n-worker:
+    environment:
+      N8N_ENCRYPTION_KEY: reclaim-n8n-test-key
+      DB_POSTGRESDB_PASSWORD: reclaim-n8n-development
+      EXECUTIONS_MODE: queue

@@ -25,6 +25,7 @@ dependencies = [
   "opentelemetry-api==1.29.0",
   "opentelemetry-sdk==1.29.0",
   "prometheus-client==0.21.1",
+  "uvicorn==0.34.0",
 ]
 
 [project.optional-dependencies]
@@ -68,11 +69,15 @@ packages = [
   "agent",
   "finance",
   "analysis",
+  "replay",
   "evidence",
   "projections",
   "timeline",
   "workflows",
   "workflows.activities",
+  "action_gateway",
+  "cases",
+  "escalation",
   "packages",
   "packages.contracts",
 ]

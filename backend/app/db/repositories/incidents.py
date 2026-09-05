@@ -31,17 +31,34 @@ class IncidentRepository(TenantScopedRepository):
         raw_input_reference: str | None,
         intake_status: str,
         deduplication_identity: str,
+        incident_type: str | None = None,
+        occurred_at: datetime | None = None,
+        narrative_checksum: str | None = None,
+        customer_reference: str | None = None,
+        account_reference: str | None = None,
+        order_reference: str | None = None,
+        payment_reference: str | None = None,
+        reported_amount_minor: int | None = None,
+        reported_currency: str | None = None,
+        external_reference: str | None = None,
     ) -> IncidentCreateResult:
         row = self.fetch_one(
             """
             INSERT INTO incidents (
                 tenant_id, incident_id, source, reporter_context, received_at,
-                correlation_key, raw_input_reference, intake_status, deduplication_identity
+                correlation_key, raw_input_reference, intake_status, deduplication_identity,
+                incident_type, occurred_at, narrative_checksum, customer_reference,
+                account_reference, order_reference, payment_reference,
+                reported_amount_minor, reported_currency, external_reference
             )
-            VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s)
             ON CONFLICT (tenant_id, deduplication_identity) DO NOTHING
             RETURNING tenant_id, incident_id, source, received_at, correlation_key,
-                      intake_status, deduplication_identity, created_at
+                      intake_status, deduplication_identity, created_at,
+                      incident_type, occurred_at, narrative_checksum, customer_reference,
+                      account_reference, order_reference, payment_reference,
+                      reported_amount_minor, reported_currency, external_reference
             """,
             (
                 self.tenant_context.tenant_id,
@@ -53,6 +70,16 @@ class IncidentRepository(TenantScopedRepository):
                 raw_input_reference,
                 intake_status,
                 deduplication_identity,
+                incident_type,
+                occurred_at,
+                narrative_checksum,
+                customer_reference,
+                account_reference,
+                order_reference,
+                payment_reference,
+                reported_amount_minor,
+                reported_currency,
+                external_reference,
             ),
         )
         if row is not None:
@@ -94,7 +121,10 @@ class IncidentRepository(TenantScopedRepository):
         return self.fetch_one(
             """
             SELECT tenant_id, incident_id, source, received_at, correlation_key,
-                   intake_status, deduplication_identity, created_at
+                   intake_status, deduplication_identity, created_at,
+                   incident_type, occurred_at, narrative_checksum, customer_reference,
+                   account_reference, order_reference, payment_reference,
+                   reported_amount_minor, reported_currency, external_reference
             FROM incidents
             WHERE tenant_id = %s AND deduplication_identity = %s
             """,
@@ -106,7 +136,10 @@ class IncidentRepository(TenantScopedRepository):
             """
             SELECT tenant_id, incident_id, source, reporter_context, received_at,
                    correlation_key, raw_input_reference, intake_status,
-                   deduplication_identity, created_at
+                   deduplication_identity, created_at,
+                   incident_type, occurred_at, narrative_checksum, customer_reference,
+                   account_reference, order_reference, payment_reference,
+                   reported_amount_minor, reported_currency, external_reference
             FROM incidents
             WHERE tenant_id = %s AND incident_id = %s
             """,

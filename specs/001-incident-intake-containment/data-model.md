@@ -36,11 +36,15 @@ incident only after verified provider correlation resolves through the authorita
 mapping.
 
 Key fields: `incident_id`, `tenant_id`, source, reporter context, received time,
-correlation key, raw input reference, intake status, deduplication identity.
+occurred time, typed incident type, customer/account/order/payment references,
+reported amount in integer minor units, ISO currency, external reference, narrative
+checksum, correlation key, raw input reference, intake status, deduplication identity.
 
 Rules: the incident correlation key supports incident intake deduplication and
 traceability only; it does not establish provider ownership or replace a verified
-provider correlation mapping.
+provider correlation mapping. Narrative is retained only in immutable MinIO; the
+checksum and typed fields are the searchable/reportable PostgreSQL projection. Reported
+value is unverified and never feeds authoritative exposure without trusted evidence.
 
 ### Case
 
@@ -221,6 +225,22 @@ EvaluationCase fields: case identity, provenance, split (`development`, `validat
 
 Rules: target at least 500 benchmark cases when feasible; a 60/20/20 development/validation/sealed-held-out split is acceptable; target at least 100 held-out cases, preferably 150 or more. Held-out cases are sealed and grouped by entity/customer and time before synthetic overlays, with at least 25% no-compromise/false-alert cases and mixed legitimate/malicious activity in at least 30% of compromised cases. Held-out seeds/scenarios are inaccessible to prompts, tuning, and model selection. If fewer cases are available, record actual size and statistical limitations without padding. Replay results are labeled and never represented as live production results.
 
+### OrchestrationRun and OrchestrationStageAttempt
+
+`OrchestrationRun` is the authoritative PostgreSQL record for the n8n handoff. Key
+fields are `tenant_id`, `run_id`, `case_id`, workflow version, n8n external execution
+ID, current allowlisted stage, status (`queued`, `running`, `awaiting_human`,
+`completed`, `failed`, or `requires_attention`), idempotency key, failure code, and
+queued/started/completed/updated timestamps. `OrchestrationStageAttempt` records the
+expected case state, stage, outcome, failure code, idempotency key, and timestamp.
+
+Rules: every new run is tenant-scoped and unique by case/idempotency identity; n8n
+execution history and Redis queue state are operational metadata only. Stages are
+limited to `normalize_intake`, `analyze`, and `human_handoff`; stage callbacks require
+expected-state and idempotency values. Failed/model-unavailable work records
+`requires_attention` and never silently substitutes replay. Approval and Action
+Gateway execution are not n8n stages.
+
 ## Relationship summary
 
 `Tenant 1->N Incident 1->1 Case 1->N EvidenceItem`
@@ -239,6 +259,8 @@ Rules: target at least 500 benchmark cases when feasible; a 60/20/20 development
 
 `Tenant 1->N ConnectorConfiguration; Case 1->N ReplayRun; ReplayRun 1->N EvaluationCase`
 
+`Case 1->N OrchestrationRun 1->N OrchestrationStageAttempt`
+
 ## State invariants
 
 - A case cannot become terminal while an action has unknown execution or inconclusive verification unless it transitions to `escalated_unresolved`.
@@ -249,3 +271,8 @@ Rules: target at least 500 benchmark cases when feasible; a 60/20/20 development
 - A duplicate webhook cannot create a second incident fact, financial exposure, proposal, or remote side effect.
 - A policy decision references exactly one immutable policy version; approval references the same applicable version and cannot be self-approved.
 - A Neo4j or Redis outage does not change authoritative case, financial, action, or audit correctness.
+- n8n, its worker, or its execution-history database cannot establish business truth;
+  recovery must consult PostgreSQL `orchestration_runs` and stage attempts.
+- Raw incident narrative never appears in `incident.accepted`, inbox search, normal
+  logs, or n8n execution payloads; only typed metadata, identifiers, references, and
+  checksums cross the orchestration boundary.

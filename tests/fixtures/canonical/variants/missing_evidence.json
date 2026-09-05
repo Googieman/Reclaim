@@ -1,0 +1,1 @@
+{"variant":"missing_evidence","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-missing-evidence","expected_outcome":"escalated_unresolved","deviation":{"stage":"evidence","field":"evidence","change":"remove one required evidence reference"},"provenance":"deterministic-local-replay"}

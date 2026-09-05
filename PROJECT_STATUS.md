@@ -1,8 +1,175 @@
 # RECLAIM Project Status
 
-Last updated: 2026-09-01
+Last updated: 2026-09-04
 
 ## Current objective
+
+Implement the amended incident-intake, case-inbox, and n8n orchestration slice
+while preserving the existing safety boundaries and replay/live truthfulness.
+
+## Current milestone: n8n-backed incident intake and operator inbox — 2026-09-04
+
+The n8n ownership amendment is implemented through the typed application/API
+boundary and checked-in deployment artifacts. Structured intake now persists
+typed, unverified metadata in PostgreSQL, captures the narrative only in the
+immutable raw-report store, emits a metadata-only `incident.accepted` event,
+and exposes the tenant-scoped `/cases` inbox and case detail read models.
+The versioned n8n handoff claims runs and stages through allowlisted APIs; the
+authoritative PostgreSQL owner gate stops duplicate deliveries before model or
+later-stage work, and the error workflow records `requires_attention`.
+
+Observed validation for this milestone so far:
+
+- Action/connector qualification hardening is locally verified in the deterministic
+  boundary: tenant-scoped connector/action allowlists, bounded parameter/amount
+  limits, emergency-disable and circuit-breaker controls, service-role checks,
+  simulator-only action manifests, credential-free simulator invocation,
+  authoritative-payment refund validation, malformed-response-to-UNKNOWN handling,
+  and PostgreSQL lifecycle mutation guards are implemented. The focused action,
+  approval, connector, recovery, verification, escalation, and containment matrix
+  passes: `150 passed, 8 warnings`; the additional chaos/cross-tenant/FS hardening
+  matrix passes: `46 passed, 8 warnings`. Ruff, compilation, and scoped diff checks
+  pass; compilation reports only the existing `.pytest_cache` listing notice.
+  This qualifies deterministic simulator/Test Mode/static safety controls only.
+  Live merchant connectors, provider credentials, and live financial execution are
+  not qualified and remain disabled; no real merchant system or external network
+  was called.
+
+- Phase 3 model/evaluation readiness controls are implemented in the provider-neutral
+  evaluation boundary: manifest shape and lineage validation, grouped temporal split
+  checks, sealed held-out/composition qualification gates, confidence-interval and
+  report provenance, drift detection, strict typed-output rejection, and promotion
+  gates for shared manifests, complete observations, safety, composition, drift, and
+  artifact evidence. Focused Phase 3 validation passes: `9 passed`; the broader model,
+  evaluation, dataset-pipeline, Soup-artifact, and model-safety subset passes:
+  `29 passed, 8 warnings`; Ruff, compilation, and scoped diff checks pass.
+- The checked-in training dataset remains structurally `valid` but is not qualification
+  ready: it has one development case, zero validation cases, and zero held-out cases.
+  The checked-in base/specialist reports remain `not_run`; promotion returns
+  `DON'T SHIP` with exit code 2. The observed one-case adapter's strict serving probe
+  remains schema-invalid and is not promoted. No data, performance, drift, or model
+  quality claim is inferred from these artifacts.
+
+- Python source compilation completed without syntax errors (the command also
+  reported the existing non-source `.pytest_cache` listing notice).
+- Backend contract, unit, and security gates pass: `385 passed, 1 skipped`.
+- The focused intake, inbox, workflow-artifact, and n8n-identity gates pass:
+  `27 passed` including the existing intake contract coverage.
+- Frontend typechecking, Vitest, lint, and production build pass (`11` frontend
+  tests; routes include `/cases` and `/cases/{caseId}`).
+- The `/cases` visual direction now follows the supplied incident-console
+  references: compact dark navigation rail, light queue workspace, persistent
+  incident search, queue tabs, status summaries, dense incident rows, and a
+  responsive full-screen intake sheet. On the source-built isolated T153
+  project, real browser intake, accepted-case highlighting, identifier search,
+  and the mobile card/accessibility path passed on both desktop and mobile.
+- Full Compose configuration and the test overlay validate successfully; n8n
+  workflow JSON and the filesystem artifact validator also pass. The validator
+  reports only the intentional environment-gated open tasks T153 and T154.
+- T153 focused contracts pass (`43 passed`) and targeted Ruff passes. The final
+  fresh harness project `reclaim-t153-20260904i` records source-built images,
+  a fresh project-owned PostgreSQL volume, one canonical tenant, an `n8n`
+  schema/role owned by `n8n`, healthy required services, and loopback bindings.
+  The live schema/health acceptance passes.
+- Phase 0 T153 checksum validation was corrected: the immutable raw-report
+  checksum and the separate narrative checksum are now validated independently,
+  and the acceptance assertion checks the narrative checksum propagated into the
+  authoritative event without equating it to the raw-capture checksum. The
+  focused T153 suite passes (`45 passed`), scoped Ruff passes, and scoped
+  `git diff --check` passes. The live-gated T153 acceptance/recovery suite was
+  not run because the explicit prepared-stack environment was absent (`8 skipped`).
+- The latest full available Python run is green in the project `.venv`:
+  `783 passed, 49 skipped, 1 warning`. The read-only-demo acceptance regressions
+  now fail closed with their stable `read-only demo` contract, and the clean
+  wheel/sdist artifact smoke passes under both the project venv and system Python.
+  The system-Python artifact subprocess ignores ambient environment variables
+  while retaining the interpreter's installed declared runtime dependencies;
+  Temporal SDK/workflow imports remain present and exercised.
+- `git diff --check` passed.
+- Case Inbox API synchronization now has a typed `listCases`/`getCase` gateway,
+  server-qualified mode labeling, filter-clearing intake refresh/highlighting,
+  stale-response-safe polling, and explicit API-versus-empty rendering. The
+  authoritative local case view now projects persisted typed fresh-agent analysis
+  and provenance from PostgreSQL; command panels refetch that view after fresh-agent,
+  approval, simulator, and escalation requests. Fresh local regression validation
+  passed: frontend Vitest `11/11`, typecheck, lint, build, targeted Ruff, and
+  the authenticated localhost API smoke check. A prior isolated mocked
+  Playwright run passed `11/11`; the latest default-config attempt against the
+  shared localhost runtime was not promoted after `5/11` data-dependent
+  failures. These are separate from the live T153 browser result below.
+- The complete live T153 browser suite is not green: one inbox test passed and
+  five orchestration-dependent tests failed because n8n workflows were not
+  active, leaving submitted cases non-terminal. The T153 harness therefore
+  stopped at `awaiting_n8n_operator_setup` and preserved the isolated project;
+  it did not invent or scrape an n8n API key.
+- A resumed operator run reached the preserved stack with all required process
+  values present, but failed at PostgreSQL volume proof even though Docker
+  reported success and the expected project-owned volume/label existed. The
+  harness was parsing its own redacted JSON, which corrupted project text when
+  a local MinIO credential overlapped it. The fix keeps raw command output only
+  in memory for machine validation and persists sanitized evidence; the focused
+  T153 contract matrix is now `43 passed`. A subsequent resumed attempt passed
+  volume proof and service health but failed during n8n workflow bootstrap with
+  exit code 1. The harness now preserves structured project/run paths in its
+  machine record and reconstructs the canonical run directory from its
+  validated run ID. The sanitized bootstrap artifact identified an n8n
+  `1.121.0` compatibility issue: its public API rejects `GET /api/v1/credentials`.
+  Bootstrap now discovers managed credential IDs from existing workflow
+  references and creates them only when no valid reference exists; the n8n
+  workflow/security contract checks pass (`17 passed`). A subsequent attempt
+  reached Kafka credential creation but n8n rejected the legacy broker-array
+  payload without explicit unauthenticated mode. Bootstrap now normalizes that
+  input to n8n's string-broker schema with `authentication=false`; the focused
+  n8n contract matrix reached `18 passed`. The next attempt passed credential
+  creation and reached workflow creation, where strict public-API validation
+  rejected export-only/read-only fields. Bootstrap now allowlists writable
+  workflow fields and posts activation without an undeclared body; the combined
+  T153 harness/security/workflow checks pass (`47 passed`). The subsequent
+  activation attempt upserted both workflows but exposed a pinned n8n
+  `kafkaTrigger` field mismatch: n8n `1.121.0` requires `parameters.topic` and
+  `parameters.groupId`, not the obsolete `topics` and `consumerGroupId`. The
+  handoff workflow and regression suite now use the exact required fields. The
+  first complete backend gate showed that Kafka executions were successful but
+  stopped at the event-type filter because the Kafka Trigger defaulted to a raw
+  `$json.message` value. The handoff trigger now explicitly parses and emits the
+  authoritative envelope with `jsonParseMessage=true` and `onlyMessage=true`.
+  The live gate remains to be rerun from the operator process that owns the API
+  key.
+
+Not yet claimed: live Redpanda-to-n8n handoff, n8n workflow activation, duplicate
+delivery, model-unavailability, worker/API/Redis restart recovery, terminal live
+browser flow, or production credential/network qualification. T153
+(fresh-volume/external/recovery/browser validation) remains intentionally open;
+T154 (Temporal removal after drain qualification) remains unchecked and
+unchanged. No production fraud, model-quality, latency, or financial-execution
+metric is inferred. Resume details are recorded in
+`docs/validation/t153-fresh-volume-n8n.md`.
+
+### Final release-gate preflight — 2026-09-04
+
+The deterministic read-only release gate is implemented in
+`scripts/release_preflight.py` with the PowerShell entry point
+`scripts/release-preflight.ps1`, and its contract is covered by
+`tests/unit/test_operations_readiness.py`. It checks required artifacts, pinned
+runtime metadata, production Compose security/fail-closed defaults,
+deployment-input names without printing values, backup/restore controls,
+health/observability artifacts, rollback guidance, and the T153/T154 gates.
+
+Observed static preflight result: `CONDITIONAL NO-GO` with 7 repository controls
+passing and 4 explicit open gates: deployment-owned release metadata,
+production secret-manager inputs, T153 live fresh-volume/recovery/browser
+qualification, and T154 Temporal drain/removal evidence. The command did not
+start containers, call merchant/provider systems, mutate databases, or enable
+live or financial actions. Production inputs and release metadata were not
+available to this task, so no values were emitted and no production claim was
+made.
+
+The migration runbook now contains a fail-closed T154 checklist requiring empty
+Temporal inventory, PostgreSQL/n8n parity, recovery, and fresh-volume evidence.
+Temporal and its SDK/services remain present and T154 remains unchecked. The
+release gate therefore does not promote T153 or authorize production release.
+
+## Historical objective
 
 Implement the approved FS-001 Spec Kit vertical slice from the first dependency-ordered
 setup task onward:
@@ -43,14 +210,15 @@ authoritative model-run persistence, deterministic replay fallback, and the US2
   tables and stopped at that blocker. Corrective migration 008 now grants the scoped
   runtime access, and fresh 001-008 plus non-owner runtime validation pass. The final
   focused MAJOR-2 identity gate now also passes live PostgreSQL qualification;
-  broader US2 release authorization remains separate. The remaining US2 production
-  implementation is not started.
+  broader live qualification remains environment-qualified; the authorized US2
+  implementation through T078 is present.
 Remediation Batch C is implemented for
 MAJOR-8 payload enforcement,
 MAJOR-9 atomic immutable evidence writes, and MAJOR-10 backend artifact discovery;
 the focused Batch C checks and the clean-volume T043 remediation rerun pass. The
 D3 live release gate is now closed; T059 and T060-T065 test work are complete.
-The remaining US2 production work after T078 remains intentionally unstarted.
+The authorized US2 implementation through T078 and the US3 containment slice
+through T103 are present; live financial execution remains disabled.
 
 The US3 test-first batch T079-T087 is now present. T088-T094 are implemented as the
 first US3 production slice: immutable policy/evaluation, bounded policy change
@@ -58,18 +226,26 @@ control, approval lifecycle, policy audit/outbox handoff, the isolated Action
 Gateway, defensive action simulators, and the Razorpay Test Mode refund seam.
 T095-T102 are implemented and locally validated in the focused slice below. T103
 passed as a deterministic replay qualification; the full US3 vertical-slice gate
-and safety evidence export are not claimed. The US4 T104-T110 test-first batch is now complete;
-T111+ remains intentionally unstarted.
+and safety evidence export remain locally qualified only. The US4 T104-T110
+test-first batch, T111-T119 replay/evaluation implementation, T120-T124 Compose,
+CI, operator UI, and mode-selection implementation, and T125 quickstart gate are
+complete. T126-T130 hardening and acceptance are complete; T131-T133 are the
+current final documentation/status/artifact gates.
 
-## Current milestone: US4 T104-T110 test-first replay/evaluation expectations — 2026-09-01
+## Historical milestone: FS-001 final acceptance and release-readiness reconciliation — 2026-09-02
 
-T104-T110 add the replay/evaluation contract, canonical determinism, required
-failure/recovery variant, grouped split/leakage, metric/confidence-interval, Compose
-topology, and operator-workflow test expectations. T104 passes against the current
-approved shared contracts. T105-T110 are strict expected-red boundaries for the
-future T111-T124 implementation tasks; their tests remain importable and preserve
-the exact future ownership. No replay runner, evaluation engine, Compose topology,
-or frontend operator workflow was implemented in this batch.
+T111-T113 now provide a deterministic, explicitly replay-labelled runner, canonical
+mixed-activity fixture, and invalid/duplicate/order/evidence/policy/approval/
+forbidden/unknown-result/verification/escalation/provider-unavailability variants.
+T114-T118 provide honest benchmark provenance, leakage-safe split and post-split
+overlay helpers, sealed held-out access, evaluation metrics/confidence intervals/
+reports, and measured-baseline capture. T119 provides bounded redacted evaluation
+traces with tenant/case/correlation propagation and non-authoritative Grafana,
+Langfuse, and MLflow configuration. T120-T124 provide the declared Compose/CI
+artifacts, operator UI/read models, typed UI commands, and server-authoritative
+mode selection. T125-T130 provide the quickstart, hardening, and complete mixed
+activity acceptance evidence. The final T131-T133 block is documentation,
+status reconciliation, and artifact validation; it adds no product scope.
 
 Verification evidence for T088-T094 is retained in the earlier record below. The
 T095-T102 focused suite and the full available Python suite are recorded in the
@@ -136,6 +312,12 @@ other external-service checks remain environment-qualified and are not claimed.
   strict expected-red tests at their exact T111-T124 owners. T111+ production work,
   shared-contract changes, constitution/ADR/AGENTS.md changes, and changes to the
   pre-existing `packages/contracts/action_gateway.py` diff are not authorized.
+- 2026-09-01: The user explicitly authorized implementation of T111-T119 only:
+  replay, canonical fixtures/variants, evaluation metadata and controls, measured
+  baselines, and redacted observability. T120+ remains unstarted. This authorization
+  does not authorize shared-contract, constitution, ADR, or migration changes; the
+  pre-existing Action Gateway contract diff and US3 migration artifacts are preserved
+  without modification.
 
 ## Milestone state
 
@@ -148,17 +330,18 @@ other external-service checks remain environment-qualified and are not claimed.
 | Overall system feature specification | Approved and clarified | User approved `specs/001-incident-intake-containment/spec.md`; requirements checklist remains 16/16 |
 | Clarification and implementation plan | Complete | `plan.md`, `research.md`, `data-model.md`, contracts, quickstart, and three ADRs exist |
 | Task list generation and consistency analysis | Complete; implementation-ready | `tasks.md` contains 133 dependency-ordered tasks; all 25 functional requirements have traceable task coverage; requirements checklist is 16/16 |
-| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1 vertical slice, Remediation B, the MAJOR-7 follow-up, Batch C, final-gate D1/D2 remediation, D3 runtime remediation, and T066-T078 bounded US2 attribution/exposure/model-response/proposal-validation/persistence/fallback batch are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, audit idempotency, outbox/inbox, Temporal, Redpanda delivery with authoritative outbox reconciliation, rebuildable Neo4j case/evidence/timeline projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, security boundaries, authenticated intake, Razorpay Test Mode verification/configuration, verified provider correlation, authoritative provider mapping, hard-cutover webhook resolution/quarantine, tenant-bound case workflow commands, production Temporal evidence/timeline activities, versioned evidence connectors/simulators, MinIO/PG evidence persistence, durable incident report provenance, exact-tie deterministic timeline reconstruction, persisted/evented/projection-preserved timeline uncertainty, normalization, policy scope/publication constraints, cross-aggregate chain constraints, PostgreSQL policy-to-execution authorization, configured intake/webhook/raw-object byte limits, atomic MinIO immutable creates, complete backend wheel/sdist runtime package contents, tenant/case-bound rules attribution, fixed-schema fixture-validated advisory LightGBM baseline, deterministic minor-unit exposure, PostgreSQL exposure/attribution repositories, replayable uncertainty/source linkage, deterministic model redaction, versioned analysis-request hand-off, bounded LangGraph harness, LiteLLM provider-neutral adapter seam, fixed read-only model tool registry, strict typed analysis-response parsing, uncertainty/refusal/reference validation, provider/cost provenance, non-executable typed proposal construction, deterministic pre-policy proposal validation, authoritative model-run/proposal provenance persistence, and labeled replay/escalation fallback are present |
+| Application code and infrastructure | Phase 1 Setup, T009-T035 foundation, T044-T058 US1, Remediation B, MAJOR-7, Batch C, D1/D2, D3, T066-T078 US2, T079-T103 US3, and T111-T124 US4 implementation are present; T125-T130 validation artifacts are present | PostgreSQL authority/RLS, repositories/UoW, serialized tenant audit chains, outbox/inbox, Temporal, Redpanda delivery, rebuildable Neo4j projection, MinIO, Redis, Keycloak/OIDC, Vault, observability, control-plane, authenticated intake/webhook correlation, evidence/timeline, attribution/exposure, bounded model/proposal path, immutable policy/approval, isolated Action Gateway, reconciliation/verification/escalation, labeled replay/evaluation, Compose/CI declarations, and operator read models/UI are present |
 | D3 contract/data-model/runtime | Complete; fresh live PostgreSQL/RLS gate passed | `VerifiedProviderCorrelation` v1.0.0, `ProviderCorrelationMapping`, corrective migration `006_provider_correlation_schema.sql`, hard-cutover resolver, quarantine/idempotency behavior, reviewer-context live processing, and non-owner RLS validation pass |
 | US3 T088-T103 containment slice | Complete locally; live database checks unavailable | Immutable policy/evaluator and policy repositories, bounded tenant change control/API, approval lifecycle with optimistic concurrency, policy audit/outbox builders, isolated Action Gateway, defensive action manifests/simulators, Razorpay Test Mode refund seam, T095-T102 lifecycle/verification/escalation runtime, and the deterministic T103 gate are present; no live financial action is claimed |
 | Foundation Security Review Gate | Passed for the tenant-role binding remediation; T036-T042 test batch complete | Scoped OIDC roles, authenticated UoW propagation, adversarial tests, Redpanda tenant binding, and local validation pass; live service checks were unavailable in this run |
-| Tests and benchmark evaluations | T009-T110 test/implementation scope is complete through the authorized T104-T110 test-first batch; T111+ evaluation/runtime implementation is not started | Full available Python suite is 503 passed, 40 skipped, 17 expected-red, and one existing warning. The T104-T110 focused suite is 3 passed and 17 expected-red. T103 and T087 smoke regressions pass. No held-out dataset, benchmark, production metric, or containment claim exists |
+| Tests and benchmark evaluations | T009-T130 test/implementation scope is complete; T131-T133 are documentation/status/artifact gates | T130 acceptance is 3 passed with one existing LangGraph deprecation warning. Final full available Python suite is 578 passed, 40 skipped, one warning; evaluation manifest has zero available cases. No benchmark, production fraud metric, or live financial claim exists |
 
 ## Quality state
 
-- Tests: the latest repository `.venv` suite is `503 passed, 40 skipped, 17 xfailed`
-  with one LangGraph deprecation warning. The system-Python attempt is not
-  authoritative because its optional `langgraph`, `temporalio`, and `hypothesis`
+- Tests: the latest repository `.venv` suite is `783 passed, 49 skipped, 1
+  warning`; the focused regression matrix passed `42/42` with the same existing
+  LangGraph deprecation warning. The system-Python artifact smoke also passed;
+  a full system-Python suite is not treated as authoritative where optional
   dependencies are absent.
   A historical pre-US3 elevated default suite was `419 passed, 34 skipped` in the
   project `.venv`; the available run emits one LangGraph deprecation
@@ -192,10 +375,10 @@ other external-service checks remain environment-qualified and are not claimed.
   Redpanda, MinIO, Neo4j, Redis, Vault, or RLS environment variables. No benchmark
   or production fraud metric is claimed.
 - US3 T079-T103: the test-first controls, T088-T094 implementation, T095-T102
-  lifecycle implementation, and T103 deterministic gate are green. US4 T104 is
-  green against the current contracts; T105-T110 remain strict expected-red tests
-  with ownership recorded below. Live PostgreSQL fresh-migration and non-owner RLS
-  checks were not part of this test-only batch and remain environment-qualified.
+  lifecycle implementation, and T103 deterministic gate are green. US4
+  T104-T130 are now green in their available local/deterministic scopes. Live
+  PostgreSQL fresh-migration and non-owner RLS checks remain environment-qualified
+  where not covered by the recorded live evidence.
 - Payload limits: `RECLAIM_INCIDENT_REPORT_MAX_BYTES` and
   `RECLAIM_WEBHOOK_MAX_BYTES` default to `1048576` bytes; the shared
   `RECLAIM_RAW_OBJECT_MAX_BYTES` boundary defaults to `16777216` bytes. Incident
@@ -222,11 +405,11 @@ other external-service checks remain environment-qualified and are not claimed.
   `363 passed, 33 skipped`. Skipped tests require live services or optional
   configuration. The T064/T065 expected-red tests are now green; no later-task
   xfails were removed.
-- Python: `.venv` Python 3.12.13; migration-008 touched-file Ruff and format checks, explicit
-  source compileall, git diff check, and pip check pass. Repository-wide Ruff reports
-  97 pre-existing findings outside this batch; repository-wide format check reports
-  51 pre-existing files needing formatting. No available mypy or pyright executable
-  is installed, so no type-check pass is claimed.
+- Python: `.venv` Python 3.12.14; direct Ruff and format checks pass for the four
+  files in this fix, and `git diff --check` passes. Repository-wide Ruff still
+  reports 194 pre-existing findings outside this fix; repository-wide format
+  check reports 106 pre-existing files needing formatting. No available mypy or
+  pyright executable is installed, so no type-check pass is claimed.
 - Node: v22.23.2 and npm 10.9.8 via `npm.cmd`, within the approved `>=20.18 <23`
   range. `npm ci --prefix frontend` completed and reported 12 audit findings (2 low,
   3 moderate, 5 high, 2 critical); no forced audit fix was applied.
@@ -288,10 +471,10 @@ future implementation ownership is explicit:
 The T087 diagnostic does not claim that any unavailable PostgreSQL, Temporal,
 Redpanda, connector, or financial side effect was exercised.
 
-### US4 expected-red ownership
+### Historical US4 expected-red ownership
 
-The T105-T110 tests are strict XFAILs, not skipped coverage. Their future
-implementation ownership is explicit:
+At the 2026-09-01 T104-T110 test-first checkpoint, the following tests were
+strict XFAILs, not skipped coverage. Their implementation ownership was:
 
 - T105: T111 labeled replay runner and T112 canonical fixture.
 - T106: T113 deterministic replay variants.
@@ -302,9 +485,10 @@ implementation ownership is explicit:
 - T110: T122 operator case-review workflow, T123 typed UI commands/read models, and
   T124 live/replay mode selection and labeling.
 
-T111+ implementation tasks remain incomplete and unstarted. The expected-red tests
-do not claim that any live provider, Compose service, browser workflow, held-out
-dataset, benchmark corpus, or production metric was exercised.
+T111-T124 subsequently supplied those implementation owners, and the T125-T130
+gates now cover the available deterministic/operator surfaces. The original
+checkpoint did not claim that any live provider, Compose service, browser
+workflow, held-out dataset, benchmark corpus, or production metric was exercised.
 
 ## Live validation evidence
 
@@ -451,9 +635,11 @@ No production performance, fraud, or containment metric is claimed.
 
 ## Blockers and prerequisites
 
-- Full Compose, operational observability services, frontend workflow, hosted-model
-  validation, policy evaluation, Action Gateway execution, and benchmark/evaluation
-  execution remain later tasks and were intentionally not started.
+- Full Compose service smoke, operational observability services, hosted-model
+  validation, live Action Gateway execution, and benchmark/evaluation execution
+  remain environment- or data-qualified limitations; the local/deterministic
+  Compose configuration, frontend workflow, replay/evaluation harness, and
+  policy/gateway implementation artifacts are present.
 - T044-T055 are the completed intake, evidence, and timeline batch. T056-T058 add
   typed incident/evidence/timeline event emission, tenant-bound Redpanda consumers,
   rebuildable Neo4j projection/checkpoints, and the complete US1 live gate. The event
@@ -479,7 +665,8 @@ No production performance, fraud, or containment metric is claimed.
   migration-007 model-analysis tables. Corrective migration 008 and its fresh
   non-owner runtime validation close that confirmed blocker locally. The final
   focused MAJOR-2 identity gate is now closed after live PostgreSQL qualification;
-  broader US2 release authorization remains separate. T079/US3 remain unstarted.
+  broader live/provider qualification remains separate. T079-T103 are implemented
+  and locally validated; no live financial action is claimed.
 - Repository-wide Ruff findings and frontend tooling gaps are recorded above and should
   be handled in their owning task scope; they do not block the validated backend
   foundation batch.
@@ -498,9 +685,10 @@ No production performance, fraud, or containment metric is claimed.
   its focused contract validation and the full Python suite; T060-T065 test-first
   validation passes available checks; T066-T069 production validation passes; T070-T073
   regression validation passes; T074, T075, and T076-T078 validation passes;
-  remaining US2 production work is not started.
+  authorized US2 work through T078 is implemented; later status is recorded in the
+  T079-T130 milestone entries below.
 
-## Next milestone: Phase 6 User Story 4 replay/evaluation/runtime — T104-T110 complete; T111+ not started
+## Final readiness evidence
 
 Readiness evidence:
 
@@ -531,7 +719,8 @@ Readiness evidence:
   provider-neutral response path, strict typed response/provenance parsing,
   side-effect-free typed proposals, deterministic pre-policy proposal validation,
   authoritative model-run/proposal persistence, deterministic replay fallback, and
-  the US2 integration gate. Later production work remains unstarted.
+  the US2 integration gate. At the time of this historical checkpoint, later
+  production work remained unstarted.
 
 Current artifacts: the approved/generated FS-001 specification and amended D3
 planning/contract package are under `specs/001-incident-intake-containment/`; three
@@ -546,8 +735,8 @@ requirements. T036-T042 are complete with local contract/property/integration/se
   boundary, T074 typed response/proposal validation, T075 deterministic proposal
   validation, and T076-T078 persistence/fallback/integration-gate work are complete;
   T079-T103 are complete through the US3 deterministic gate; T104-T110 test-first
-  coverage is complete; T111+ and the remaining US4 production/runtime work are not
-  started.
+  coverage, T111-T124 implementation, and T125-T130 validation are complete;
+  T131-T133 are the final documentation/status/artifact gates.
 
 ## First focused US2 remediation — 2026-09-01
 
@@ -639,8 +828,9 @@ Evidence for closure:
 - Full Python suite: `419 passed, 34 skipped, 1 warning`. Ruff check/format,
   compileall, `pip check`, and `git diff --check` passed.
 
-MAJOR-1, MAJOR-3, and MAJOR-4 remain CLOSED. T079/US3 remain unstarted and out of
-scope; no Action Gateway or financial/account side effect was attempted. The
+MAJOR-1, MAJOR-3, and MAJOR-4 remain CLOSED. At the time of this historical
+checkpoint, T079/US3 remained unstarted and out of scope; no Action Gateway or
+financial/account side effect was attempted. The
 pre-existing untracked `security-audits/` directory remains preserved.
 
 ## US3 T095-T102 completion — 2026-09-01
@@ -704,7 +894,7 @@ Observed evidence:
   credentials, and some CLIs were unavailable. No live-service or live-financial
   result is claimed. The untracked `security-audits/` directory remains preserved.
 
-## US4 T104-T110 test-first completion — 2026-09-01
+## Historical US4 T104-T110 test-first completion — 2026-09-01
 
 T104-T110 are complete as a test-only batch. The current replay/evaluation shared
 contract is sufficient for T104: `ReplayRun` carries fixture, simulator, policy,
@@ -728,13 +918,96 @@ Evidence and quality gates:
   provider, held-out dataset, benchmark, or financial side effect was exercised.
 - Files changed by this batch are the seven requested test files, `tasks.md`, and
   this status file. No production files, shared contracts, ADRs, constitution,
-  or `AGENTS.md` were changed. T111+ was not started.
+  or `AGENTS.md` were changed. At this checkpoint, T111+ was not started.
 - The pre-existing `packages/contracts/action_gateway.py` working-tree diff remains
   byte-for-byte unchanged and unstaged; `security-audits/` remains untracked and
   untouched.
+
+## US4 T111-T119 implementation — 2026-09-01
+
+T111-T119 are complete. The implementation is limited to replay, evaluation, and
+observability boundaries: replay never invokes connectors or the Action Gateway;
+live output is accepted only from an explicitly qualified live executor, otherwise
+the result is visibly replay-labelled. Evaluation reports preserve actual sample
+counts, provenance, failures, abstentions, class balance, currency-separated
+integer minor-unit values, confidence intervals, and shortfalls. Held-out payloads
+remain sealed behind final-evaluation authorization. Observability is redacted,
+correlated, and non-authoritative. No shared contract, ADR, migration, Compose
+topology, frontend workflow, or mode-selection implementation was added in this
+batch.
+
+Evidence and remaining limits:
+
+- Focused T111-T119 suite: `22 passed, 1 warning`.
+- Full available Python suite: `518 passed, 40 skipped, 2 xfailed, 1 warning`.
+  The two expected-red tests remain T109/T120 (Compose topology) and
+  T110/T122-T124 (operator workflow); no later task was started.
+- All 21 exported replay variant names were exercised in a side-effect-free smoke
+  run; every result was replay-labelled with `side_effects: false`. Trace smoke
+  validation confirmed prompt/raw-evidence dropping and tenant/correlation
+  propagation into the existing telemetry adapter.
+- `compileall` and targeted Ruff checks pass. The one warning is the existing
+  LangGraph pending-deprecation warning. Live PostgreSQL, Temporal, Redpanda,
+  Neo4j, provider, connector, and hosted observability checks remain unavailable;
+  skipped checks are not claimed as passed.
+- The manifest records zero cases because no benchmark corpus was available;
+  target counts are retained as targets and no cases were fabricated or padded.
+  The recorded performance run measures only a local no-op callable (100 samples,
+  5 warmups, warm process): p50/p95 `0.000100000761449337 ms`, throughput
+  `5208333.149110136 /s`, zero failures, and no recovery callable. These are not
+  intake/replay service results or release SLO evidence.
+- At this historical checkpoint, T120+ remained unstarted. The pre-existing
+  `packages/contracts/action_gateway.py` working-tree diff and untracked
+  `security-audits/` directory remain preserved.
+
+## US4 T120-T124 implementation — 2026-09-02
+
+T120-T124 are complete. At the time of this historical checkpoint, T125 remained
+unstarted and the checkpoint did not claim US4 completion. The Compose topology
+defines all 21 required services, exposes
+only loopback UI/API ingress, keeps internal service networks private, preserves
+the Action Gateway credential boundary, and defaults live and financial actions
+to false. The CI, security, and evaluation workflows enforce replay-safe defaults,
+quality/security/evaluation checks, sealed-data controls, provenance, and diff
+hygiene. The operator workspace uses the approved graphite/teal case-review
+direction with backend-authoritative read models, integer minor-unit formatting,
+typed approval/escalation/replay commands, append-only audit presentation, and
+mobile withholding of consequential controls.
+
+T124 mode selection is server-authoritative: LIVE requires qualified provider and
+connector state plus observed live execution; unavailable qualification selects
+REPLAY or explicit escalation. The UI displays requested, effective, and final
+mode, availability reasons, provider/connector state, live execution occurrence,
+and separate live-action enablement. No live financial action was enabled or
+executed.
+
+Observed evidence:
+
+- Full available Python suite: `529 passed, 40 skipped, 1 warning`.
+- T120/T124 focused backend/topology/browser gate: `11 passed`.
+- Frontend `typecheck`, ESLint, Vitest (`2 passed`), and production build passed.
+- Targeted Ruff check/format, compile validation, `pip check`, workflow Prettier
+  validation, Compose `config --quiet`, `git diff --check`, and the browser UI
+  source gate passed. Local mypy was not run because it is not installed in the
+  existing `.venv`; CI installs it through `backend[test,dev]`.
+- Browser visualization was not run because no browser automation tool was
+  exposed in this session. Full Compose service smoke was not run because the
+  Compose app images are external GHCR references rather than local build
+  artifacts; no hosted/live-service result is claimed.
+- Impeccable critique, polish, and technical audit were completed in degraded
+  single-context mode (no sub-agent/browser tools). The detector returned no
+  findings; the polish pass tightened server-authoritative mode labeling, audit
+  tab semantics, escalation copy, and mobile touch targets. The audit identified
+  no blocking implementation defect, with remaining UX opportunities limited to
+  contextual help and power-user shortcuts.
+- No contracts, constitution, ADRs, migrations, auth/RLS, or Action Gateway
+  implementation files were changed by this batch. The pre-existing dirty work,
+  including untracked `security-audits/`, remains preserved and unstaged.
+
 ## US4 T125 quickstart validation — 2026-09-02
 
-T125 is complete. T126 and all later Phase 7 tasks remain unstarted. The T125
+T125 is complete. At the time of this historical checkpoint, T126 and later
+Phase 7 tasks remained unstarted. The T125
 acceptance test records the available local deterministic quickstart flow,
 replay/live truth, all required replay variants, projection rebuild behavior,
 evaluation metadata and held-out controls, observability redaction/configuration,
@@ -786,3 +1059,415 @@ non-owner RLS, Temporal, Redpanda, Neo4j, MinIO, Vault, provider/connector,
 hosted observability, and full-stack Compose checks remain environment-gated and
 are recorded as skips or not run. No final FS-001 release-readiness claim is
 made.
+
+## Phase 7 T126-T129 hardening validation — 2026-09-02
+
+T126-T129 are complete. At the time of this historical checkpoint, T130-T133
+remained unstarted. This slice added the
+deterministic fault matrix, FS-001 security hardening regressions, explicit
+Compose/static credential and egress policy declarations, and an actual local
+simulator/replay performance baseline. No FS-001 release-ready claim is made.
+
+Observed test evidence:
+
+- T126 fault matrix: `12 passed, 1 warning`; all cases were explicitly labelled
+  `deterministic-fault-injected`, with no live dependency claim. PostgreSQL,
+  Temporal worker restart, Redpanda, Neo4j, MinIO, Redis, Keycloak, Vault,
+  model provider, evidence connector, Action Gateway timeout, and ambiguous
+  verification outcomes were covered. Unknown/timeout results reconciled before
+  retry; ambiguous verification escalated; duplicate provider invocation was
+  not observed in the recovery case.
+- T127 hardening: `12 passed, 1 warning`, covering tenant/case scope,
+  least privilege, untrusted evidence, PII/secret redaction, approval
+  separation and stale authority, audit checksum tampering, arbitrary-network
+  and forbidden actions, direct model/API/gateway bypasses, replay truth,
+  financial minor-unit/original-source rules, and canonical action identity.
+- T128 credential/network boundaries: `13 passed`. The policy matrix grants
+  action connector credentials only to `service-account-reclaim-action-gateway`
+  and uses explicit symbolic egress allowlists with default deny; no broad
+  unrestricted egress target is declared.
+- T129 performance: `1 passed, 1 warning`. The measured local warm-process
+  baseline used one canonical fixture case, 25 intake repetitions after 3
+  warmups, 10 replay repetitions after 2 warmups, and one recovery callable.
+  Intake p50/p95 were `0.084100/0.117320 ms` at `10666.894/s`; replay
+  p50/p95 were `7.866150/8.921765 ms` at `124.894/s`; recovery time was
+  `0.091600 ms`; all measured failure rates were `0.0`. These are callable-level
+  local measurements, not production or release-SLO measurements. Details and
+  the reproduction command are in `docs/validation/performance-baseline.md`.
+- Combined new T126-T129 tests: `38 passed, 1 warning`. Focused T125/T103/T087,
+  replay, recovery, connector, and security regressions: `55 passed, 3 skipped,
+  1 warning`.
+- Full available Python suite: `575 passed, 40 skipped, 1 warning`.
+
+Quality and deployment checks:
+
+- Targeted Ruff lint and format checks, `pip check`, YAML parsing for 13 infra
+  YAML files, Compose `config --quiet`, and `git diff --check` passed.
+- `compileall` exited successfully; it emitted the existing non-source
+  `.pytest_cache` listing notice. Local mypy was unavailable in the existing
+  environment. Frontend checks were not rerun because this slice changed no
+  frontend files; the prior T125 frontend evidence remains applicable.
+- Fresh migration, live PostgreSQL/non-owner RLS, Temporal, Redpanda, Neo4j,
+  MinIO, Vault, hosted provider/connector, hosted observability, and full-stack
+  Compose checks remain environment-gated. The full-suite skips reflect absent
+  service URLs/credentials; no live-service result is inferred.
+
+The runtime hardening fixes normalize unavailable JWKS, Vault, and MinIO
+dependencies into safe boundary errors and persist timeout-accepted Action
+Gateway responses as `UNKNOWN` before reconciliation. No contracts, ADRs,
+constitution, `AGENTS.md`, or migrations were changed by this slice. The
+pre-existing dirty Action Gateway contract, untracked approval/action lifecycle
+migrations, and intentionally untracked `security-audits/` were preserved and
+not staged. Residual deployment debt remains: Docker Compose/static policy
+declarations do not enforce production Redpanda mTLS, SASL, ACL, or
+principal-binding controls; those must be implemented and validated in a
+production deployment.
+
+## FS-001 T130-T133 final acceptance evidence — 2026-09-02
+
+T130-T133 are complete based on observed validation. This closes the authorized
+final acceptance, documentation, status, and artifact-gate scope; it does not
+claim production readiness or live financial execution.
+
+Observed evidence:
+
+- T130 mixed legitimate/attacker acceptance: `3 passed, 1 warning`. The canonical
+  fixture produced explicit outcomes for all required stages, zero forbidden or
+  remote side effects, approval identity separation, canonical action identity,
+  UNKNOWN reconciliation before retry, mandatory verification, inconclusive
+  escalation, integer-minor-unit exposure, audit linkage, replay/live truth, and
+  tenant/case isolation. The live request remained replay-labelled because the
+  live executor is disabled/unavailable.
+- Final focused FS-001 regression matrix: `116 passed, 2 skipped, 1 warning`;
+  identity/security/contracts matrix: `67 passed, 4 skipped, 1 warning`;
+  migration/RLS/live-database matrix: `1 passed, 14 skipped, 1 warning`.
+  Authorization, tenant isolation, approval separation, Action Gateway
+  idempotency/reconciliation/verification, replay fallback, financial safety,
+  and cross-tenant controls were exercised. Environment-dependent skips were
+  caused by absent configured database/service URLs; no live result is inferred.
+- Final full Python suite: `578 passed, 40 skipped, 1 warning` in 25.30 seconds.
+  The warning is the existing LangGraph pending-deprecation warning. `pip check`,
+  compilation, and `git diff --check` passed.
+- Frontend Vitest (`2 passed`), lint, typecheck, and production build passed.
+  Merged Compose configuration validation passed.
+- T131 added the actual-behavior traceability and operator workflow/replay
+  documentation at `docs/architecture/fs001-traceability.md`,
+  `docs/operator/reviewer-workflow.md`, and
+  `docs/operator/replay-and-escalation.md`.
+- T133 artifact validation passed with `0 warning(s)`: contract/schema versions,
+  migration inventory, task/FR traceability, terminal-state vocabulary,
+  disabled live defaults, sealed held-out controls, required artifacts,
+  Action Gateway isolation, approval separation, T130 evidence, protected
+  governance paths, and diff whitespace all passed.
+
+Qualification and remaining debt:
+
+- The evaluation manifest contains zero available cases, so no benchmark,
+  production-fraud, or model-performance claim is made.
+- Fresh migration and non-owner RLS checks were attempted but skipped where
+  their required database URLs were absent. Full Compose service smoke,
+  Temporal/Redpanda/Neo4j/MinIO/Vault/provider/connector/live Action Gateway,
+  hosted observability, and hosted-model checks remain environment-qualified.
+- Repository-wide Ruff currently reports 15 lint findings and 13 formatting
+  findings outside this final slice; T130-targeted Ruff and format checks pass.
+  The existing LangGraph and Vite deprecation warnings remain documented.
+- Production deployment still requires enforcement and validation of Redpanda
+  mTLS, SASL, ACL, and principal-binding controls. The intentionally untracked
+  `security-audits/` artifacts and pre-existing dirty Action Gateway contract
+  and migrations were preserved and remain unstaged.
+
+Readiness decision: the implementation is ready for the validated local,
+deterministic, replay/Test Mode scope of FS-001. It is not a claim that live
+production services or financial execution have been validated.
+
+## Phase 8 source-built REPLAY deployment — 2026-09-02
+
+T134-T141 are complete. The repository now provides a source-built, runnable
+operator product for the explicitly non-authoritative REPLAY scope. This closes
+the gap between the tested domain modules and an application a reviewer can
+start and use; it does not qualify live merchant or financial execution.
+
+Delivered behavior:
+
+- A FastAPI entry point exposes liveness, replay-backed readiness, server-qualified
+  mode, deterministic replay, and tenant/case-scoped operator read models. The
+  demo configuration fails closed unless it is non-production, replay-labelled,
+  and has both live-action flags disabled.
+- The Next.js operator workspace uses same-origin server routing, opens the
+  canonical case by default, labels fixture data as read-only and
+  non-authoritative, and does not render approval or escalation command controls
+  in REPLAY.
+- Local API and web images are built from pinned Python 3.12.8 and Node 22.14.0
+  bases. The default low-resource Compose topology runs web, API, and PostgreSQL;
+  the broader architecture remains declared behind the `full` profile.
+- PowerShell start, status, and stop helpers, deployment troubleshooting, and a CI
+  source-build/deployment smoke gate are present. Stopping the demo retains its
+  data volumes.
+- Fresh PostgreSQL initialization was repaired so webhook tables are normalized
+  into `public` and lifecycle verification foreign keys have the required unique
+  parent identity. The resulting database has 26 public tables and all three
+  checked lifecycle constraints. The canonical UI fixture intentionally is not
+  inserted as authoritative business state, so zero case/incident/action/audit
+  rows is the expected fresh-demo result.
+
+Observed release evidence:
+
+- Full Python suite: `594 passed, 40 skipped, 1 warning` in 32.52 seconds. The
+  skips require separately configured live services; the warning is the existing
+  LangGraph pending-deprecation warning.
+- Frontend ESLint, TypeScript, Vitest (`2 passed`), Next.js 16.3.4 production
+  build, and `npm audit` (`0 vulnerabilities`) passed.
+- Default and `full` Compose configuration validation passed. Both local images
+  built successfully, and PostgreSQL, API, and web containers reached healthy
+  state. API/web logs after the final rebuild and PostgreSQL migration logs had
+  no error records.
+- HTTP smoke returned readiness `ready`, effective mode `replay`,
+  `demo_read_only=true`, `read_only=true`, `authoritative=false`, and zero remote
+  side effects through the browser-facing same-origin route.
+- Browser validation loaded the complete canonical incident workspace with no
+  console errors, no approval/rejection or escalation-resolution controls, and a
+  successful simulated replay result labelled `No remote side effects`.
+- Fresh schema inspection found 26 public tables, the webhook tables in `public`,
+  and the three checked lifecycle constraints. A non-owner RLS transaction saw
+  only its selected tenant and rolled back its temporary tenants and role.
+- Targeted deployment/migration regression tests (`6 passed`), targeted Ruff,
+  CI workflow YAML parsing, and `git diff --check` passed.
+
+Production qualification still requires separately built/accessible full-profile
+worker and gateway services; production OIDC and Vault configuration; qualified
+merchant connectors; enforced Redpanda mTLS/SASL/ACLs; hosted observability;
+backup/restore, load, and service-recovery testing; and an explicit live-action
+authorization. No such live action was enabled or executed here.
+
+The disposable failed demo database volumes created during fresh-migration
+diagnosis were removed and recreated; they contained no business records. Phase 8
+did not modify the constitution, ADRs, or normative specification contracts. The
+pre-existing dirty Action Gateway contract was preserved without further edits.
+
+## Phase 9 live-agent specialization — 2026-09-02
+
+FS-002 adds an opt-in fresh-agent path and a reproducible local specialization
+workflow while preserving the existing deterministic REPLAY product. The fresh
+path is tenant/case scoped, explicitly live-labelled, bounded by the existing
+LangGraph/LiteLLM harness, strict response parser, and typed advisory boundary,
+and never substitutes a replay response when the provider is unavailable. An
+optional typed persistence callback is exposed for wiring the existing PostgreSQL
+model-analysis transaction; the local demo store remains a read cache only.
+
+Observed implementation evidence:
+
+- Deterministic dataset generation and validation produced one development row,
+  zero validation rows, and zero held-out rows from the currently approved
+  canonical source. The manifests record the shortfall and do not make a quality
+  claim.
+- `soup doctor` passed in the isolated training environment. The Soup data doctor
+  completed with one minor generation-marker warning and no truncation risk at the
+  configured 4096-token limit.
+- A real Soup SFT run completed on CPU for two epochs/two steps using
+  `HuggingFaceTB/SmolLM2-135M-Instruct` and LoRA. The observed adapter artifact is
+  recorded with SHA-256 in `training/reclaim/manifests/training-run.json`.
+  Trainer loss/accuracy telemetry is training telemetry only, not fraud quality.
+- The adapter served on loopback after installing the optional Soup serving
+  extras. Health and model probes passed. The first RECLAIM route call reached the
+  live provider and failed closed because the tiny checkpoint returned invalid
+  JSON; no replay substitution or remote side effect occurred. The serving
+  manifest records this result and the checkpoint is not promoted.
+- Fresh-agent, dataset, evaluation, API, Temporal-boundary, security, and safe
+  fresh-versus-replay acceptance checks: `32 passed, 1 warning`. Frontend Vitest
+  (`3 passed`), ESLint, TypeScript, and production build passed. Targeted Ruff and
+  Python compilation passed.
+- Repository-wide Python regression pass: `630 passed, 40 skipped, 1 warning`.
+  Skips are the existing environment-gated PostgreSQL, Temporal, Redpanda, Neo4j,
+  MinIO, Redis, Vault, and live-service checks.
+
+Qualification and remaining debt:
+
+- Base-versus-specialist evaluation is explicitly `status: not_run` because the
+  current dataset has no validation/held-out examples and the live checkpoint
+  does not produce an accepted response. The promotion decision is `DON'T SHIP`.
+- The fresh route is intentionally disabled by default and rejects production
+  configuration. Production still requires wiring the PostgreSQL persistence
+  callback, durable Temporal worker deployment, authenticated model serving,
+  held-out evaluation, and independent live-action qualification.
+- The existing protected dirty paths (`packages/contracts/action_gateway.py`,
+  migrations 011/012, and `security-audits/`) were not altered, staged, or reset.
+  No commit was created.
+
+## Phase 10 first fully working localhost product flow — 2026-09-02
+
+FS-002 T021 is complete. The default low-resource localhost Compose profile now
+drives one authoritative synthetic case through PostgreSQL, deterministic
+analysis context, the opt-in fresh LiteLLM provider boundary, typed persisted
+model analysis, deterministic policy, approval, Action Gateway simulator,
+reconciliation, verification, terminal state, escalation, and append-only audit.
+Replay remains available as a separate read-only path and the test Compose
+overlay remains replay-only.
+
+Delivered behavior:
+
+- The local product seeds merchant-controlled synthetic evidence and timeline
+  rows into PostgreSQL; later requests and operator read models read those rows
+  back instead of treating the fixture or an in-memory cache as authority.
+- Fresh provider output is strictly tenant/case scoped, rejects model-supplied
+  financial authority, persists typed response and provenance through the
+  existing model-run/audit repositories, and fails explicitly with
+  `MODEL_UNAVAILABLE` when `RECLAIM_SPECIALIST_MODEL` is not configured.
+- Approval decisions require the distinct local approver principal and are
+  recoverable after API restart from authoritative proposal/policy rows.
+- Simulator execution includes the durable unknown-result reconciliation gate;
+  verification can terminate as `verified_contained` or route an inconclusive
+  result to `escalated_unresolved`. Both paths report zero remote side effects.
+- The browser-facing UI exposes seed, fresh analysis, approval, simulator
+  execution, escalation, provenance, and audit state while keeping the
+  simulator/no-live-effects notice visible.
+
+Observed release evidence:
+
+- Full project Python suite: `632 passed, 40 skipped, 1 warning`.
+- Frontend typecheck, Vitest (`3 passed`), ESLint, and Next.js production build
+  passed.
+- Default and replay test Compose configuration validation passed; source-built
+  API/web images and the PostgreSQL-backed smoke stack reached healthy state.
+  The existing `reclaim-demo` project was then rebuilt in place with its
+  PostgreSQL volume retained; its API and web containers are healthy on ports
+  8000 and 3000.
+- PostgreSQL smoke covered provider-backed typed analysis and approval through
+  verified simulator containment, plus unknown-result reconciliation through an
+  open escalation and `escalated_unresolved` terminal state.
+- The no-provider path returned explicit `MODEL_UNAVAILABLE` with persisted
+  response-less audit and no replay substitution.
+
+This validates the synthetic local product flow only. No live merchant connector,
+payment, refund, cancellation, or financial side effect was enabled or executed.
+Production qualification still requires the separately deployed Temporal and
+connector architecture, authenticated model serving, held-out evaluation, and
+explicit live-action authorization. The pre-existing protected dirty Action
+Gateway contract, migrations 011/012, and `security-audits/` artifacts were
+preserved; no commit was created.
+
+## Phase 11 localhost recovery interaction repair — 2026-09-03
+
+The first browser pass exposed a frontend contract mismatch: valid PostgreSQL
+operator-view responses contain nullable provenance and audit metadata, but the
+UI treated those fields as optional-only strings. That sent the canonical case
+into the unavailable screen, making retry and seed appear inert. The frontend
+schemas now accept the authoritative nullable fields, with a regression test
+covering the response shape. The seed path also scopes deterministic fixture
+provider identities per case so the recovery button can create a second local
+synthetic case without violating the tenant-level evidence uniqueness key.
+
+Verification evidence:
+
+- Frontend typecheck, Vitest (`4 passed`), and ESLint passed; the production web
+  image was rebuilt.
+- The missing-case recovery button created `case-ui-recovery-test-001` and the
+  browser rendered its investigation workspace. The canonical case then loaded
+  at `http://localhost:3000/cases/case-canonical-demo-001` without a schema error
+  or browser console errors.
+- Targeted backend acceptance tests (`13 passed`), Ruff, and `git diff --check`
+  passed. The API image was rebuilt and the Compose API/web containers remain
+  healthy.
+
+No live merchant connector or remote side effect was enabled or executed. The
+pre-existing protected dirty paths remain preserved; no commit was created.
+
+## Phase 12 route-backed responsive operator navigation — 2026-09-03
+
+The approved operator UI redesign is implemented for the frontend. The shared
+navigation now routes to `/cases`, `/services`, `/reviews`, `/runs`, and `/audit`
+with route-aware active states. The case inbox keeps its typed authoritative API
+read model, adds local sorting, selection, keyboard shortcuts, case-detail links,
+selection/intake drawers, and responsive desktop/tablet/mobile layouts. The
+standalone Next development proxy defaults to `127.0.0.1:8000`; Docker can still
+override it with `RECLAIM_API_INTERNAL_BASE_URL=http://api:8000`.
+
+Verification evidence:
+
+- Frontend Vitest: `8 passed`; TypeScript, ESLint, and Next production build
+  passed. The build includes all five operator routes and the dynamic case detail
+  route. The root layout suppresses attribute-only hydration noise from browser
+  extensions, and generic non-JSON proxy failures are reported as API
+  unavailability rather than an opaque raw 500.
+- Playwright browser checks: `5 passed`, covering navigation, URL-backed filters,
+  sorting, selection/drawers, keyboard behavior, and desktop/tablet/mobile
+  responsive states. The in-app browser was also checked at
+  `http://localhost:3000/cases` and `/services` with no console errors.
+- The standalone API was not running during the live browser check, so the inbox
+  correctly displayed its unavailable state and no incidents were synthesized.
+  Fixture-backed browser tests used complete typed API-shaped responses only to
+  exercise the interaction contract.
+- `git diff --check` passed. Existing unrelated dirty paths were preserved and no
+  commit was created.
+
+## Phase 1 pre-deployment identity, secret, and broker security foundation — 2026-09-04
+
+The scoped security foundation is implemented in the existing seams. Production
+settings now fail closed unless Keycloak/OIDC issuer and JWKS use HTTPS with
+RS256, Vault uses HTTPS, and Redpanda uses SASL_SSL with client TLS files and
+deployment-provided SASL credentials. The outbox relay passes the validated
+broker security settings to aiokafka; local REPLAY/T153 settings remain
+plaintext/replay-safe with live actions disabled. Keycloak's checked-in realm
+is HTTPS-only and bearer-only for the API, Vault has a TLS 1.3 production
+configuration and read-only policies, and the production Compose overlay
+requires deployment-provided control-plane and broker secrets.
+
+n8n credential bootstrap now supports explicit non-secret revisions for staged
+HTTP/Kafka credential rotation, verifies managed workflow references before
+activation, and never deletes the previous credential. Redpanda production
+policy and ACL artifacts declare mandatory mTLS, SASL SCRAM-SHA-512,
+default-deny ACLs, and certificate/SASL principal binding. ADR-005 records the
+profile separation and rotation decision.
+
+Observed validation:
+
+- Scoped Phase 1 security tests: `11 passed`.
+- Combined security, Compose topology, n8n workflow-artifact, Redpanda
+  transport, and outbox-relay tests: `140 passed, 2 skipped`; skips were the
+  existing live Vault and live Redpanda environment gates.
+- Production overlay `docker compose ... --profile production config --quiet`
+  passed with test-only placeholder values and paths; no production services or
+  credentials were exercised.
+- Python compilation passed; the existing `.pytest_cache` listing notice was
+  emitted by `compileall`.
+- Scoped Ruff check and format checks for the changed Python files passed;
+  repository-wide Ruff/format checks remain non-green on pre-existing dirty
+  files outside this security slice and were not rewritten.
+- `git diff --check` passed. No commit was created and unrelated dirty paths
+  were preserved.
+
+This does not claim production broker, identity, Vault, n8n, or live-action
+qualification. Certificate issuance, ACL application, secret-manager audit
+export, deployment firewall enforcement, and live service validation remain
+deployment gates. No live merchant connector or financial side effect was
+enabled or executed.
+
+## Phase 2 reliability and operations readiness — 2026-09-04
+
+The scoped operations slice adds production-shaped PostgreSQL custom-format and
+MinIO immutable snapshot procedures with SHA-256 manifests and restore integrity
+checks, isolated-target-only restore guards, migration rehearsal/rollback
+guidance, explicit RPO/RTO/retention settings, and a non-destructive T153 service
+recovery check for API, n8n worker, and Redis. Prometheus now loads actionable
+backup, PostgreSQL, orchestration-stall, and recovery-escalation alerts; the API
+serves a redacted `/metrics` endpoint and readiness gauge. Correlation identifiers
+remain available for trace/log lookup while tenant/case identifiers are excluded
+from metric labels and raw evidence, prompts, credentials, and narratives remain
+redacted.
+
+Observed static validation for this slice:
+
+- Operations readiness/unit, observability, Compose topology, credential/network,
+  and T153 recovery-contract tests: `34 passed, 8 warnings`; warnings are existing
+  dependency deprecations from the local Python environment.
+- PowerShell parser validation: all five backup/restore/recovery scripts `OK`.
+- Base plus test Docker Compose config: `OK`.
+- Backup policy, alert rules, Prometheus/OTel YAML, and Grafana dashboard parsing:
+  `OK`.
+- Scoped Ruff check/format, Python compilation, and scoped `git diff --check`: `OK`.
+
+This is static readiness only. No deployment-owned backup, restore rehearsal,
+measured RPO/RTO result, live MinIO/PostgreSQL checksum verification, or chaos
+restart run was performed in this turn. T153 preserved project/volumes were not
+deleted or reset. Live qualification, production secret-manager storage, backup
+destination encryption/retention enforcement, and deployment firewall/service
+recovery evidence remain open gates.

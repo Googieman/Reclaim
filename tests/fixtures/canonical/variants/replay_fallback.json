@@ -1,0 +1,1 @@
+{"variant":"replay_fallback","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-replay-fallback","expected_outcome":"replay","deviation":{"stage":"model","field":"mode","change":"live request falls back to deterministic replay"},"provenance":"deterministic-local-replay"}

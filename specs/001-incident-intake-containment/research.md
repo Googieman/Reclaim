@@ -111,9 +111,33 @@ mode that preserves caller-selected association was also rejected as insecure. E
 case-only callers must migrate by provisioning the authoritative mapping; their IDs may
 remain only as consistency assertions.
 
-**Architecture impact**: No ownership boundary changes. PostgreSQL remains authoritative,
-Temporal remains orchestration, Redpanda remains transport, and Neo4j remains a
-rebuildable projection. No ADR change is required for D3.
+**Architecture impact**: No provider-correlation ownership change. PostgreSQL remains
+authoritative, n8n owns new orchestration under ADR-004, Redpanda remains transport,
+and Neo4j remains a rebuildable projection.
+
+## Decision: n8n durable orchestration boundary
+
+**Decision**: n8n owns durable orchestration, retry, and recovery for new incident
+analysis handoffs. It consumes the versioned `incident.accepted` event through Kafka
+Trigger and calls only allowlisted, idempotent RECLAIM APIs. PostgreSQL owns the
+authoritative run and stage attempt state. Redis is n8n queue coordination only. The
+existing Temporal path is moved to a legacy drain profile and receives no new cases.
+
+**Rationale**: The project-wide orchestration amendment gives operators a versioned,
+inspectable workflow surface while preserving the existing application-service and
+side-effect boundaries. API callbacks make tenant, expected-state, stage allowlists,
+failure codes, and idempotency testable independently of any workflow engine.
+
+**Security impact**: n8n receives a tenant-scoped service identity and no direct
+RECLAIM PostgreSQL, MinIO, model-provider, approval, or Action Gateway credentials.
+Raw narrative remains immutable MinIO content and crosses the boundary only as a
+redacted structured projection plus checksum/reference metadata. Model/API failures
+become `requires_attention`; replay is never an implicit retry.
+
+**Architecture impact**: This decision supersedes Temporal ownership for new work and
+is recorded in ADR-004. Existing application services remain orchestrator-neutral;
+Temporal removal is separately gated on empty run inventory, parity, duplicate delivery,
+restart recovery, and fresh-volume evidence.
 
 ## Implementation validation items deferred to coding
 

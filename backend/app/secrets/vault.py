@@ -57,7 +57,16 @@ class VaultSecretStore:
         self.service_identity = service_identity
 
     @classmethod
-    def from_address(cls, address: str, *, token: str, service_identity: str) -> VaultSecretStore:
+    def from_address(
+        cls,
+        address: str,
+        *,
+        token: str,
+        service_identity: str,
+        require_tls: bool = False,
+    ) -> VaultSecretStore:
+        if require_tls and not address.startswith("https://"):
+            raise SecretAccessDenied("production Vault access requires HTTPS")
         import hvac
 
         client = hvac.Client(url=address, token=token)
@@ -66,7 +75,10 @@ class VaultSecretStore:
     def read_action_connector_secret(self, *, tenant_id: str, connector_id: str) -> dict[str, Any]:
         if self.service_identity != ACTION_GATEWAY_IDENTITY:
             raise SecretAccessDenied("only the Action Gateway may read action connector secrets")
-        data = self.client.read(vault_action_secret_path(tenant_id, connector_id))
+        try:
+            data = self.client.read(vault_action_secret_path(tenant_id, connector_id))
+        except Exception as exc:
+            raise SecretAccessDenied("action connector secret is unavailable") from exc
         if not data:
             raise SecretAccessDenied("action connector secret is unavailable")
         return dict(data)
@@ -76,7 +88,10 @@ class VaultSecretStore:
 
         if self.service_identity != WEBHOOK_VERIFIER_IDENTITY:
             raise SecretAccessDenied("only the intake API may read webhook verification secrets")
-        data = self.client.read(vault_webhook_secret_path(tenant_id, connector_id))
+        try:
+            data = self.client.read(vault_webhook_secret_path(tenant_id, connector_id))
+        except Exception as exc:
+            raise SecretAccessDenied("webhook verification secret is unavailable") from exc
         if not data:
             raise SecretAccessDenied("webhook verification secret is unavailable")
         return dict(data)

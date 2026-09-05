@@ -1,0 +1,54 @@
+groups:
+  - name: reclaim-operations
+    interval: 30s
+    rules:
+      - alert: ReclaimBackupStale
+        expr: time() - reclaim_backup_last_success_timestamp_seconds > 1800
+        for: 10m
+        labels:
+          severity: critical
+          owner: platform
+        annotations:
+          summary: "RECLAIM backup is older than the 15-minute RPO"
+          description: "No verified PostgreSQL/MinIO backup has completed within the RPO window."
+          runbook_url: "docs/operator/backup-restore.md#stale-backup"
+      - alert: ReclaimBackupIntegrityFailure
+        expr: increase(reclaim_backup_verification_total{status="failed"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          owner: platform
+        annotations:
+          summary: "RECLAIM backup integrity verification failed"
+          description: "Quarantine the artifact and investigate before any restore."
+          runbook_url: "docs/operator/backup-restore.md#integrity"
+      - alert: ReclaimPostgresUnavailable
+        expr: reclaim_postgres_health{status="ready"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: platform
+        annotations:
+          summary: "Authoritative PostgreSQL is unavailable"
+          description: "Business state is not considered recovered until PostgreSQL readiness returns."
+          runbook_url: "docs/operator/backup-restore.md#postgres-outage"
+      - alert: ReclaimOrchestrationStalled
+        expr: increase(reclaim_orchestration_stalled_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: platform
+        annotations:
+          summary: "n8n orchestration has stalled"
+          description: "Inspect n8n execution state and the authoritative PostgreSQL stage attempt."
+          runbook_url: "docs/operator/migration-rehearsal.md#recovery"
+      - alert: ReclaimRecoveryEscalation
+        expr: increase(reclaim_recovery_events_total{outcome="escalated"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: incident-response
+        annotations:
+          summary: "RECLAIM recovery requires operator attention"
+          description: "Review the correlation-linked audit trail; do not retry an uncertain side effect blindly."
+          runbook_url: "docs/operator/backup-restore.md#recovery"

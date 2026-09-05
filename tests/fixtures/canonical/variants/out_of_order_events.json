@@ -1,0 +1,1 @@
+{"variant":"out_of_order_events","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-out-of-order-events","expected_outcome":"converged","deviation":{"stage":"timeline","field":"ordering","change":"permute source event delivery order"},"provenance":"deterministic-local-replay"}

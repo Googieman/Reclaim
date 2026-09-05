@@ -386,6 +386,8 @@ def test_quickstart_compose_configuration_preserves_safe_topology() -> None:
         str(COMPOSE_FILES[1]),
         "-f",
         str(COMPOSE_FILES[2]),
+        "--profile",
+        "full",
         "config",
         "--format",
         "json",

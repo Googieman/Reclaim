@@ -1,0 +1,21 @@
+# Observed values must replace the placeholders only after soup doctor and data doctor.
+task: sft
+base: "HuggingFaceTB/SmolLM2-135M-Instruct"
+data:
+  train: "training/reclaim/data/generated/development.jsonl"
+  format: auto
+  val_split: 0.0
+  max_length: 4096
+  train_on_responses_only: true
+output: "training/reclaim/artifacts/reclaim-specialist"
+training:
+  epochs: 2
+  lr: 0.0002
+  batch_size: auto
+  seed: 20260902
+  stream_layers: false
+  quantization: none
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05

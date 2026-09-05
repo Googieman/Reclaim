@@ -1,0 +1,498 @@
+name: reclaim
+
+services:
+  web:
+    image: reclaim/fs001-web:${RECLAIM_IMAGE_TAG:-dev}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_TENANT_ID: tenant-canonical-demo
+        NEXT_PUBLIC_RUN_MODE: live
+        NEXT_PUBLIC_REPLAY_LABEL: live
+        NEXT_PUBLIC_LIVE_ACTIONS_ENABLED: "false"
+        NEXT_PUBLIC_DEMO_REVIEWER_TOKEN: demo-reviewer
+        NEXT_PUBLIC_DEMO_APPROVER_TOKEN: demo-approver
+        NEXT_PUBLIC_DEMO_ESCALATION_OWNER_TOKEN: demo-escalation-owner
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ""
+      RECLAIM_API_INTERNAL_BASE_URL: http://api:8000
+      NEXT_PUBLIC_TENANT_ID: tenant-canonical-demo
+      NEXT_PUBLIC_RUN_MODE: live
+      NEXT_PUBLIC_REPLAY_LABEL: live
+      NEXT_PUBLIC_LIVE_ACTIONS_ENABLED: "false"
+    ports:
+      - "${RECLAIM_WEB_BIND:-127.0.0.1}:${RECLAIM_WEB_PORT:-3000}:3000"
+    networks: [public-ingress, app-services]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+
+  api:
+    image: reclaim/fs001-api:${RECLAIM_IMAGE_TAG:-dev}
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      RECLAIM_ENVIRONMENT: development
+      RECLAIM_TENANT_ID: tenant-canonical-demo
+      RECLAIM_RUN_MODE: live
+      RECLAIM_REPLAY_LABEL: live
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_RPO_MINUTES: ${RECLAIM_RPO_MINUTES:-15}
+      RECLAIM_RTO_MINUTES: ${RECLAIM_RTO_MINUTES:-60}
+      RECLAIM_BACKUP_RETENTION_DAYS: ${RECLAIM_BACKUP_RETENTION_DAYS:-35}
+      RECLAIM_DEMO_READ_ONLY_ENABLED: "false"
+      RECLAIM_AUTHORITATIVE_DEMO_ENABLED: "true"
+      RECLAIM_FRESH_AGENT_ENABLED: "true"
+      RECLAIM_FRESH_AGENT_ACTION_ENVIRONMENT: simulator
+      RECLAIM_MODE_FALLBACK: ${RECLAIM_MODE_FALLBACK:-replay}
+      RECLAIM_PROVIDER_UNAVAILABILITY_POLICY: replay
+      RECLAIM_DATABASE_URL: postgresql://reclaim:reclaim@postgres:5432/reclaim
+      RECLAIM_SPECIALIST_MODEL: "${RECLAIM_SPECIALIST_MODEL:-}"
+      RECLAIM_SPECIALIST_API_BASE: "${RECLAIM_SPECIALIST_API_BASE:-http://host.docker.internal:8003/v1}"
+      RECLAIM_TEMPORAL_TARGET: temporal:7233
+      RECLAIM_REDPANDA_BROKERS: redpanda:9092
+      RECLAIM_REDIS_URL: redis://redis:6379/0
+      RECLAIM_MINIO_ENDPOINT: minio:9000
+      RECLAIM_MINIO_ACCESS_KEY: reclaim
+      RECLAIM_MINIO_SECRET_KEY: reclaim-development
+      RECLAIM_MINIO_SECURE: "false"
+      RECLAIM_ORCHESTRATION_PROVIDER: n8n
+      RECLAIM_N8N_WORKFLOW_VERSION: incident-analysis-handoff.v1
+      RECLAIM_KEYCLOAK_ISSUER: http://keycloak:8080/realms/reclaim
+      RECLAIM_VAULT_ADDRESS: http://vault:8200
+      RECLAIM_PROVIDER_AVAILABLE: "${RECLAIM_PROVIDER_AVAILABLE:-false}"
+      RECLAIM_CONNECTOR_AVAILABLE: "${RECLAIM_CONNECTOR_AVAILABLE:-false}"
+      RECLAIM_PROVIDER_QUALIFIED: "${RECLAIM_PROVIDER_QUALIFIED:-false}"
+      RECLAIM_CONNECTOR_QUALIFIED: "${RECLAIM_CONNECTOR_QUALIFIED:-false}"
+      RECLAIM_LIVE_EXECUTION_OCCURRED: "${RECLAIM_LIVE_EXECUTION_OCCURRED:-false}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RECLAIM_API_BIND:-127.0.0.1}:${RECLAIM_API_PORT:-8000}:8000"
+    networks: [public-ingress, app-services, data-services, observability]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2))['status'] == 'ready'"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  event-relay:
+    profiles: ["full"]
+    image: reclaim/fs001-api:${RECLAIM_IMAGE_TAG:-dev}
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.events.outbox_relay"]
+    environment:
+      RECLAIM_TENANT_ID: tenant-canonical-demo
+      RECLAIM_DATABASE_URL: postgresql://reclaim:reclaim@postgres:5432/reclaim
+      RECLAIM_REDPANDA_BROKERS: redpanda:9092
+    networks: [data-services]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+  workflow-worker:
+    # Legacy Temporal drain only. New incidents are owned by n8n.
+    profiles: ["full", "legacy-temporal"]
+    image: ghcr.io/reclaim/fs001-workflow-worker:${RECLAIM_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      RECLAIM_ENVIRONMENT: ${RECLAIM_ENVIRONMENT:-development}
+      RECLAIM_TENANT_ID: ${RECLAIM_TENANT_ID:-demo-tenant}
+      RECLAIM_RUN_MODE: ${RECLAIM_RUN_MODE:-replay}
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_DATABASE_URL: postgresql://reclaim:reclaim@postgres:5432/reclaim
+      RECLAIM_TEMPORAL_TARGET: temporal:7233
+      RECLAIM_REDPANDA_BROKERS: redpanda:9092
+      RECLAIM_REDIS_URL: redis://redis:6379/0
+    networks: [app-services, data-services, observability]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+      redpanda:
+        condition: service_started
+
+  n8n-main:
+    profiles: ["full"]
+    image: n8nio/n8n:${N8N_VERSION:-1.121.0}
+    restart: unless-stopped
+    command: start
+    environment:
+      N8N_HOST: n8n-main
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_EDITOR_BASE_URL: http://n8n-main:5678
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-reclaim-n8n-development-key-change-me}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "true"
+      EXECUTIONS_MODE: queue
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: "6379"
+      QUEUE_BULL_REDIS_DB: "2"
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: reclaim
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-reclaim-n8n-development}
+      DB_POSTGRESDB_SCHEMA: n8n
+      RECLAIM_API_BASE_URL: http://api:8000
+      RECLAIM_N8N_SERVICE_TOKEN: ${RECLAIM_N8N_SERVICE_TOKEN:-}
+      N8N_RUNNERS_ENABLED: "true"
+    networks: [app-services, data-services]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  n8n-worker:
+    profiles: ["full"]
+    image: n8nio/n8n:${N8N_VERSION:-1.121.0}
+    restart: unless-stopped
+    command: worker --concurrency=5
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-reclaim-n8n-development-key-change-me}
+      EXECUTIONS_MODE: queue
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: "6379"
+      QUEUE_BULL_REDIS_DB: "2"
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: reclaim
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-reclaim-n8n-development}
+      DB_POSTGRESDB_SCHEMA: n8n
+      RECLAIM_API_BASE_URL: http://api:8000
+      RECLAIM_N8N_SERVICE_TOKEN: ${RECLAIM_N8N_SERVICE_TOKEN:-}
+      N8N_RUNNERS_ENABLED: "true"
+    networks: [app-services, data-services]
+    depends_on:
+      n8n-main:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+
+  model-gateway:
+    profiles: ["full"]
+    image: ghcr.io/reclaim/fs001-model-gateway:${RECLAIM_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      RECLAIM_RUN_MODE: ${RECLAIM_RUN_MODE:-replay}
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_MODE_FALLBACK: ${RECLAIM_MODE_FALLBACK:-replay}
+      RECLAIM_PROVIDER_UNAVAILABILITY_POLICY: replay
+      RECLAIM_PROVIDER_AVAILABLE: "${RECLAIM_PROVIDER_AVAILABLE:-false}"
+      RECLAIM_PROVIDER_QUALIFIED: "${RECLAIM_PROVIDER_QUALIFIED:-false}"
+      RECLAIM_MODE_CREDENTIAL_SCOPE: model-gateway-read-only
+    networks: [app-services, observability]
+
+  attribution:
+    profiles: ["full"]
+    image: ghcr.io/reclaim/fs001-attribution:${RECLAIM_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      RECLAIM_RUN_MODE: ${RECLAIM_RUN_MODE:-replay}
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+    networks: [app-services, data-services, observability]
+
+  evidence-connectors:
+    profiles: ["full"]
+    image: ghcr.io/reclaim/fs001-evidence-connectors:${RECLAIM_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      RECLAIM_RUN_MODE: ${RECLAIM_RUN_MODE:-replay}
+      RECLAIM_LIVE_ACTIONS_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "false"
+      RECLAIM_CONNECTOR_AVAILABLE: "${RECLAIM_CONNECTOR_AVAILABLE:-false}"
+      RECLAIM_CONNECTOR_QUALIFIED: "${RECLAIM_CONNECTOR_QUALIFIED:-false}"
+    networks: [app-services, data-services, observability]
+
+  action-gateway:
+    profiles: ["full"]
+    image: ghcr.io/reclaim/fs001-action-gateway:${RECLAIM_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      RECLAIM_ENVIRONMENT: ${RECLAIM_ENVIRONMENT:-development}
+      RECLAIM_RUN_MODE: ${RECLAIM_RUN_MODE:-replay}
+      RECLAIM_LIVE_ACTIONS_ENABLED: "${RECLAIM_LIVE_ACTIONS_ENABLED:-false}"
+      RECLAIM_LIVE_ACTION_ENABLED: "false"
+      RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED: "${RECLAIM_LIVE_FINANCIAL_ACTIONS_ENABLED:-false}"
+      RECLAIM_ACTION_CREDENTIAL_SCOPE: action-gateway-only
+      RECLAIM_DATABASE_URL: postgresql://reclaim:reclaim@postgres:5432/reclaim
+    networks: [app-services, data-services, action-boundary, observability]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16.6}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: reclaim
+      POSTGRES_USER: reclaim
+      POSTGRES_PASSWORD: reclaim
+      N8N_DB_PASSWORD: ${N8N_DB_PASSWORD:-reclaim-n8n-development}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../backend/db/migrations:/reclaim-migrations:ro
+      - ./postgres/010-apply-reclaim-migrations.sh:/docker-entrypoint-initdb.d/010-apply-reclaim-migrations.sh:ro
+      - ./postgres/900-n8n-role.sql:/docker-entrypoint-initdb.d/900-n8n-role.sql:ro
+      - ./postgres/901-n8n-role-password.sh:/docker-entrypoint-initdb.d/901-n8n-role-password.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reclaim -d reclaim"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [data-services]
+
+  temporal:
+    profiles: ["full", "legacy-temporal"]
+    image: temporalio/auto-setup:${TEMPORAL_VERSION:-1.25.1}
+    restart: unless-stopped
+    environment:
+      DB: postgresql12
+      DB_PORT: 5432
+      POSTGRES_USER: reclaim
+      POSTGRES_PWD: reclaim
+      POSTGRES_SEEDS: postgres
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development.yaml
+    volumes:
+      - temporal-data:/etc/temporal
+    networks: [app-services, data-services]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redpanda:
+    profiles: ["full"]
+    image: docker.redpanda.com/redpandadata/redpanda:v${REDPANDA_VERSION:-24.3.8}
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:9092
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks: [app-services, data-services]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health --api-urls=127.0.0.1:9644 | grep -q Healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  neo4j:
+    profiles: ["full"]
+    image: neo4j:${NEO4J_VERSION:-5.26.1}
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/reclaim-development
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+    volumes:
+      - neo4j-data:/data
+    networks: [data-services]
+
+  minio:
+    profiles: ["full"]
+    image: minio/minio:${MINIO_VERSION:-RELEASE.2024-12-18T13-15-44Z}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: reclaim
+      MINIO_ROOT_PASSWORD: reclaim-development
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [data-services]
+
+  redis:
+    profiles: ["full"]
+    image: redis:${REDIS_VERSION:-7.4.1}-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [data-services]
+
+  keycloak:
+    profiles: ["full"]
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.0.7}
+    restart: unless-stopped
+    command: start-dev --http-port=8080
+    environment:
+      KC_DB: dev-file
+      KC_BOOTSTRAP_ADMIN_USERNAME: reclaim
+      KC_BOOTSTRAP_ADMIN_PASSWORD: reclaim-development
+    networks: [data-services]
+
+  vault:
+    profiles: ["full"]
+    image: hashicorp/vault:${VAULT_VERSION:-1.18.3}
+    restart: unless-stopped
+    command: server -dev -dev-root-token-id=reclaim-development-token
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: reclaim-development-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    networks: [data-services]
+
+  otel-collector:
+    profiles: ["full"]
+    image: otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.115.1}
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/otel-collector.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/otel-collector.yaml:ro
+    networks: [app-services, observability]
+
+  prometheus:
+    profiles: ["full"]
+    image: prom/prometheus:v${PROMETHEUS_VERSION:-2.55.1}
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks: [observability]
+
+  grafana:
+    profiles: ["full"]
+    image: grafana/grafana:${GRAFANA_VERSION:-11.4.0}
+    restart: unless-stopped
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ALLOW_EMBEDDING: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks: [observability]
+    depends_on:
+      prometheus:
+        condition: service_started
+
+  loki:
+    profiles: ["full"]
+    image: grafana/loki:${LOKI_VERSION:-3.3.2}
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    networks: [observability]
+
+  langfuse:
+    profiles: ["full"]
+    image: langfuse/langfuse:${LANGFUSE_VERSION:-2.93.0}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://reclaim:reclaim@postgres:5432/reclaim
+      NEXTAUTH_SECRET: reclaim-development-only
+      SALT: reclaim-development-only
+      TELEMETRY_ENABLED: "false"
+    networks: [data-services, observability]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mlflow:
+    profiles: ["full"]
+    image: ghcr.io/mlflow/mlflow:v${MLFLOW_VERSION:-2.19.0}
+    restart: unless-stopped
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://reclaim:reclaim@postgres:5432/reclaim --default-artifact-root /mlruns
+    volumes:
+      - mlflow-data:/mlruns
+    networks: [data-services, observability]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  temporal-data:
+  redpanda-data:
+  neo4j-data:
+  minio-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  mlflow-data:
+
+networks:
+  public-ingress:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-public-ingress
+  app-services:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-app-services
+    internal: true
+  data-services:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-data-services
+    internal: true
+  action-boundary:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-action-boundary
+    internal: true
+  observability:
+    name: ${COMPOSE_PROJECT_NAME:-reclaim}-observability
+    internal: true

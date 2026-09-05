@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reclaim.local/schemas/reclaim-dataset-v1.0.0.json",
+  "title": "RECLAIM specialization dataset manifest",
+  "type": "object",
+  "required": ["manifest_version", "dataset_version", "source_files", "source_checksums", "split_counts", "rows_written", "held_out_sealed", "cases"],
+  "properties": {
+    "manifest_version": {"type": "string", "const": "reclaim-dataset-v1.0.0"},
+    "dataset_version": {"type": "string", "const": "reclaim-dataset-v1.0.0"},
+    "source_files": {"type": "array", "items": {"type": "string"}},
+    "source_checksums": {"type": "object", "additionalProperties": {"type": "string", "minLength": 64}},
+    "split_counts": {"type": "object", "required": ["development", "validation", "held_out"]},
+    "rows_written": {"type": "object", "required": ["development", "validation", "held_out"]},
+    "held_out_sealed": {"const": true},
+    "cases": {"type": "array"}
+  },
+  "additionalProperties": true
+}

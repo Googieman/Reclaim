@@ -35,7 +35,13 @@ class RecoveryKind(StrEnum):
 # Only activities with a production implementation may be dispatched by the
 # current US1 worker.  Future story stages are deliberately not accepted until
 # their activities and authoritative persistence paths exist.
-IMPLEMENTED_STAGE_ORDER = ("start_intake", "collect_evidence", "rebuild_timeline")
+IMPLEMENTED_STAGE_ORDER = (
+    "start_intake",
+    "collect_evidence",
+    "rebuild_timeline",
+    "analyze_case",
+    "run_containment",
+)
 US1_STAGE_ORDER = ("collect_evidence", "rebuild_timeline")
 IMPLEMENTED_STAGE_NAMES = frozenset(IMPLEMENTED_STAGE_ORDER)
 

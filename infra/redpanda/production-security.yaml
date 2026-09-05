@@ -1,0 +1,44 @@
+version: "1.0.0"
+broker_config:
+  enable_sasl: true
+  kafka_enable_authorization: true
+  superusers: [User:reclaim-broker-admin]
+transport:
+  tls:
+    enabled: true
+    client_auth: required
+  sasl:
+    enabled: true
+    mechanisms: [SCRAM-SHA-512]
+  acl:
+    enabled: true
+    default: deny
+principal_binding:
+  mode: certificate-and-sasl-identity
+  require_authenticated_principal: true
+  certificate_subject_must_match_sasl_username: true
+principals:
+  reclaim-event-relay:
+    allow:
+      - operation: write
+        topic: reclaim.domain.v1
+  reclaim-n8n-orchestrator:
+    allow:
+      - operation: read
+        topic: reclaim.domain.v1
+  reclaim-timeline-consumer:
+    allow:
+      - operation: read
+        topic: reclaim.domain.v1
+  reclaim-neo4j-projection:
+    allow:
+      - operation: read
+        topic: reclaim.domain.v1
+  reclaim-domain-dlq-writer:
+    allow:
+      - operation: write
+        topic: reclaim.domain.dlq.v1
+  reclaim-domain-dlq-reader:
+    allow:
+      - operation: read
+        topic: reclaim.domain.dlq.v1

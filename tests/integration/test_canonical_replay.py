@@ -49,10 +49,6 @@ CANONICAL_INPUT = {
 }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T105 is expected-red until the T111 runner and T112 canonical fixture exist",
-)
 def test_canonical_replay_repeats_identical_authoritative_outputs() -> None:
     run_replay = _require_symbol("replay.runner", "run_replay", task="T111")
 

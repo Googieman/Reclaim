@@ -22,6 +22,31 @@ BEGIN
 END;
 $$;
 
+-- Migration 002 creates the reclaim helper schema before creating these two
+-- tables. For a database role also named reclaim, PostgreSQL's default
+-- "$user", public search path therefore placed them in reclaim. Normalize
+-- that legacy/fresh-install outcome before any explicitly public D3 changes.
+DO $$
+DECLARE
+    table_name TEXT;
+    legacy_exists BOOLEAN;
+    public_exists BOOLEAN;
+BEGIN
+    FOREACH table_name IN ARRAY ARRAY['webhook_deliveries', 'webhook_quarantines']
+    LOOP
+        legacy_exists := to_regclass('reclaim.' || table_name) IS NOT NULL;
+        public_exists := to_regclass('public.' || table_name) IS NOT NULL;
+        IF legacy_exists AND public_exists THEN
+            RAISE EXCEPTION
+                'webhook table % exists in both reclaim and public; reconcile before migration 006',
+                table_name;
+        ELSIF legacy_exists THEN
+            EXECUTE format('ALTER TABLE reclaim.%I SET SCHEMA public', table_name);
+        END IF;
+    END LOOP;
+END;
+$$;
+
 -- The CREATE path is defensive for a partially applied 005.  A normal fresh
 -- 001->005 database already has the table, either in public or in reclaim.
 CREATE TABLE IF NOT EXISTS public.provider_correlation_mappings (

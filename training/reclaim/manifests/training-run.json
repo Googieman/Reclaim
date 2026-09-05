@@ -1,0 +1,46 @@
+{
+  "status": "completed",
+  "run_id": "run_20260902_154017_c6e9455e",
+  "captured_at": "2026-09-02T15:40:17+05:30",
+  "command": "training/.venv/Scripts/soup.exe train --config training/reclaim/configs/reclaim-sft.yaml --yes",
+  "soup_version": "0.73.3",
+  "base_model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "task": "sft",
+  "backend": "transformers",
+  "device": "cpu",
+  "gpu_observed_by_soup": "NVIDIA GeForce RTX 3050 Laptop GPU present; isolated torch build was 2.13.0+cpu",
+  "dataset_manifest": "training/reclaim/manifests/dataset.json",
+  "dataset_rows": 1,
+  "epochs": 2,
+  "steps": 2,
+  "max_length": 4096,
+  "quantization": "none",
+  "lora": {"r": 16, "alpha": 32, "dropout": 0.05},
+  "output_dir": "training/reclaim/artifacts/reclaim-specialist",
+  "adapter_artifact": "training/reclaim/artifacts/reclaim-specialist/adapter_model.safetensors",
+  "adapter_sha256": "4a4ab42f1dc3d5749add96266cd22596a7045e61276f82ce42b4030b21eaa729",
+  "observed_metrics": {
+    "train_runtime_seconds": 58.4093,
+    "train_samples_per_second": 0.034,
+    "train_steps_per_second": 0.034,
+    "train_loss": 1.0933139324188232,
+    "entropy": 0.9941616654396057,
+    "num_tokens": 6952.0,
+    "mean_token_accuracy": 0.8112449944019318,
+    "epoch": 2.0
+  },
+  "evaluation_status": "not_run",
+  "promotion_decision": "DON'T SHIP",
+  "limitations": [
+    "The supplied corpus contains one synthetic canonical replay case, zero validation cases, and zero emitted held-out rows.",
+    "The observed trainer metrics are optimization telemetry, not fraud quality or production performance.",
+    "Soup data doctor returned MINOR because the tokenizer template lacks generation markers and uses heuristic assistant masking.",
+    "The adapter has not been promoted or claimed as production-qualified."
+  ],
+  "provenance": {
+    "config_sha256": "d140316a40c7cb141adb37f8b816359957ca2720a1c832cb24aac3fbc480786c",
+    "dataset_sha256": "29ab1594b7cf0b0e0c0d06a424e9edd283f0530839cef8984225931a3c162f17",
+    "data_doctor_sha256": "40878c2806b3ab7160d83afc167129088bf1b132fb0dff2c3e29315928389617",
+    "seed": 20260902
+  }
+}

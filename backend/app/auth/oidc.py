@@ -9,8 +9,6 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any
 
-import jwt
-
 
 class TenantAuthorizationError(PermissionError):
     """Raised for invalid identity, tenant scope, or role use."""
@@ -21,6 +19,7 @@ class RequiredRole(StrEnum):
     APPROVER = "approver"
     ESCALATION_OWNER = "escalation-owner"
     POLICY_OWNER = "policy-owner"
+    ORCHESTRATOR = "orchestrator"
 
 
 class IdentityType(StrEnum):
@@ -154,10 +153,18 @@ class OIDCVerifier:
             raise ValueError("OIDC verifier algorithms are not allowlisted")
         if signing_key is None and not jwks_url:
             raise ValueError("a signing key or JWKS URL is required")
+        if jwks_url and not jwks_url.startswith("https://"):
+            raise ValueError("OIDC JWKS URL must use HTTPS")
+        if jwks_url and any(algorithm.startswith("HS") for algorithm in self.algorithms):
+            raise ValueError("OIDC JWKS verification cannot use symmetric algorithms")
 
     def verify(
         self, token: str, *, tenant_id: str, required_role: RequiredRole | str | None = None
     ) -> AuthenticatedPrincipal:
+        try:
+            import jwt
+        except ModuleNotFoundError as exc:  # pragma: no cover - packaging/import smoke path
+            raise TenantAuthorizationError("OIDC JWT support is unavailable") from exc
         if not token.strip():
             raise TenantAuthorizationError("OIDC token is required")
         key = self.signing_key
@@ -166,7 +173,12 @@ class OIDCVerifier:
                 raise TenantAuthorizationError("OIDC verification key is unavailable")
             from jwt import PyJWKClient
 
-            key = PyJWKClient(self.jwks_url).get_signing_key_from_jwt(token).key
+            try:
+                key = PyJWKClient(self.jwks_url).get_signing_key_from_jwt(token).key
+            except Exception as exc:
+                # Key discovery is an authentication dependency.  Do not leak
+                # transport, DNS, or provider details through the auth boundary.
+                raise TenantAuthorizationError("OIDC verification key is unavailable") from exc
         try:
             claims = jwt.decode(
                 token,
@@ -219,7 +231,7 @@ def _required_text(claims: dict[str, Any], name: str) -> str:
 def _required_string_set(value: Any, *, claim_name: str) -> set[str]:
     if isinstance(value, str):
         values = [value]
-    elif isinstance(value, (list, tuple, set, frozenset)):
+    elif isinstance(value, list | tuple | set | frozenset):
         values = list(value)
     else:
         raise TenantAuthorizationError(f"OIDC claim {claim_name} is invalid")
@@ -245,7 +257,7 @@ def _tenant_role_bindings(value: Any) -> dict[str, frozenset[str]]:
             raise TenantAuthorizationError("OIDC tenant-role binding has an invalid tenant")
         if isinstance(raw_roles, str):
             raw_roles = [raw_roles]
-        if not isinstance(raw_roles, (list, tuple, set, frozenset)) or any(
+        if not isinstance(raw_roles, list | tuple | set | frozenset) or any(
             not isinstance(role, str) or not role.strip() for role in raw_roles
         ):
             raise TenantAuthorizationError(

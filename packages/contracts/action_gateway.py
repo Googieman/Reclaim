@@ -88,6 +88,13 @@ class VerificationResponse(ContractModel):
     result: VerificationResult
     evidence_references: tuple[str, ...] = ()
     verified_at: datetime
+    verification_method: str = Field(default="merchant_state_read", min_length=1)
+    verification_version: str = Field(default="verification-v1.0.0", min_length=1)
+    state_checksum: str | None = None
+    canonical_action_id: str | None = None
+    connector_id: str | None = None
+    resource_type: str | None = None
+    target_resource: str | None = None
 
     _normalize_verified_at = field_validator("verified_at")(require_utc)
 

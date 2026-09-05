@@ -1,0 +1,1 @@
+{"variant":"invalid_signature","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-invalid-signature","expected_outcome":"quarantined","deviation":{"stage":"incident","field":"signature","change":"invalid provider signature"},"provenance":"deterministic-local-replay"}

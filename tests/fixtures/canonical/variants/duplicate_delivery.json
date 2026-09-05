@@ -1,0 +1,1 @@
+{"variant":"duplicate_delivery","version":"replay-variants-v1.0.0","canonical_fixture_version":"canonical-v1.0.0","seed":"variant-duplicate-delivery","expected_outcome":"duplicate","deviation":{"stage":"incident","field":"delivery","change":"repeat identical delivery"},"provenance":"deterministic-local-replay"}

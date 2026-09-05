@@ -1,0 +1,386 @@
+{
+  "name": "incident-analysis-handoff.v1",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "topic": "reclaim.domain.v1",
+        "groupId": "reclaim-n8n-incident-analysis-v1",
+        "options": {
+          "fromBeginning": false,
+          "jsonParseMessage": true,
+          "onlyMessage": true
+        }
+      },
+      "id": "incident-accepted-trigger",
+      "name": "Incident accepted",
+      "type": "n8n-nodes-base.kafkaTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "credentials": {
+        "kafka": {
+          "id": "__RECLAIM_KAFKA_CREDENTIAL__",
+          "name": "reclaim-redpanda-readonly"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "incident-accepted-filter",
+              "leftValue": "={{$json.event_type}}",
+              "rightValue": "incident.accepted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-incident-accepted",
+      "name": "Filter incident.accepted",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [180, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$json.tenant_id}}/cases/{{$json.payload.case_id}}/orchestration/runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"idempotency_key\":\"incident.accepted:{{$json.event_id}}\",\"expected_state\":\"intake_received\",\"external_execution_id\":\"{{$execution.id}}\",\"workflow_version\":\"incident-analysis-handoff.v1\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "claim-run",
+      "name": "Claim case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [240, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "execution-owner-check",
+              "leftValue": "={{$json.external_execution_id}}",
+              "rightValue": "={{$execution.id}}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "execution-owns-run",
+      "name": "Execution owns run",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/runs/{{$json.run_id}}/claim",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"expected_state\":\"intake_received\",\"external_execution_id\":\"{{$execution.id}}\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "claim-execution",
+      "name": "Claim n8n execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [480, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/runs/{{$('Claim case').item.json.run_id}}/normalize-intake",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "normalize-intake",
+      "name": "Normalize structured intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [960, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/runs/{{$('Claim case').item.json.run_id}}/stages/normalize_intake",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"expected_state\":\"intake_received\",\"idempotency_key\":\"normalize:{{$('Incident accepted').item.json.event_id}}\",\"outcome\":\"completed\"}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "record-normalize",
+      "name": "Record normalized intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1200, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/agent-runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+      "jsonBody": "={\"fallback_policy\":\"explicit_unavailable\"}",
+      "options": {
+        "response": {
+          "response": {
+            "neverError": true
+          }
+        },
+        "timeout": 120000
+      }
+      },
+      "id": "analyze-case",
+      "name": "Typed AI analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1440, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "analysis-completed-check",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "analysis-completed",
+      "name": "Analysis completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1680, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/runs/{{$('Claim case').item.json.run_id}}/stages/analyze",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"expected_state\":\"intake_received\",\"idempotency_key\":\"analyze:{{$('Incident accepted').item.json.event_id}}\",\"outcome\":\"completed\"}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "record-analysis",
+      "name": "Record analysis and policy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1920, -120],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/recovery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"run_id\":\"{{$('Claim case').item.json.run_id}}\",\"external_execution_id\":\"{{$execution.id}}\",\"expected_state\":\"intake_received\",\"idempotency_key\":\"recovery:{{$('Incident accepted').item.json.event_id}}\",\"failure_code\":\"{{$json.status === 'unavailable' ? 'model_unavailable' : 'policy_failed'}}\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "record-attention",
+      "name": "Record requires_attention",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1920, 120],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RECLAIM_API_BASE_URL}}/tenants/{{$('Incident accepted').item.json.tenant_id}}/cases/{{$('Incident accepted').item.json.payload.case_id}}/orchestration/runs/{{$('Claim case').item.json.run_id}}/stages/human_handoff",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"expected_state\":\"intake_received\",\"idempotency_key\":\"handoff:{{$('Incident accepted').item.json.event_id}}\",\"outcome\":\"awaiting_human\"}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "human-handoff",
+      "name": "Record human handoff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [2160, -120],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__RECLAIM_ORCHESTRATOR_CREDENTIAL__",
+          "name": "reclaim-orchestrator-service"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Incident accepted": {
+      "main": [[{"node": "Filter incident.accepted", "type": "main", "index": 0}]]
+    },
+    "Filter incident.accepted": {
+      "main": [[{"node": "Claim case", "type": "main", "index": 0}], []]
+    },
+    "Claim case": {
+      "main": [[{"node": "Claim n8n execution", "type": "main", "index": 0}]]
+    },
+    "Claim n8n execution": {
+      "main": [[{"node": "Execution owns run", "type": "main", "index": 0}]]
+    },
+    "Execution owns run": {
+      "main": [[{"node": "Normalize structured intake", "type": "main", "index": 0}], []]
+    },
+    "Normalize structured intake": {
+      "main": [[{"node": "Record normalized intake", "type": "main", "index": 0}]]
+    },
+    "Record normalized intake": {
+      "main": [[{"node": "Typed AI analysis", "type": "main", "index": 0}]]
+    },
+    "Typed AI analysis": {
+      "main": [[{"node": "Analysis completed?", "type": "main", "index": 0}]]
+    },
+    "Analysis completed?": {
+      "main": [
+        [{"node": "Record analysis and policy", "type": "main", "index": 0}],
+        [{"node": "Record requires_attention", "type": "main", "index": 0}]
+      ]
+    },
+    "Record analysis and policy": {
+      "main": [[{"node": "Record human handoff", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "errorWorkflow": "incident-analysis-error-recovery.v1"
+  },
+  "staticData": null,
+  "tags": ["reclaim", "incident-intake", "orchestration-v1"],
+  "pinData": {}
+}

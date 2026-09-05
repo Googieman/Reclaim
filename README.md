@@ -20,8 +20,10 @@ not qualify live merchant execution or production deployment.
 - Documentation help path: locally wired, reviewer-authenticated, advisory-only,
   and disabled by default; the private DeepSeek candidate is not qualified or hosted.
 - Live refunds, cancellations, payments, and other merchant effects: disabled.
-- Railway environment: configured, but the latest deployment is not healthy and
-  no verified public application domain is recorded in the repository metadata.
+- Public Railway API: available at
+  [reclaim-production-b5df.up.railway.app](https://reclaim-production-b5df.up.railway.app/docs).
+- Live refunds, cancellations, payments, and other merchant effects remain
+  disabled on the hosted deployment.
 - Release gate: currently conditional no-go until deployment-owned qualification
   and Temporal-drain evidence are complete.
 
@@ -109,15 +111,15 @@ The launcher starts the local application and supporting services, including
 PostgreSQL, Redpanda, Redis, MinIO, the event relay, n8n, the API, and the web
 operator UI. It uses the Compose project name `reclaim-demo` by default.
 
-The verified Railway project environment is available at:
+The public Railway deployment is available at:
 
-- [Open RECLAIM on Railway](https://railway.com/project/bb577ba0-a3c0-495d-8265-87ed9577bacc?environmentId=3fd8c49f-683a-4326-aa2c-90ffac65a70c)
+- [Open the RECLAIM API documentation](https://reclaim-production-b5df.up.railway.app/docs)
+- [Check Railway readiness](https://reclaim-production-b5df.up.railway.app/health/ready)
 
-This is the Railway project dashboard, not a public site URL. Railway has not
-published a verified public service domain for this repository, and the latest
-deployment status is failing. Do not share a guessed `*.up.railway.app` address;
-after the deployment is healthy, copy the generated domain from Railway into this
-section.
+The deployed service is the FastAPI backend and its Swagger documentation. The
+operator UI is not served at the API root; use the local Compose instructions
+above for the full operator interface. Hosted live financial actions remain
+disabled.
 
 Useful commands:
 

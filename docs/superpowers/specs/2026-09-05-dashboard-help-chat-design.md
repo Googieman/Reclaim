@@ -59,9 +59,11 @@ existing Railway web/API services plus a new private model service.
 - Secrets: `MODEL_API_KEY`, the API-to-model credential, and any model artifact
   retrieval credential are Railway secrets only; none are checked in or shown
   in logs.
-- API environment: enable `RECLAIM_HELP_ENABLED`, set the
-  `reclaim-help-deepseek` profile, point `RECLAIM_HELP_API_BASE` at the private
-  model endpoint, and provide the gateway credential.
+- API environment: enable `RECLAIM_HELP_ENABLED`, set
+  `RECLAIM_HELP_CHAT_PROFILE=reclaim-help-deepseek`, point
+  `RECLAIM_HELP_GATEWAY_BASE` at the private gateway endpoint, and provide the
+  gateway credential. The gateway environment points `RECLAIM_HELP_API_BASE` at
+  the private llama.cpp model endpoint.
 - Live refunds, cancellations, payments, and other merchant actions remain
   disabled.
 

@@ -52,6 +52,13 @@ def test_railway_api_dockerfile_avoids_unsupported_buildkit_cache_mounts() -> No
     assert "--mount=type=cache" not in api_dockerfile
 
 
+def test_railway_api_dockerfile_uses_exec_form_healthcheck() -> None:
+    api_dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "CMD-SHELL" not in api_dockerfile
+    assert 'CMD ["python", "-c",' in api_dockerfile
+
+
 def test_default_demo_is_low_ram_same_origin_and_authoritative_fresh() -> None:
     compose = yaml.safe_load(
         (ROOT / "infra" / "docker-compose.yml").read_text(encoding="utf-8")

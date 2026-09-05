@@ -35,6 +35,6 @@ USER reclaim
 EXPOSE 8000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=6 \
-  CMD python -c "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2))['status'] == 'ready'"
+  CMD-SHELL python -c "import json,os,urllib.request; port=os.environ.get('PORT','8000'); assert json.load(urllib.request.urlopen(f'http://127.0.0.1:{port}/health/ready', timeout=2))['status'] == 'ready'"
 
-CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec python -m uvicorn api.main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]

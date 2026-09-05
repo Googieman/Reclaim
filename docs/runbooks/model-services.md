@@ -71,7 +71,7 @@ commit or print them.
 API service (`Reclaim`):
 
 ```text
-RECLAIM_HELP_ENABLED=true
+RECLAIM_HELP_CHAT_ENABLED=true
 RECLAIM_HELP_CHAT_PROFILE=reclaim-help-deepseek
 RECLAIM_HELP_GATEWAY_BASE=<private model-gateway service URL>
 RECLAIM_LIVE_ACTIONS_ENABLED=false

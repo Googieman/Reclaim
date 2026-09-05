@@ -80,6 +80,20 @@ credential gates. No Vault write, provider call, deployment, or secret delivery
 was performed. CP04's hosted review gate remains open until actual mTLS transport,
 Vault audit/rotation/outage, and access-matrix checks pass.
 
+## CP05 partial hosted runtime assembly — 2026-09-05
+
+`app.runtime.HostedRuntime` and `api.main.create_hosted_app` now provide a
+production-shaped dependency assembly using injected PostgreSQL, storage and
+verified OIDC boundaries. Hosted readiness probes authoritative PostgreSQL with
+`SELECT 1`; it does not run canonical replay or mount local-demo routes. The
+fresh-agent guard permits production only when a trusted provider transport is
+present and continues to reject live financial actions.
+
+Focused validation: `11 passed` across hosted runtime, hosted identity and
+fresh-agent API/profile tests. Full OIDC authorization-code/PKCE login, server-
+side BFF/session storage, hosted browser tests, and real identity/tenant role
+qualification remain open CP05 gates; no hosted identity or deployment was used.
+
 ## Current milestone: n8n-backed incident intake and operator inbox — 2026-09-04
 
 The n8n ownership amendment is implemented through the typed application/API

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
+from app.api_compat import validate_fresh_agent_configuration
 from app.config import Settings, get_settings
 from app.local_runtime import LocalDemoRuntime, create_local_runtime_router
 from app.observability.metrics import prometheus_payload, set_postgres_health
+from app.runtime import HostedRuntime
 from packages.contracts.analysis_policy import ModelBudget
 from replay.mode_selection import ModeSelection, select_mode
 from replay.runner import ReplayRunner
@@ -32,6 +35,7 @@ def create_app(
     case_inbox_service: Any | None = None,
     orchestration_service: Any | None = None,
     oidc_verifier: Any | None = None,
+    readiness_check: Callable[[], None] | None = None,
 ) -> Any:
     """Assemble the safe product surface.
 
@@ -47,7 +51,10 @@ def create_app(
     if configured.demo_read_only_enabled:
         _validate_demo_configuration(configured)
     if configured.fresh_agent_enabled:
-        _validate_fresh_agent_configuration(configured)
+        _validate_fresh_agent_configuration(
+            configured,
+            provider_available=agent_provider is not None or agent_request_factory is not None,
+        )
     local_runtime = LocalDemoRuntime(configured) if configured.authoritative_demo_enabled else None
     local_verifier = oidc_verifier
     if local_runtime is not None:
@@ -83,6 +90,8 @@ def create_app(
         try:
             if local_runtime is not None:
                 local_runtime.readiness()
+            elif readiness_check is not None:
+                readiness_check()
             else:
                 replay_runner.run(mode="replay")
             set_postgres_health(True)
@@ -233,11 +242,40 @@ def _mode_from_settings(settings: Settings) -> ModeSelection:
     )
 
 
-def _validate_fresh_agent_configuration(settings: Settings) -> None:
-    if settings.environment == "production":
-        raise ValueError("fresh agent demo wiring is not enabled in production")
-    if settings.live_financial_actions_enabled:
-        raise ValueError("fresh agent cannot be enabled with live financial actions")
+def _validate_fresh_agent_configuration(
+    settings: Settings, *, provider_available: bool = False
+) -> None:
+    validate_fresh_agent_configuration(
+        environment=settings.environment,
+        live_financial_actions_enabled=settings.live_financial_actions_enabled,
+        provider_available=provider_available,
+    )
+
+
+def create_hosted_app(
+    *,
+    runtime: HostedRuntime,
+    agent_provider: Any | None = None,
+    agent_request_factory: Any | None = None,
+    agent_run_persistence: Any | None = None,
+) -> Any:
+    """Mount the hosted runtime with DB-backed readiness and no demo routes."""
+
+    if runtime.intake_service is None or runtime.case_inbox_service is None:
+        raise ValueError("hosted runtime services are incomplete")
+    if runtime.orchestration_service is None:
+        raise ValueError("hosted orchestration service is incomplete")
+    return create_app(
+        settings=runtime.settings,
+        intake_service=runtime.intake_service,
+        case_inbox_service=runtime.case_inbox_service,
+        orchestration_service=runtime.orchestration_service,
+        oidc_verifier=runtime.oidc_verifier,
+        agent_provider=agent_provider,
+        agent_request_factory=agent_request_factory,
+        agent_run_persistence=agent_run_persistence,
+        readiness_check=runtime.check_readiness,
+    )
 
 
 def _build_authoritative_boundary(
@@ -282,4 +320,4 @@ def _build_authoritative_boundary(
 app = create_app()
 
 
-__all__ = ["app", "create_app"]
+__all__ = ["app", "create_app", "create_hosted_app"]

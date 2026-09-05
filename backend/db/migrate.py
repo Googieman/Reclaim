@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+MIGRATION_DIRECTORY = Path(__file__).resolve().parent / "migrations"
 MIGRATION_NAME = re.compile(r"^(?P<version>[0-9]+)_(?P<name>[a-z0-9][a-z0-9_-]*)\.sql$")
 MIGRATION_LOCK_KEY = 814_006_014
 LEDGER_TABLE = "public.schema_migrations"
@@ -66,6 +67,12 @@ def discover_migrations(directory: Path) -> tuple[Migration, ...]:
         checksum = "sha256:" + hashlib.sha256(sql.encode("utf-8")).hexdigest()
         discovered.append(Migration(version, match.group("name"), path, checksum, sql))
     return tuple(sorted(discovered, key=lambda item: (int(item.version), item.version)))
+
+
+def migration_files(directory: Path = MIGRATION_DIRECTORY) -> tuple[Path, ...]:
+    """Return migration paths in the same order used by the canonical runner."""
+
+    return tuple(item.path for item in discover_migrations(directory))
 
 
 class MigrationRunner:
@@ -153,7 +160,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--migration-dir",
         type=Path,
-        default=Path(__file__).with_name("migrations"),
+        default=MIGRATION_DIRECTORY,
     )
     return parser
 

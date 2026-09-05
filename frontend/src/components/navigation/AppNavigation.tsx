@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { HelpChatPanel } from "@/components/help/HelpChatPanel";
 
 export interface NavigationCounts {
   readonly cases?: number;
@@ -95,6 +96,7 @@ export function AppNavigation({ tenantId, counts = {} }: { tenantId: string; cou
           })}
         </nav>
         <div className="nav-footer">
+          <HelpChatPanel tenantId={tenantId} />
           <span className="nav-footer__label">Connected as</span>
           <span className="nav-footer__operator">
             <span className="operator-avatar">RO</span>

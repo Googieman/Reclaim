@@ -36,6 +36,11 @@ infra/.env.*
 
 # Docker and generated artifacts
 *.log
+*.gguf
+*.safetensors
+*.bin
+**/model-cache/
+**/models-cache/
 coverage/
 dist/
 build/

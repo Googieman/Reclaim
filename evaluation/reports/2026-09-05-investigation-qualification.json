@@ -1,0 +1,30 @@
+{
+  "report_version": "investigation-qualification-v1",
+  "date": "2026-09-05",
+  "status": "not_qualified",
+  "scope": "local advisory investigation boundary only",
+  "live_run": false,
+  "actions_enabled": false,
+  "provider": "not provisioned",
+  "metrics": null,
+  "local_boundary_evidence": {
+    "status": "passed",
+    "tests": 4,
+    "command": "python -m pytest tests/integration/test_investigation_qualification.py tests/security/test_investigation_proposal_boundary.py -q"
+  },
+  "evidence": [
+    "tests/integration/test_investigation_qualification.py",
+    "tests/security/test_investigation_proposal_boundary.py",
+    "tests/security/test_fresh_agent_safety.py",
+    "tests/integration/test_fresh_agent_temporal_boundary.py"
+  ],
+  "blockers": [
+    "No authorized private model endpoint or model weights were provisioned.",
+    "The checked-in evaluation corpus has no held-out merchant investigation set.",
+    "T153/T154 live deployment and recovery evidence remain open."
+  ],
+  "claims": [
+    "Typed proposals are advisory output and do not authorize execution.",
+    "This report makes no quality, latency, fraud-performance, or live-connector claim."
+  ]
+}

@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const apiInternalBaseUrl = process.env.RECLAIM_API_INTERNAL_BASE_URL ?? "http://api:8000";
+const apiInternalBaseUrl = process.env.RECLAIM_API_INTERNAL_BASE_URL ?? "http://127.0.0.1:8000";
 
 const nextConfig = {
   reactStrictMode: true,
@@ -13,6 +13,10 @@ const nextConfig = {
       {
         source: "/health/:path*",
         destination: `${apiInternalBaseUrl}/health/:path*`,
+      },
+      {
+        source: "/help/:path*",
+        destination: `${apiInternalBaseUrl}/help/:path*`,
       },
     ];
   },

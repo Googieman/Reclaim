@@ -486,6 +486,21 @@ export const freshAgentRunSchema = z
 
 export type FreshAgentRun = z.infer<typeof freshAgentRunSchema>;
 
+const helpChatResponseSchema = z
+  .object({
+    status: z.enum(["answered", "insufficient_evidence", "unavailable"]),
+    answer: z.string().nullable(),
+    sources: z.array(
+      z.object({ source_id: nonBlank, title: nonBlank, path: nonBlank }).passthrough(),
+    ),
+    model_profile: z.literal("reclaim-help-deepseek"),
+    model_revision: nonBlank,
+    request_id: nonBlank,
+  })
+  .passthrough();
+
+export type HelpChatResponse = z.infer<typeof helpChatResponseSchema>;
+
 export const demoCaseSchema = z
   .object({
     tenant_id: nonBlank,
@@ -750,6 +765,23 @@ export async function getLatestAgentRun(
   );
 }
 
+export async function askHelp(
+  tenantId: string,
+  question: string,
+  caseId?: string,
+  signal?: AbortSignal,
+): Promise<HelpChatResponse> {
+  return sendJson(
+    "/help/chat",
+    "POST",
+    { question, ...(caseId ? { case_id: caseId } : {}) },
+    helpChatResponseSchema,
+    [],
+    tenantId,
+    signal,
+  );
+}
+
 function tenantPath(tenantId: string, path: string): string {
   return `/tenants/${encodeURIComponent(tenantId)}${path}`;
 }
@@ -773,9 +805,14 @@ async function sendJson<S extends z.ZodTypeAny>(
   body: Record<string, unknown> | undefined,
   schema: S,
   acceptedStatuses: number[] = [],
+  helpTenantId?: string,
+  signal?: AbortSignal,
 ): Promise<z.output<S>> {
-  if (!path.startsWith("/tenants/")) {
+  if (!path.startsWith("/tenants/") && path !== "/help/chat") {
     throw new ReclaimApiError("The API path is outside the tenant boundary.", "schema");
+  }
+  if (path === "/help/chat" && !helpTenantId?.trim()) {
+    throw new ReclaimApiError("The help request has no verified tenant scope.", "schema");
   }
   try {
     const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -784,10 +821,12 @@ async function sendJson<S extends z.ZodTypeAny>(
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${demoTokenForPath(path)}`,
+        ...(helpTenantId ? { "X-Tenant-ID": helpTenantId } : {}),
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store",
+      signal,
     });
     if (!response.ok && !acceptedStatuses.includes(response.status)) {
       throw new ReclaimApiError(

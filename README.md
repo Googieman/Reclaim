@@ -17,6 +17,8 @@ not qualify live merchant execution or production deployment.
 - Local PostgreSQL-backed operator flow: available.
 - Deterministic REPLAY flow: available.
 - Fresh Agent path: opt-in and advisory-only; model promotion is not approved.
+- Documentation help path: locally wired, reviewer-authenticated, advisory-only,
+  and disabled by default; the private DeepSeek candidate is not qualified or hosted.
 - Live refunds, cancellations, payments, and other merchant effects: disabled.
 - Render deployment: not yet configured or qualified in this repository.
 - Release gate: currently conditional no-go until deployment-owned qualification
@@ -25,6 +27,11 @@ not qualify live merchant execution or production deployment.
 The authoritative project status and remaining gates are recorded in
 [`PROJECT_STATUS.md`](PROJECT_STATUS.md). The release checks are implemented in
 [`scripts/release_preflight.py`](scripts/release_preflight.py).
+
+The separate help profile and resource gate are documented in
+[`docs/runbooks/model-services.md`](docs/runbooks/model-services.md). The checked-in
+GGUF manifest contains integrity metadata only; model weights and secrets remain
+outside the repository.
 
 ## What the local product demonstrates
 

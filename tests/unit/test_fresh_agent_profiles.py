@@ -58,3 +58,12 @@ def test_specialist_fallback_cycle_is_rejected() -> None:
                 "RECLAIM_AGENT_FALLBACK_PROFILE": "reclaim-specialist",
             },
         )
+
+
+def test_help_profile_is_separate_and_disabled_by_default() -> None:
+    profile = resolve_profile("reclaim-help-deepseek", environ={})
+
+    assert profile.name == "reclaim-help-deepseek"
+    assert profile.model == "deepseek-r1-distill-qwen-1.5b-q4_0.gguf"
+    assert profile.api_base == "http://model-help:8080/v1"
+    assert profile.enabled is False

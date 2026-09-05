@@ -54,7 +54,12 @@ def resolve_profile(
 
     env = dict(os.environ if environ is None else environ)
     normalized = name.strip().lower()
-    if normalized not in {"reclaim-specialist", "reclaim-baseline", "reclaim-cloud-fallback"}:
+    if normalized not in {
+        "reclaim-specialist",
+        "reclaim-baseline",
+        "reclaim-cloud-fallback",
+        "reclaim-help-deepseek",
+    }:
         raise ModelProfileError(f"unknown RECLAIM model profile: {name}")
 
     if normalized == "reclaim-specialist":
@@ -75,6 +80,20 @@ def resolve_profile(
             api_base=endpoint,
             enabled=enabled,
             fallback_profile=fallback_profile,
+        )
+
+    if normalized == "reclaim-help-deepseek":
+        model = env.get(
+            "RECLAIM_HELP_MODEL", "deepseek-r1-distill-qwen-1.5b-q4_0.gguf"
+        ).strip()
+        endpoint = env.get("RECLAIM_HELP_API_BASE", "http://model-help:8080/v1").strip()
+        enabled = _env_bool(env, "RECLAIM_HELP_ENABLED", False)
+        return ModelProfile(
+            name=normalized,
+            provider="openai-compatible-private-help",
+            model=model,
+            api_base=endpoint,
+            enabled=enabled,
         )
 
     if normalized == "reclaim-baseline":

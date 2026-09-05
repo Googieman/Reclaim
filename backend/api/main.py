@@ -18,6 +18,7 @@ from .agent_runs import create_agent_router
 from .approvals import create_approvals_router
 from .case_inbox import create_case_inbox_router
 from .demo import create_demo_router
+from .help_chat import create_help_chat_router
 from .intake import RequestBodySizeLimitMiddleware, create_intake_router
 from .operator_view import create_operator_view_router
 from .orchestration import create_orchestration_router
@@ -36,6 +37,7 @@ def create_app(
     orchestration_service: Any | None = None,
     oidc_verifier: Any | None = None,
     readiness_check: Callable[[], None] | None = None,
+    help_chat_gateway: Any | None = None,
 ) -> Any:
     """Assemble the safe product surface.
 
@@ -73,6 +75,25 @@ def create_app(
         version="0.1.0",
         description="Tenant-scoped incident containment runtime",
     )
+
+    if configured.help_chat_enabled:
+        if local_verifier is None:
+            raise ValueError("enabled help chat requires a verified identity implementation")
+        if help_chat_gateway is None:
+            raise ValueError("enabled help chat requires the private model gateway")
+        from app.help_chat.retrieval import DocumentationRetriever
+        from app.help_chat.service import HelpChatService
+
+        application.include_router(
+            create_help_chat_router(
+                service=HelpChatService(
+                    retriever=DocumentationRetriever.from_default_index(),
+                    gateway=help_chat_gateway,
+                    profile=configured.help_chat_profile,
+                ),
+                oidc_verifier=local_verifier,
+            )
+        )
 
     @application.get("/metrics", include_in_schema=False)
     def metrics() -> Any:
@@ -258,6 +279,7 @@ def create_hosted_app(
     agent_provider: Any | None = None,
     agent_request_factory: Any | None = None,
     agent_run_persistence: Any | None = None,
+    help_chat_gateway: Any | None = None,
 ) -> Any:
     """Mount the hosted runtime with DB-backed readiness and no demo routes."""
 
@@ -274,6 +296,7 @@ def create_hosted_app(
         agent_provider=agent_provider,
         agent_request_factory=agent_request_factory,
         agent_run_persistence=agent_run_persistence,
+        help_chat_gateway=help_chat_gateway,
         readiness_check=runtime.check_readiness,
     )
 

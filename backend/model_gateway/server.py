@@ -22,6 +22,7 @@ from agent.providers import (
 from agent.tools import ToolResult
 from fastapi import APIRouter, Header, HTTPException, Response, status
 from packages.contracts.analysis_policy import ModelAnalysisRequest
+from packages.contracts.help_chat import HelpGatewayRequest, HelpGatewayResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 MODEL_GATEWAY_VERSION = "model-gateway-v1.0.0"
@@ -109,6 +110,29 @@ class ModelGatewayResponse(BaseModel):
             raise ModelProviderResponseError("model gateway response is malformed") from exc
 
 
+class HelpModelGatewayClient:
+    """Typed client for the documentation-only gateway operation."""
+
+    def __init__(
+        self,
+        sender: Callable[[HelpGatewayRequest], HelpGatewayResponse | Mapping[str, Any]],
+    ) -> None:
+        if not callable(sender):
+            raise TypeError("help model gateway sender is required")
+        self._sender = sender
+
+    def complete(self, request: HelpGatewayRequest) -> HelpGatewayResponse:
+        try:
+            received = self._sender(request)
+            return (
+                received
+                if isinstance(received, HelpGatewayResponse)
+                else HelpGatewayResponse.model_validate(received)
+            )
+        except Exception as exc:
+            raise ModelProviderUnavailable("help model gateway is unavailable") from exc
+
+
 class ModelGatewayClient:
     """Provider-neutral client consumed by the agent service."""
 
@@ -177,6 +201,7 @@ def create_model_gateway_app(
     *,
     providers: Mapping[str, ModelProvider],
     service_authorizer: ServiceAuthorizer,
+    help_provider: Callable[[HelpGatewayRequest], HelpGatewayResponse] | None = None,
 ) -> Any:
     """Create the private model service with an explicit service-auth seam."""
 
@@ -186,6 +211,8 @@ def create_model_gateway_app(
         raise TypeError("model gateway requires provider-neutral installed providers")
     if not callable(service_authorizer):
         raise TypeError("model gateway service authorizer is required")
+    if help_provider is not None and not callable(help_provider):
+        raise TypeError("help model provider must be callable")
 
     from fastapi import FastAPI
 
@@ -220,6 +247,27 @@ def create_model_gateway_app(
             raise HTTPException(status_code=422, detail="model response was rejected") from exc
         return ModelGatewayResponse.from_completion(completion)
 
+    @router.post("/v1/help/complete", response_model=HelpGatewayResponse)
+    def complete_help(
+        body: HelpGatewayRequest,
+        response: Response,
+        authorization: str | None = Header(default=None),
+    ) -> HelpGatewayResponse:
+        _authorize(authorization, service_authorizer)
+        if help_provider is None:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            raise HTTPException(status_code=503, detail="help model provider is unavailable")
+        try:
+            return help_provider(body)
+        except ModelProviderUnavailable as exc:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            raise HTTPException(
+                status_code=503,
+                detail="help model provider is unavailable",
+            ) from exc
+        except (ModelProviderError, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail="help model response was rejected") from exc
+
     application.include_router(router)
     return application
 
@@ -243,6 +291,7 @@ __all__ = [
     "ModelGatewayClient",
     "ModelGatewayRequest",
     "ModelGatewayResponse",
+    "HelpModelGatewayClient",
     "ToolResultEnvelope",
     "create_model_gateway_app",
 ]

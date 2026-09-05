@@ -4,6 +4,7 @@ import {
   getCase,
   getCaseInbox,
   getLatestAgentRun,
+  askHelp,
   listCases,
   modeAvailabilitySchema,
   parseOperatorCaseView,
@@ -28,6 +29,33 @@ const replayMode = {
 };
 
 describe("typed operator API boundaries", () => {
+  it("submits bounded documentation help through the authenticated help route", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          status: "answered",
+          answer: "Use the verified webhook contract.",
+          sources: [{ source_id: "intake.webhook-verification", title: "Webhook verification", path: "docs/integrations/razorpay-test-mode.md" }],
+          model_profile: "reclaim-help-deepseek",
+          model_revision: "test-model",
+          request_id: "help:test",
+        }),
+      }),
+    );
+
+    const result = await askHelp("tenant-1", "How do I verify a webhook?");
+
+    expect(result.status).toBe("answered");
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      expect.stringContaining("/help/chat"),
+      expect.objectContaining({ headers: expect.objectContaining({ "X-Tenant-ID": "tenant-1" }) }),
+    );
+    vi.unstubAllGlobals();
+  });
+
   it("accepts server-qualified replay mode", () => {
     expect(modeAvailabilitySchema.parse(replayMode).final_mode).toBe("replay");
   });
@@ -168,7 +196,7 @@ describe("typed operator API boundaries", () => {
     await expect(getCaseInbox("tenant-1")).rejects.toMatchObject({
       kind: "availability",
       status: 500,
-      message: "The authoritative API is unavailable. Verify that it is running on 127.0.0.1:8000 or that Docker is running.",
+      message: "The authoritative API is unavailable. Verify the API service and deployment health check.",
     });
 
     vi.unstubAllGlobals();

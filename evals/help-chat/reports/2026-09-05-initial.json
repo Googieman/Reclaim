@@ -1,0 +1,21 @@
+{
+  "report_version": "help-chat-evaluation-v1",
+  "generated_at": "2026-09-05T00:00:00+00:00",
+  "dataset": "evals/help-chat/questions.jsonl",
+  "question_counts": {
+    "supported": 50,
+    "unsupported": 20,
+    "adversarial": 5
+  },
+  "status": "resource_blocked",
+  "metrics": null,
+  "blockers": [
+    "No model weights were downloaded in this worktree.",
+    "No authorized private or paid model service was provisioned.",
+    "No live authenticated help endpoint was available for measurement."
+  ],
+  "claims": [
+    "This report contains no model-quality, latency, or safety metric.",
+    "The dataset expectations are not observed results."
+  ]
+}

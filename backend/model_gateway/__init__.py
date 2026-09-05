@@ -2,6 +2,7 @@
 
 from .server import (
     MODEL_GATEWAY_VERSION,
+    HelpModelGatewayClient,
     ModelGatewayClient,
     ModelGatewayRequest,
     ModelGatewayResponse,
@@ -10,6 +11,7 @@ from .server import (
 
 __all__ = [
     "MODEL_GATEWAY_VERSION",
+    "HelpModelGatewayClient",
     "ModelGatewayClient",
     "ModelGatewayRequest",
     "ModelGatewayResponse",

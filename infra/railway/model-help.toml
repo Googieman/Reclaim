@@ -1,0 +1,17 @@
+# Private model service configuration. Do not attach a public domain or proxy
+# this service directly to the browser. The authenticated model gateway is the
+# only supported caller and must supply MODEL_API_KEY at deployment time.
+
+[build]
+dockerfilePath = "infra/model-help/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[variables]
+MODEL_PATH = "/models/deepseek-r1-distill-qwen-1.5b-q4_0.gguf"
+PORT = "8080"
+RECLAIM_HELP_ENABLED = "false"

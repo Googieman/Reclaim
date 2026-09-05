@@ -35,6 +35,36 @@ Planning checks: all four JSON examples parse and retain `template_only: true`;
 runtime bundle/consumer references agree with the example access policy, the
 agent/BFF have no broker grants, and Git ignores populated/nested secret files.
 
+## Agent/chatbot integration slice — 2026-09-05
+
+The dedicated integration branch reconciles the hosted runtime/model-gateway and
+Railway Docker fixes into one candidate line. `backend/db/migrate.py` is the
+canonical checksum-ledger runner; the older application import is a compatibility
+shim. The repository disposition is recorded in
+`docs/maintenance/2026-09-05-repository-reconciliation.md`.
+
+The separate `reclaim-help-deepseek` profile is locally wired end to end through
+an authenticated reviewer-only `/help/chat` route, deterministic reviewed-passage
+retrieval, explicit insufficient/unavailable states, and a small accessible UI.
+Case-aware help is disabled. The model manifest and private Railway-shaped service
+are checked in, but no weights were downloaded, no model resource was provisioned,
+and the feature remains disabled by default. Help evaluation is
+`resource_blocked` with `metrics: null`; the dataset expectations are not results.
+
+Independent investigation boundary tests cover typed advisory proposals, provider
+timeout, tenant/service identity, and rejection of remote side effects. The
+investigation qualification report remains `not_qualified`: no held-out merchant
+set, private model resource, or T153/T154 live evidence is available. No live
+connector, payment, refund, cancellation, or account mutation was performed.
+
+Verification for this slice: full Python suite `835 passed, 51 skipped, 8
+warnings`; the skips are the existing external-service/T153/T154 gates. Frontend
+Vitest passes `14 tests`, typecheck, lint, and production build pass. Scoped Ruff
+for the changed Python files, PowerShell preparation-script parsing, and
+`git diff --check` pass. The machine used Node `v24.19.0` while the frontend
+declares `>=20.18.0 <23`; the build nevertheless completed successfully, and the
+engine mismatch is retained as an environment note rather than hidden.
+
 ## CP01/T153 resumed qualification check — 2026-09-05
 
 The clean hosted-final-round worktree reran the CP01 static/contract gate:

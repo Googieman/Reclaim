@@ -1,0 +1,35 @@
+{
+  "document_version": "reclaim-help-docs-v1.0.0",
+  "passages": [
+    {
+      "source_id": "intake.webhook-verification",
+      "title": "Webhook verification and correlation",
+      "path": "docs/integrations/razorpay-test-mode.md",
+      "text": "Verify the original Razorpay Test Mode payload before deriving provider correlation. Resolve the correlation through the authoritative PostgreSQL mapping; a caller-supplied case identifier cannot establish attachment authority. Invalid or unresolved deliveries are quarantined."
+    },
+    {
+      "source_id": "architecture.authority",
+      "title": "Authority and workflow ownership",
+      "path": "docs/architecture/fs001-boundaries.md",
+      "text": "PostgreSQL owns business state and audit history. n8n owns durable orchestration for the hosted incident-analysis handoff. Redpanda transports versioned events, Neo4j is rebuildable, and Redis is coordination only."
+    },
+    {
+      "source_id": "safety.action-boundary",
+      "title": "Action safety boundary",
+      "path": "specs/001-incident-intake-containment/decisions/ADR-002-isolated-action-boundary.md",
+      "text": "The model may analyze evidence and produce typed proposals only. Approvals, deterministic policy, the isolated idempotent Action Gateway, verification, and append-only audit are required before any merchant-controlled side effect. Financial actions remain disabled by default."
+    },
+    {
+      "source_id": "operations.replay",
+      "title": "Replay and evaluation labels",
+      "path": "docs/operator/replay-and-escalation.md",
+      "text": "Replay is read-only and cannot be presented as live merchant execution. Evaluation reports include dataset, policy, model, and execution provenance; synthetic outcomes are not production fraud performance."
+    },
+    {
+      "source_id": "help.boundary",
+      "title": "Help assistant boundary",
+      "path": "docs/runbooks/model-services.md",
+      "text": "The help assistant answers reviewed documentation questions only. It has no case lookup, database, shell, web browsing, arbitrary network, or business-action tools, and it returns an explicit unavailable or insufficient-evidence status when the bounded model path cannot answer."
+    }
+  ]
+}

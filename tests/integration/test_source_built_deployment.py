@@ -42,6 +42,7 @@ def test_web_and_api_are_locally_buildable_and_health_checked() -> None:
     assert "aiokafka==0.12.0" in api_dockerfile
     assert "PyJWT==2.10.1" in api_dockerfile
     assert "minio==7.2.12" in api_dockerfile
+    assert "prometheus-client==0.21.1" in api_dockerfile
     assert "node:22.14.0-alpine3.21" in web_dockerfile
     assert "NODE_VERSION=22.14.0" in versions
 

@@ -24,3 +24,6 @@ infra/.env*
 !infra/.env.example
 *.pem
 *.key
+
+# Runtime secrets and their setup templates never enter an image build context.
+secrets/

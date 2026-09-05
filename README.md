@@ -321,3 +321,6 @@ remote result must be reconciled before retrying.
 - [Replay and escalation](docs/operator/replay-and-escalation.md)
 - [Redpanda authority boundary](docs/integrations/redpanda-authority.md)
 - [Training workflow](training/reclaim/README.md)
+- [Hosted final-round completion plan](docs/superpowers/plans/2026-09-05-hosted-final-round-completion.md)
+- [Hosted final-round design](docs/design/hosted-final-round.md)
+- [API key setup and secret placeholders](secrets/README.md)

@@ -1,11 +1,36 @@
 # RECLAIM Project Status
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ## Current objective
 
-Implement the amended incident-intake, case-inbox, and n8n orchestration slice
-while preserving the existing safety boundaries and replay/live truthfulness.
+Complete the hosted Razorpay final-round system through the documented completion
+plan, preserving authoritative state, advisory-only inference, isolated actions,
+and truthful simulator/Test Mode labeling. The next runtime gate remains T153.
+
+## Hosted final-round completion planning — 2026-09-05
+
+The user-supplied final-round chat has been reconciled with the repository in
+`docs/design/hosted-final-round.md` and the CP01-CP11 implementation plan in
+`docs/superpowers/plans/2026-09-05-hosted-final-round-completion.md`. It covers
+T153/T154, hosted composition/OIDC, durable approval-to-terminal orchestration,
+actual Razorpay Test Mode transport qualification, specialist round 2, Render,
+observability/projections, recovery and the final judge walkthrough.
+
+Proposed ADR-006 records a separate private secrets broker backed by Vault, with
+mutual TLS, tenant/service-specific credential delivery and deployment-mounted
+bootstrap identities. Root `secrets/` now contains only invalid example JSON and
+an API-key acquisition guide. Populated files in that folder are Git-ignored;
+the entire folder is excluded from Docker builds.
+
+This is planning and placeholder scaffolding only: the broker, runtime loaders,
+provisioning command and Render Blueprint are not implemented or deployed. No
+provider credentials were generated, collected or used, and no billable resource
+was provisioned. T153/T154 remain open; the current specialist remains unpromoted.
+Historical test counts below have not been rerun as part of this planning change.
+Planning checks: all four JSON examples parse and retain `template_only: true`;
+runtime bundle/consumer references agree with the example access policy, the
+agent/BFF have no broker grants, and Git ignores populated/nested secret files.
 
 ## Current milestone: n8n-backed incident intake and operator inbox — 2026-09-04
 

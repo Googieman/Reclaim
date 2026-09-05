@@ -26,6 +26,14 @@ infra/.env.*
 *.pem
 *.key
 
+# Secret setup templates are reviewable; every other file here is local-only.
+/secrets/*
+!/secrets/README.md
+!/secrets/runtime.example.json
+!/secrets/bootstrap.example.json
+!/secrets/deployment.example.json
+!/secrets/access-policy.example.json
+
 # Docker and generated artifacts
 *.log
 coverage/

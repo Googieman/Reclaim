@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     fresh_agent_fallback_profile: str | None = None
     help_chat_enabled: bool = False
     help_chat_profile: str = "reclaim-help-deepseek"
+    help_gateway_base: str | None = None
+    help_gateway_token: str | None = Field(default=None, repr=False)
     agent_max_tokens: int = Field(default=2_048, ge=1, le=100_000)
     agent_max_tool_calls: int = Field(default=4, ge=0, le=100)
     agent_timeout_seconds: int = Field(default=60, ge=1, le=900)

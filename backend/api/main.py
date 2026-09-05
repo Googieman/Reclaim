@@ -7,6 +7,7 @@ from typing import Any
 
 from app.api_compat import validate_fresh_agent_configuration
 from app.config import Settings, get_settings
+from app.help_chat.http_gateway import HttpHelpGateway
 from app.local_runtime import LocalDemoRuntime, create_local_runtime_router
 from app.observability.metrics import prometheus_payload, set_postgres_health
 from app.runtime import HostedRuntime
@@ -79,8 +80,11 @@ def create_app(
     if configured.help_chat_enabled:
         if local_verifier is None:
             raise ValueError("enabled help chat requires a verified identity implementation")
-        if help_chat_gateway is None:
-            raise ValueError("enabled help chat requires the private model gateway")
+        configured_gateway = (
+            help_chat_gateway
+            if help_chat_gateway is not None
+            else _build_help_gateway(configured)
+        )
         from app.help_chat.retrieval import DocumentationRetriever
         from app.help_chat.service import HelpChatService
 
@@ -88,7 +92,7 @@ def create_app(
             create_help_chat_router(
                 service=HelpChatService(
                     retriever=DocumentationRetriever.from_default_index(),
-                    gateway=help_chat_gateway,
+                    gateway=configured_gateway,
                     profile=configured.help_chat_profile,
                 ),
                 oidc_verifier=local_verifier,
@@ -235,6 +239,17 @@ def create_app(
         )
 
     return application
+
+
+def _build_help_gateway(settings: Settings) -> HttpHelpGateway:
+    if not settings.help_gateway_base or not settings.help_gateway_base.strip():
+        raise ValueError("enabled help chat requires private model gateway configuration")
+    if not settings.help_gateway_token or not settings.help_gateway_token.strip():
+        raise ValueError("enabled help chat requires private model gateway configuration")
+    return HttpHelpGateway(
+        base_url=settings.help_gateway_base,
+        service_token=settings.help_gateway_token,
+    )
 
 
 def _validate_demo_configuration(settings: Settings) -> None:
